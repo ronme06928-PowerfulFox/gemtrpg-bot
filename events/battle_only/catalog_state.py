@@ -4,15 +4,7 @@ import json
 import random
 import time
 
-from manager.character_tags import (
-    apply_character_tag_policy,
-    is_scenario_character,
-    validate_player_radiance_budget,
-)
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
-from manager.radiance.loader import radiance_loader
-from manager.battle_only_catalog_access import normalize_record_security
-from manager.battle_only_presets import normalize_access_control
 from manager.battle_only_record_state import finalize_in_progress_records, repair_orphaned_records
 
 
@@ -31,18 +23,6 @@ def _new_id(prefix):
     return f"{prefix}_{_now_ms()}_{random.randint(1000, 9999)}"
 
 
-def _is_gm(user_info):
-    return str((user_info or {}).get('attribute', '')).strip().upper() == 'GM'
-
-
-def _normalize_visibility(raw):
-    text = str(raw or '').strip().lower()
-    if text in ('gm', 'private'):
-        return 'gm'
-    if text == 'restricted':
-        return 'restricted'
-    return 'public'
-
 def _normalize_optional_id(raw):
     if raw is None:
         return None
@@ -52,375 +32,6 @@ def _normalize_optional_id(raw):
     if text.lower() in ('none', 'null'):
         return None
     return text
-
-def _merge_record_envelope(result, src, current, user_info, *, allow_acl=False):
-    merged = copy.deepcopy(current if isinstance(current, dict) else {})
-    for key, value in (src if isinstance(src, dict) else {}).items():
-        if key not in {'id', 'created_at', 'created_by', 'updated_at', 'updated_by'}:
-            merged[key] = copy.deepcopy(value)
-    merged.update(result)
-    if allow_acl:
-        current_acl = current.get('access_control') if isinstance(current, dict) else None
-        acl = normalize_access_control(
-            current_acl,
-            legacy_visibility=src.get('visibility', (current or {}).get('visibility', 'public')),
-            owner_user_id=str((user_info or {}).get('user_id', '')).strip() or None,
-        )
-        acl['viewer_mode'] = _normalize_visibility(src.get('visibility', acl['viewer_mode']))
-        merged['access_control'] = acl
-    return normalize_record_security(
-        merged,
-        creator_user_id=str((user_info or {}).get('user_id', '')).strip() or None,
-        existing=current,
-        allow_acl=allow_acl,
-    )
-
-
-def _normalize_preset_record(payload, user_info, existing=None, *, allow_acl=False):
-    src = payload if isinstance(payload, dict) else {}
-    current = existing if isinstance(existing, dict) else {}
-    now_ms = _now_ms()
-
-    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('bop')
-    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
-    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
-    allow_ally = bool(src.get('allow_ally', current.get('allow_ally', True)))
-    allow_enemy = bool(src.get('allow_enemy', current.get('allow_enemy', True)))
-    if not allow_ally and not allow_enemy:
-        allow_ally = True
-
-    character_json = src.get('character_json', current.get('character_json'))
-    if isinstance(character_json, str):
-        character_json = json.loads(character_json)
-    if not isinstance(character_json, dict):
-        raise ValueError('character_json が不正です。')
-
-    character_json_raw = copy.deepcopy(character_json)
-    character_data = (
-        character_json_raw.get('data')
-        if isinstance(character_json_raw.get('data'), dict)
-        else character_json_raw
-    )
-    radiance_skills = radiance_loader.load_skills()
-    if not is_scenario_character(character_data):
-        validate_player_radiance_budget(character_data, radiance_skills)
-    apply_character_tag_policy(
-        character_data,
-        allow_gm_tags=True,
-        radiance_catalog=radiance_skills,
-    )
-
-    try:
-        created_at = int(current.get('created_at', now_ms) or now_ms)
-    except Exception:
-        created_at = now_ms
-
-    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
-    updater = str((user_info or {}).get('username', '')).strip() or creator
-
-    result = {
-        "id": rec_id,
-        "name": name,
-        "visibility": visibility,
-        "allow_ally": allow_ally,
-        "allow_enemy": allow_enemy,
-        "character_json": character_json_raw,
-        "created_at": created_at,
-        "updated_at": now_ms,
-        "created_by": creator,
-        "updated_by": updater,
-    }
-    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
-
-def _sort_preset_ids(presets):
-    if not isinstance(presets, dict):
-        return []
-    return sorted(
-        list(presets.keys()),
-        key=lambda x: (
-            str((presets.get(x, {}) or {}).get('name', '')).lower(),
-            str(x),
-        ),
-    )
-
-def _filter_visible_presets(all_presets, user_info):
-    source = all_presets if isinstance(all_presets, dict) else {}
-    can_manage = _is_gm(user_info)
-    if can_manage:
-        return copy.deepcopy(source)
-
-    result = {}
-    for rec_id, rec in source.items():
-        if not isinstance(rec, dict):
-            continue
-        if _normalize_visibility(rec.get('visibility', 'public')) != 'public':
-            continue
-        result[str(rec_id)] = copy.deepcopy(rec)
-    return result
-
-def _store_character_presets(store, create=False):
-    src = store if isinstance(store, dict) else {}
-    presets = src.get('character_presets')
-    if not isinstance(presets, dict):
-        legacy = src.get('presets')
-        if isinstance(legacy, dict):
-            presets = legacy
-        elif create:
-            presets = {}
-        else:
-            presets = {}
-        if create:
-            src['character_presets'] = presets
-    return presets if isinstance(presets, dict) else {}
-
-def _store_enemy_formations(store, create=False):
-    src = store if isinstance(store, dict) else {}
-    formations = src.get('enemy_formations')
-    if not isinstance(formations, dict):
-        formations = {} if create else {}
-        if create:
-            src['enemy_formations'] = formations
-    return formations if isinstance(formations, dict) else {}
-
-def _store_ally_formations(store, create=False):
-    src = store if isinstance(store, dict) else {}
-    formations = src.get('ally_formations')
-    if not isinstance(formations, dict):
-        formations = {} if create else {}
-        if create:
-            src['ally_formations'] = formations
-    return formations if isinstance(formations, dict) else {}
-
-def _store_stage_presets(store, create=False):
-    src = store if isinstance(store, dict) else {}
-    stages = src.get('stage_presets')
-    if not isinstance(stages, dict):
-        stages = {} if create else {}
-        if create:
-            src['stage_presets'] = stages
-    return stages if isinstance(stages, dict) else {}
-
-def _sort_named_ids(rows):
-    if not isinstance(rows, dict):
-        return []
-    return sorted(
-        list(rows.keys()),
-        key=lambda x: (
-            str((rows.get(x, {}) or {}).get('name', '')).lower(),
-            str(x),
-        ),
-    )
-
-def _filter_visible_rows_by_visibility(all_rows, user_info):
-    source = all_rows if isinstance(all_rows, dict) else {}
-    if _is_gm(user_info):
-        return copy.deepcopy(source)
-    result = {}
-    for rec_id, rec in source.items():
-        if not isinstance(rec, dict):
-            continue
-        if _normalize_visibility(rec.get('visibility', 'public')) != 'public':
-            continue
-        result[str(rec_id)] = copy.deepcopy(rec)
-    return result
-
-def _normalize_enemy_formation_record(payload, user_info, presets, existing=None, *, allow_acl=False):
-    src = payload if isinstance(payload, dict) else {}
-    current = existing if isinstance(existing, dict) else {}
-    now_ms = _now_ms()
-
-    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('bof')
-    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
-    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
-    recommended_ally_count = max(0, _safe_int(src.get('recommended_ally_count', current.get('recommended_ally_count', 0)), 0))
-    members_src = src.get('members', current.get('members', []))
-    members_src = members_src if isinstance(members_src, list) else []
-
-    members = []
-    for row in members_src:
-        if not isinstance(row, dict):
-            continue
-        preset_id = str(row.get('preset_id', '')).strip()
-        count = max(0, _safe_int(row.get('count'), 0))
-        if not preset_id or count <= 0:
-            continue
-        preset = presets.get(preset_id)
-        if not isinstance(preset, dict):
-            raise ValueError(f'敵編成のプリセットが見つかりません: {preset_id}')
-        if not bool(preset.get('allow_enemy', True)):
-            raise ValueError(f'敵として使えないプリセットです: {preset_id}')
-        behavior_override = row.get('behavior_profile_override')
-        if not isinstance(behavior_override, dict):
-            behavior_override = {}
-        else:
-            behavior_override = copy.deepcopy(behavior_override)
-            loops = behavior_override.get('loops')
-            if isinstance(loops, dict) and loops:
-                # 敵編成へ明示的に設定した行動チャートは、保存時点から実行対象とする。
-                behavior_override['enabled'] = True
-        members.append({
-            "preset_id": preset_id,
-            "count": count,
-            "behavior_profile_override": behavior_override,
-        })
-
-    if not members:
-        raise ValueError('敵編成メンバーが空です。')
-
-    try:
-        created_at = int(current.get('created_at', now_ms) or now_ms)
-    except Exception:
-        created_at = now_ms
-
-    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
-    updater = str((user_info or {}).get('username', '')).strip() or creator
-
-    result = {
-        "id": rec_id,
-        "name": name,
-        "visibility": visibility,
-        "recommended_ally_count": recommended_ally_count,
-        "members": members,
-        "created_at": created_at,
-        "updated_at": now_ms,
-        "created_by": creator,
-        "updated_by": updater,
-    }
-    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
-
-def _normalize_ally_formation_record(payload, user_info, presets, existing=None, *, allow_acl=False):
-    src = payload if isinstance(payload, dict) else {}
-    current = existing if isinstance(existing, dict) else {}
-    now_ms = _now_ms()
-
-    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('baf')
-    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
-    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
-    recommended_ally_count = max(0, _safe_int(src.get('recommended_ally_count', current.get('recommended_ally_count', 0)), 0))
-    members_src = src.get('members', current.get('members', []))
-    members_src = members_src if isinstance(members_src, list) else []
-
-    members = []
-    for row in members_src:
-        if not isinstance(row, dict):
-            continue
-        preset_id = str(row.get('preset_id', '')).strip()
-        if not preset_id:
-            continue
-        preset = presets.get(preset_id)
-        if not isinstance(preset, dict):
-            raise ValueError(f'味方編成のプリセットが見つかりません: {preset_id}')
-        if not bool(preset.get('allow_ally', True)):
-            raise ValueError(f'味方として使えないプリセットです: {preset_id}')
-        slot_label = str(row.get('slot_label', '')).strip()
-        user_id = str(row.get('user_id', '')).strip() or None
-        members.append({
-            "preset_id": preset_id,
-            "slot_label": slot_label,
-            "user_id": user_id,
-        })
-
-    if not members:
-        raise ValueError('味方編成メンバーが空です。')
-
-    try:
-        created_at = int(current.get('created_at', now_ms) or now_ms)
-    except Exception:
-        created_at = now_ms
-
-    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
-    updater = str((user_info or {}).get('username', '')).strip() or creator
-
-    result = {
-        "id": rec_id,
-        "name": name,
-        "visibility": visibility,
-        "recommended_ally_count": recommended_ally_count,
-        "members": members,
-        "created_at": created_at,
-        "updated_at": now_ms,
-        "created_by": creator,
-        "updated_by": updater,
-    }
-    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
-
-def _normalize_stage_preset_record(
-    payload,
-    user_info,
-    enemy_formations,
-    ally_formations,
-    existing=None,
-    *,
-    allow_acl=False,
-):
-    src = payload if isinstance(payload, dict) else {}
-    current = existing if isinstance(existing, dict) else {}
-    now_ms = _now_ms()
-
-    rec_id = str(src.get('id', '')).strip() or str(current.get('id', '')).strip() or _new_id('bos')
-    name = str(src.get('name', '')).strip() or str(current.get('name', '')).strip()
-    visibility = _normalize_visibility(src.get('visibility', current.get('visibility', 'public')))
-
-    enemy_formation_id = str(src.get('enemy_formation_id', current.get('enemy_formation_id', ''))).strip()
-    if not enemy_formation_id:
-        raise ValueError('enemy_formation_id は必須です。')
-    enemy_form = enemy_formations.get(enemy_formation_id)
-    if not isinstance(enemy_form, dict):
-        raise ValueError(f'敵編成が見つかりません: {enemy_formation_id}')
-
-    ally_formation_id = _normalize_optional_id(src.get('ally_formation_id', current.get('ally_formation_id', '')))
-    if ally_formation_id:
-        ally_form = ally_formations.get(ally_formation_id)
-        if not isinstance(ally_form, dict):
-            raise ValueError(f'味方編成が見つかりません: {ally_formation_id}')
-
-    required_ally_count = max(0, _safe_int(src.get('required_ally_count', current.get('required_ally_count', 0)), 0))
-    concept = str(src.get('concept', current.get('concept', ''))).strip()
-    description = str(src.get('description', current.get('description', ''))).strip()
-    raw_tags = src.get('tags', current.get('tags', []))
-    tags = [str(x).strip() for x in raw_tags] if isinstance(raw_tags, list) else []
-    tags = [x for x in tags if x]
-    sort_key = max(0, _safe_int(src.get('sort_key', current.get('sort_key', 0)), 0))
-    field_effect_profile = _normalize_stage_field_effect_profile(
-        src.get('field_effect_profile', current.get('field_effect_profile'))
-    )
-    stage_avatar = _normalize_stage_avatar(src.get('stage_avatar', current.get('stage_avatar')))
-
-    if required_ally_count <= 0:
-        # 既定は敵編成推奨値、次に味方編成推奨値、最後に0
-        required_ally_count = max(
-            0,
-            _safe_int(enemy_form.get('recommended_ally_count'), 0),
-            _safe_int((ally_formations.get(ally_formation_id) or {}).get('recommended_ally_count'), 0) if ally_formation_id else 0,
-        )
-
-    try:
-        created_at = int(current.get('created_at', now_ms) or now_ms)
-    except Exception:
-        created_at = now_ms
-
-    creator = str(current.get('created_by', '')).strip() or str((user_info or {}).get('username', '')).strip() or 'GM'
-    updater = str((user_info or {}).get('username', '')).strip() or creator
-
-    result = {
-        "id": rec_id,
-        "name": name,
-        "visibility": visibility,
-        "enemy_formation_id": enemy_formation_id,
-        "ally_formation_id": ally_formation_id,
-        "required_ally_count": required_ally_count,
-        "concept": concept,
-        "description": description,
-        "tags": tags,
-        "sort_key": sort_key,
-        "field_effect_profile": field_effect_profile,
-        "stage_avatar": stage_avatar,
-        "created_at": created_at,
-        "updated_at": now_ms,
-        "created_by": creator,
-        "updated_by": updater,
-    }
-    return _merge_record_envelope(result, src, current, user_info, allow_acl=allow_acl)
 
 def _ensure_bo_state(state):
     if not isinstance(state, dict):
@@ -498,6 +109,17 @@ def _ensure_bo_state(state):
         bo['status'] = 'lobby'
     repair_orphaned_records(bo)
     return bo
+
+def _sort_named_ids(rows):
+    if not isinstance(rows, dict):
+        return []
+    return sorted(
+        list(rows.keys()),
+        key=lambda x: (
+            str((rows.get(x, {}) or {}).get('name', '')).lower(),
+            str(x),
+        ),
+    )
 
 def _normalize_stage_field_effect_profile(raw):
     if isinstance(raw, str):
@@ -638,18 +260,13 @@ def _normalize_enemy_entries(entries, presets):
             raise ValueError(f'敵プリセットが見つかりません: {preset_id}')
         if not bool(rec.get('allow_enemy', True)):
             raise ValueError(f'敵専用でないプリセットです: {preset_id}')
-        behavior_profile_override = row.get('behavior_profile_override')
-        if not isinstance(behavior_profile_override, dict):
-            behavior_profile_override = {}
-        else:
-            behavior_profile_override = copy.deepcopy(behavior_profile_override)
-            loops = behavior_profile_override.get('loops')
-            if isinstance(loops, dict) and loops:
-                behavior_profile_override['enabled'] = True
+        pattern_id = _normalize_optional_id(row.get("pattern_id"))
+        if pattern_id and not any(item["id"] == pattern_id for item in rec.get("patterns", [])):
+            raise ValueError(f"行動パターンが見つかりません: {preset_id}/{pattern_id}")
         normalized.append({
             "preset_id": preset_id,
             "count": count,
-            "behavior_profile_override": behavior_profile_override,
+            "pattern_id": pattern_id,
         })
     return normalized
 
@@ -815,22 +432,14 @@ def _enemy_entries_from_formation_record(record):
     for row in members:
         if not isinstance(row, dict):
             continue
-        preset_id = str(row.get('preset_id', '')).strip()
+        preset_id = str(row.get('unit_id', '')).strip()
         count = max(0, _safe_int(row.get('count'), 0))
         if not preset_id or count <= 0:
             continue
-        behavior_profile_override = row.get('behavior_profile_override')
-        if not isinstance(behavior_profile_override, dict):
-            behavior_profile_override = {}
-        else:
-            behavior_profile_override = copy.deepcopy(behavior_profile_override)
-            loops = behavior_profile_override.get('loops')
-            if isinstance(loops, dict) and loops:
-                behavior_profile_override['enabled'] = True
         out.append({
             "preset_id": preset_id,
             "count": count,
-            "behavior_profile_override": behavior_profile_override,
+            "pattern_id": _normalize_optional_id(row.get("pattern_id")),
         })
     return out
 
@@ -842,14 +451,12 @@ def _ally_entries_from_formation_record(record):
     for row in members:
         if not isinstance(row, dict):
             continue
-        preset_id = str(row.get('preset_id', '')).strip()
+        preset_id = str(row.get('unit_id', '')).strip()
         if not preset_id:
             continue
         user_id = str(row.get('user_id', '')).strip() or None
-        out.append({
-            "preset_id": preset_id,
-            "user_id": user_id,
-        })
+        out.extend({"preset_id": preset_id, "user_id": user_id}
+                   for _ in range(max(1, _safe_int(row.get("count"), 1))))
     return out
 
 def _sort_stage_ids(rows):

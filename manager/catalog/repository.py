@@ -57,9 +57,9 @@ def _validate(kind, payload, entry_id, *, allow_drafts=True):
     return validate_payload(kind, payload, entry_id=entry_id)
 
 
-def _history(entry, action, actor_user_id=None, draft_id=None):
+def record_history(entry, action, actor_user_id=None, draft_id=None):
     db.session.add(CatalogHistory(kind=entry.kind, entry_id=entry.entry_id,
-        revision=entry.revision, payload=deepcopy(entry.payload), deprecated=entry.deprecated,
+        revision=entry.revision, visibility=entry.visibility or "public", payload=deepcopy(entry.payload), deprecated=entry.deprecated,
         action=action, actor_user_id=actor_user_id, draft_id=draft_id))
 
 
@@ -103,7 +103,7 @@ def stage_pulled_catalogs(catalogs):
                 db.session.add(entry)
             entry.payload, entry.revision, entry.deprecated = payload, revision, deprecated
             entry.updated_by, entry.updated_at = None, datetime.utcnow()
-            _history(entry, "import")
+            record_history(entry, "import")
     db.session.flush()
 
 
@@ -132,7 +132,7 @@ def seed_kind_if_empty(kind):
         entry = CatalogEntry(kind=kind, entry_id=entry_id, payload=payload, revision=1,
                              deprecated=old_payload.get("deprecated") is True)
         db.session.add(entry)
-        _history(entry, "import")
+        record_history(entry, "import")
     db.session.commit()
     return len(cache)
 
@@ -239,7 +239,7 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
         entry.payload = _validate(kind, draft.payload, entry.entry_id, allow_drafts=False)
         entry.revision += 1
     entry.updated_by, entry.updated_at = actor_user_id, datetime.utcnow()
-    _history(entry, "publish", actor_user_id, draft.id)
+    record_history(entry, "publish", actor_user_id, draft.id)
     db.session.delete(draft)
     db.session.commit()
     load_kind_into_memory(kind)
@@ -256,7 +256,7 @@ def set_deprecated(kind, entry_id, deprecated, actor_user_id):
     entry.deprecated = deprecated
     entry.revision += 1
     entry.updated_by, entry.updated_at = actor_user_id, datetime.utcnow()
-    _history(entry, "deprecate" if deprecated else "undeprecate", actor_user_id)
+    record_history(entry, "deprecate" if deprecated else "undeprecate", actor_user_id)
     db.session.commit()
     load_kind_into_memory(kind)
     return entry
@@ -272,7 +272,7 @@ def restore_revision(kind, entry_id, revision, actor_user_id):
     entry.deprecated = history.deprecated
     entry.revision += 1
     entry.updated_by, entry.updated_at = actor_user_id, datetime.utcnow()
-    _history(entry, "restore", actor_user_id)
+    record_history(entry, "restore", actor_user_id)
     db.session.commit()
     load_kind_into_memory(kind)
     return entry

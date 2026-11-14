@@ -39,9 +39,6 @@ def runtime(request, tmp_path, monkeypatch):
     cache = {"synthetic-room": state}
     for module in (extensions, room_manager, user_manager, room_routes):
         monkeypatch.setattr(module, "active_room_states", cache)
-    # Preset storage is unrelated and must not touch existing local data.
-    monkeypatch.setattr(user_manager, "load_store", lambda: {})
-    monkeypatch.setattr(user_manager, "mutate_store", lambda *_a, **_kw: None)
     with app.app_context():
         db.drop_all()
         db.create_all()

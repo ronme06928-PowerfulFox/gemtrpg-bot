@@ -279,21 +279,21 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--input", help="Path to a room_state JSON file.")
     parser.add_argument(
         "--preset-store",
-        help="Optional preset export JSON path. Without this option, presets are read from the local app DB.",
+        help="Optional unit management export JSON. Without this option, units are read from the local app DB.",
     )
     parser.add_argument(
         "--ally-preset-id",
         action="append",
-        help="Character preset id to add as an ally. Can be specified multiple times.",
+        help="Unit ID to add as an ally. Can be specified multiple times.",
     )
     parser.add_argument(
         "--enemy-preset-id",
         action="append",
-        help="Character preset id to add as an enemy. Can be specified multiple times.",
+        help="Unit ID to add as an enemy. Can be specified multiple times.",
     )
-    parser.add_argument("--ally-formation-id", help="Ally formation id from the battle-only preset store.")
-    parser.add_argument("--enemy-formation-id", help="Enemy formation id from the battle-only preset store.")
-    parser.add_argument("--stage-id", help="Stage preset id. Formation ids are inherited from the stage unless overridden.")
+    parser.add_argument("--ally-formation-id", help="Ally formation id from unit management.")
+    parser.add_argument("--enemy-formation-id", help="Enemy formation id from unit management.")
+    parser.add_argument("--stage-id", help="Stage ID. Formation ids are inherited from the stage unless overridden.")
     parser.add_argument("--list-presets", action="store_true", help="List character presets and exit.")
     parser.add_argument("--list-stages", action="store_true", help="List stage presets and exit.")
     parser.add_argument("--list-ally-formations", action="store_true", help="List ally formations and exit.")

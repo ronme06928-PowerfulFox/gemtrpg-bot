@@ -2,25 +2,15 @@ from __future__ import annotations
 
 import copy
 import json
-import random
 import re
 import time
 
-from manager.battle_only_presets import load_store as load_bo_preset_store
-from manager.character_tags import normalize_character_tag_state
+from manager.units.characters import build_character, skill_catalog
+from manager.units.runtime import deployment_store
 from manager.game_logic import process_battle_start
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
-from manager.utils import apply_passive_effect_buffs, normalize_character_labels
+from manager.utils import apply_passive_effect_buffs
 
-
-REQUIRED_STATE_NAMES = [
-    "FP",
-    "\u51fa\u8840",
-    "\u7834\u88c2",
-    "\u4e80\u88c2",
-    "\u6226\u6144",
-    "\u834a\u68d8",
-]
 
 _CHARACTER_NUMBER_SUFFIX_RE = re.compile(r"\s*\[(味方|敵)\s*(\d+)\]\s*$")
 
@@ -47,13 +37,6 @@ def _is_gm(user_info):
     return str((user_info or {}).get("attribute", "")).strip().upper() == "GM"
 
 
-def _normalize_visibility(raw):
-    text = str(raw or "").strip().lower()
-    if text in ("gm", "private"):
-        return "gm"
-    return "public"
-
-
 def _store_character_presets(store):
     src = store if isinstance(store, dict) else {}
     presets = src.get("character_presets")
@@ -76,13 +59,13 @@ def _store_stage_presets(store):
 
 def _visible_rows(rows, user_info):
     source = rows if isinstance(rows, dict) else {}
-    if _is_gm(user_info):
+    if _is_gm(user_info) or (user_info or {}).get("is_author"):
         return copy.deepcopy(source)
     result = {}
     for row_id, row in source.items():
         if not isinstance(row, dict):
             continue
-        if _normalize_visibility(row.get("visibility", "public")) != "public":
+        if row.get("visibility", "public") != "public":
             continue
         result[str(row_id)] = copy.deepcopy(row)
     return result
@@ -124,7 +107,7 @@ def _require_visible(rows, row_id, user_info, kind):
 
 
 def build_room_preset_catalog(user_info=None, store=None):
-    store = copy.deepcopy(store) if isinstance(store, dict) else load_bo_preset_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
     all_presets = _store_character_presets(store)
     all_formations = _store_enemy_formations(store)
     all_stages = _store_stage_presets(store)
@@ -133,22 +116,24 @@ def build_room_preset_catalog(user_info=None, store=None):
     enemy_presets = {
         rec_id: rec
         for rec_id, rec in visible_presets.items()
-        if isinstance(rec, dict) and bool(rec.get("allow_enemy", True))
+        if not rec.get("deprecated") and bool(rec.get("allow_enemy", True))
     }
     visible_formations_raw = _visible_rows(all_formations, user_info)
     visible_formations = {
         rec_id: rec
         for rec_id, rec in visible_formations_raw.items()
-        if _formation_has_usable_enemy_presets(rec, enemy_presets)
+        if not rec.get("deprecated") and _formation_has_usable_enemy_presets(rec, visible_presets)
     }
     visible_stages_raw = _visible_rows(all_stages, user_info)
 
     visible_stages = {}
     for stage_id, stage in visible_stages_raw.items():
-        if not isinstance(stage, dict):
+        if stage.get("deprecated"):
             continue
         formation_id = str(stage.get("enemy_formation_id", "")).strip()
-        if formation_id and formation_id not in visible_formations:
+        if formation_id and not _formation_has_usable_enemy_presets(
+            visible_formations_raw.get(formation_id), visible_presets
+        ):
             continue
         visible_stages[stage_id] = stage
 
@@ -170,7 +155,7 @@ def _formation_has_usable_enemy_presets(formation, visible_enemy_presets):
     for row in members:
         if not isinstance(row, dict):
             continue
-        preset_id = str(row.get("preset_id", "")).strip()
+        preset_id = str(row.get("unit_id") or row.get("preset_id") or "").strip()
         count = max(0, _safe_int(row.get("count"), 0))
         if not preset_id or count <= 0:
             continue
@@ -178,182 +163,6 @@ def _formation_has_usable_enemy_presets(formation, visible_enemy_presets):
         if not isinstance(rec, dict) or not bool(rec.get("allow_enemy", True)):
             return False
     return True
-
-
-def _extract_char_data_from_raw(raw_character_json):
-    if not isinstance(raw_character_json, dict):
-        return None
-    if isinstance(raw_character_json.get("data"), dict):
-        return copy.deepcopy(raw_character_json.get("data"))
-    return copy.deepcopy(raw_character_json)
-
-
-def _status_rows_from_data(data):
-    rows = data.get("status") if isinstance(data, dict) else None
-    if not isinstance(rows, list):
-        return []
-    normalized = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        label = str(row.get("label", row.get("name", ""))).strip()
-        if not label:
-            continue
-        value = _safe_int(row.get("value"), 0)
-        max_value = _safe_int(row.get("max"), value)
-        normalized.append({"label": label, "value": value, "max": max_value})
-    return normalized
-
-
-def _states_from_status_rows(status_rows, fallback_states):
-    states = []
-    for row in status_rows if isinstance(status_rows, list) else []:
-        label = str(row.get("label", "")).strip()
-        if not label or label in ("HP", "MP"):
-            continue
-        states.append(
-            {
-                "name": label,
-                "value": _safe_int(row.get("value"), 0),
-                "max": _safe_int(row.get("max"), _safe_int(row.get("value"), 0)),
-            }
-        )
-
-    if not states and isinstance(fallback_states, list):
-        for row in fallback_states:
-            if not isinstance(row, dict):
-                continue
-            name = str(row.get("name", "")).strip()
-            if not name:
-                continue
-            states.append(
-                {
-                    "name": name,
-                    "value": _safe_int(row.get("value"), 0),
-                    "max": _safe_int(row.get("max"), _safe_int(row.get("value"), 0)),
-                }
-            )
-
-    for name in REQUIRED_STATE_NAMES:
-        if any(str(s.get("name", "")).strip() == name for s in states):
-            continue
-        states.append({"name": name, "value": 0, "max": 0})
-    return states
-
-
-def build_runtime_character_from_preset(
-    rec,
-    serial_no,
-    *,
-    side="enemy",
-    owner_name=None,
-    owner_id=None,
-):
-    if not isinstance(rec, dict):
-        raise RoomPresetError("invalid_preset", "preset record is invalid")
-    normalized_side = str(side or "enemy").strip().lower()
-    if normalized_side not in ("ally", "enemy"):
-        raise RoomPresetError("invalid_side", f"unsupported character side: {side}")
-    allow_key = "allow_ally" if normalized_side == "ally" else "allow_enemy"
-    if not bool(rec.get(allow_key, True)):
-        raise RoomPresetError(
-            "permission_denied",
-            f"preset cannot be used as {normalized_side}: {rec.get('id')}",
-        )
-
-    data = _extract_char_data_from_raw(rec.get("character_json"))
-    if not isinstance(data, dict):
-        raise RoomPresetError("invalid_preset", f"character_json.data not found: {rec.get('id')}")
-
-    char = copy.deepcopy(data)
-    char["id"] = f"char_room_preset_{_now_ms()}_{random.randint(1000, 9999)}_{int(serial_no)}"
-    _force_character_side(char, normalized_side)
-
-    base_name = (
-        str(char.get("baseName", "")).strip()
-        or str(char.get("name", "")).strip()
-        or str(rec.get("name", "")).strip()
-        or "Enemy"
-    )
-    base_name = _CHARACTER_NUMBER_SUFFIX_RE.sub("", base_name).strip() or "Enemy"
-    char["name"] = base_name
-    char["baseName"] = base_name
-    char["owner"] = str(owner_name or "GM")
-    char["owner_id"] = str(owner_id).strip() if owner_id else None
-
-    status_rows = _status_rows_from_data(data)
-    char["status"] = copy.deepcopy(status_rows)
-    char["initial_status"] = copy.deepcopy(status_rows)
-
-    hp_row = next((r for r in status_rows if str(r.get("label", "")).strip() == "HP"), None)
-    mp_row = next((r for r in status_rows if str(r.get("label", "")).strip() == "MP"), None)
-    hp = _safe_int((hp_row or {}).get("value"), _safe_int(char.get("hp"), 0))
-    max_hp = _safe_int((hp_row or {}).get("max"), _safe_int(char.get("maxHp"), hp))
-    mp = _safe_int((mp_row or {}).get("value"), _safe_int(char.get("mp"), 0))
-    max_mp = _safe_int((mp_row or {}).get("max"), _safe_int(char.get("maxMp"), mp))
-    if max_hp <= 0:
-        max_hp = max(0, hp)
-    if max_mp <= 0:
-        max_mp = max(0, mp)
-    char["hp"] = min(max_hp, max(0, hp))
-    char["maxHp"] = max_hp
-    char["mp"] = min(max_mp, max(0, mp))
-    char["maxMp"] = max_mp
-
-    if not isinstance(char.get("params"), list):
-        char["params"] = []
-    if not isinstance(char.get("inventory"), dict):
-        char["inventory"] = {}
-    if not isinstance(char.get("special_buffs"), list):
-        char["special_buffs"] = []
-    if not isinstance(char.get("hidden_skills"), list):
-        char["hidden_skills"] = []
-    if not isinstance(char.get("SPassive"), list):
-        char["SPassive"] = []
-    if not isinstance(char.get("radiance_skills"), list):
-        char["radiance_skills"] = []
-    normalize_character_tag_state(char)
-
-    fallback_states = char.get("states")
-    char["states"] = _states_from_status_rows(
-        status_rows,
-        fallback_states if isinstance(fallback_states, list) else [],
-    )
-
-    flags = char.get("flags")
-    if not isinstance(flags, dict):
-        flags = {}
-    flags["immediate_action_used"] = False
-    char["flags"] = flags
-
-    char["x"] = -1
-    char["y"] = -1
-    char["hasActed"] = False
-    char["speedRoll"] = 0
-    char["used_skills_this_round"] = []
-    char["active_round"] = 0
-
-    initial_params = {}
-    for param in char.get("params", []):
-        if not isinstance(param, dict):
-            continue
-        label = str(param.get("label", "")).strip()
-        if not label:
-            continue
-        value = param.get("value")
-        try:
-            initial_params[label] = int(value)
-        except Exception:
-            initial_params[label] = value
-    char["initial_data"] = initial_params
-    char["initial_state"] = {
-        "inventory": copy.deepcopy(char.get("inventory", {})),
-        "special_buffs": [copy.deepcopy(b) for b in char.get("special_buffs", []) if isinstance(b, dict)],
-        "maxHp": int(char.get("maxHp", 0)),
-        "maxMp": int(char.get("maxMp", 0)),
-    }
-    normalize_character_labels(char)
-    return char
 
 
 def assign_runtime_character_number(char, existing_characters):
@@ -380,57 +189,6 @@ def assign_runtime_character_number(char, existing_characters):
     char["baseName"] = base_name
     char["name"] = f"{base_name} [{side_label} {suffix_num}]"
     return char
-
-
-def build_runtime_enemy_from_preset(rec, serial_no, owner_name=None, owner_id=None):
-    """既存の通常ルーム敵配置API向け互換ラッパー。"""
-    return build_runtime_character_from_preset(
-        rec,
-        serial_no,
-        side="enemy",
-        owner_name=owner_name,
-        owner_id=owner_id,
-    )
-
-
-def _force_character_side(char, side):
-    normalized = str(side or "enemy").strip().lower()
-    if normalized not in ("ally", "enemy"):
-        normalized = "enemy"
-    char["type"] = normalized
-    char["team"] = normalized
-    char["side"] = normalized
-    char["faction"] = normalized
-    char["is_ally"] = normalized == "ally"
-    char["is_enemy"] = normalized == "enemy"
-    char["color"] = "#007bff" if normalized == "ally" else "#dc3545"
-
-
-def _normalize_behavior_profile_safe(raw_profile):
-    if not isinstance(raw_profile, dict) or not raw_profile:
-        return {}
-    try:
-        from manager.battle.enemy_behavior import normalize_behavior_profile
-
-        normalized = normalize_behavior_profile(raw_profile)
-    except Exception:
-        normalized = copy.deepcopy(raw_profile)
-    if isinstance(normalized, dict):
-        loops = normalized.get("loops")
-        if isinstance(loops, dict) and loops:
-            normalized["enabled"] = True
-    return normalized if isinstance(normalized, dict) else {}
-
-
-def _apply_enemy_behavior_override(char, behavior_profile_override):
-    normalized = _normalize_behavior_profile_safe(behavior_profile_override)
-    if not normalized:
-        return
-    flags = char.get("flags")
-    if not isinstance(flags, dict):
-        flags = {}
-        char["flags"] = flags
-    flags["behavior_profile"] = normalized
 
 
 def _char_side(char):
@@ -647,7 +405,7 @@ def _normalize_enemy_entries(entries, presets):
     for row in rows:
         if not isinstance(row, dict):
             continue
-        preset_id = str(row.get("preset_id", "")).strip()
+        preset_id = str(row.get("unit_id") or row.get("preset_id") or "").strip()
         count = max(0, _safe_int(row.get("count"), 0))
         if not preset_id or count <= 0:
             continue
@@ -656,14 +414,11 @@ def _normalize_enemy_entries(entries, presets):
             raise RoomPresetError("invalid_formation", f"enemy preset not found: {preset_id}")
         if not bool(rec.get("allow_enemy", True)):
             raise RoomPresetError("permission_denied", f"preset cannot be used as enemy: {preset_id}")
-        behavior_profile_override = row.get("behavior_profile_override")
-        if not isinstance(behavior_profile_override, dict):
-            behavior_profile_override = {}
         normalized.append(
             {
                 "preset_id": preset_id,
                 "count": count,
-                "behavior_profile_override": copy.deepcopy(behavior_profile_override),
+                "pattern_id": row.get("pattern_id"),
             }
         )
     return normalized
@@ -680,18 +435,16 @@ def _add_enemies(state, entries, presets, user_info=None, room=None, anchor=None
     owner_id = str((user_info or {}).get("user_id", "")).strip() or None
     new_enemies = []
     applied_rows = []
+    masters = skill_catalog()
     for entry in entries:
         rec = presets.get(entry.get("preset_id"))
         if not isinstance(rec, dict):
             raise RoomPresetError("not_found", f"enemy preset not found: {entry.get('preset_id')}")
         count = max(0, _safe_int(entry.get("count"), 0))
-        behavior_override = entry.get("behavior_profile_override")
-        if not isinstance(behavior_override, dict):
-            behavior_override = {}
         for _ in range(count):
-            enemy = build_runtime_enemy_from_preset(rec, serial, owner_name=owner_name, owner_id=owner_id)
+            enemy = build_character(rec, "enemy", serial, owner_name=owner_name, owner_id=owner_id,
+                                    pattern_id=entry.get("pattern_id"), masters=masters)
             serial += 1
-            _apply_enemy_behavior_override(enemy, behavior_override)
             assign_runtime_character_number(enemy, state["characters"])
             new_enemies.append(enemy)
             state["characters"].append(enemy)
@@ -701,7 +454,7 @@ def _add_enemies(state, entries, presets, user_info=None, room=None, anchor=None
                 "preset_id": str(rec.get("id", entry.get("preset_id"))),
                 "preset_name": str(rec.get("name", "")) or str(rec.get("id", entry.get("preset_id"))),
                 "count": count,
-                "has_behavior_profile_override": bool(behavior_override),
+                "pattern_id": entry.get("pattern_id"),
             }
         )
 
@@ -729,7 +482,7 @@ def apply_enemy_preset_to_room_state(
     if normalized_mode not in ("append", "replace"):
         raise RoomPresetError("invalid_mode", f"unsupported enemy preset apply mode: {mode}")
 
-    store = copy.deepcopy(store) if isinstance(store, dict) else load_bo_preset_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
     presets = _store_character_presets(store)
     visible_presets = _visible_rows(presets, user_info)
     rec = visible_presets.get(str(preset_id or "").strip())
@@ -779,7 +532,7 @@ def apply_enemy_formation_to_room_state(
     if normalized_mode != "replace":
         raise RoomPresetError("unsupported_mode", "enemy formation append mode is not implemented yet")
 
-    store = copy.deepcopy(store) if isinstance(store, dict) else load_bo_preset_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
     presets = _store_character_presets(store)
     visible_presets = _visible_rows(presets, user_info)
     formations = _store_enemy_formations(store)
@@ -982,7 +735,7 @@ def apply_stage_preset_to_room_state(
 ):
     if not isinstance(state, dict):
         raise RoomPresetError("invalid_state", "room state is invalid")
-    store = copy.deepcopy(store) if isinstance(store, dict) else load_bo_preset_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
     stages = _store_stage_presets(store)
     formations = _store_enemy_formations(store)
     stage = _require_visible(stages, stage_id, user_info, "stage preset")

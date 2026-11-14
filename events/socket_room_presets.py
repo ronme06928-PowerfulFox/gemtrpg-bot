@@ -11,6 +11,8 @@ from manager.room_manager import (
     get_user_info_from_sid,
     save_specific_room_state,
 )
+from events.battle_only.catalog_access_context import catalog_request_context
+from manager.room_access import GM_ROLES
 from manager.room_preset_apply import (
     RoomPresetError,
     apply_enemy_formation_to_room_state,
@@ -25,10 +27,6 @@ def _emit_error(code, message, event_name="room_preset_error", extra=None):
     if isinstance(extra, dict):
         payload.update(extra)
     socketio.emit(event_name, payload, to=request.sid)
-
-
-def _is_gm(user_info):
-    return str((user_info or {}).get("attribute", "")).strip().upper() == "GM"
 
 
 def _require_room_participant(room, event_name="room_preset_error"):
@@ -51,10 +49,10 @@ def _require_room_gm(room, event_name="room_preset_error"):
     allowed, user_info = _require_room_participant(room, event_name=event_name)
     if not allowed:
         return False, user_info
-    if not _is_gm(user_info):
+    if catalog_request_context({"room": room})["room_role"] not in GM_ROLES:
         _emit_error("permission_denied", "GM permission is required", event_name=event_name)
         return False, user_info
-    return True, user_info
+    return True, {**user_info, "attribute": "GM"}
 
 
 def _normal_room_state(room, event_name="room_preset_error"):
@@ -86,7 +84,10 @@ def handle_room_preset_catalog(data):
     else:
         user_info = get_user_info_from_sid(request.sid)
 
-    payload = build_room_preset_catalog(user_info=user_info)
+    context = catalog_request_context(src)
+    access = {**user_info, "attribute": "GM" if context["room_role"] in GM_ROLES else "Player",
+              "is_author": context["is_author"]}
+    payload = build_room_preset_catalog(user_info=access)
     socketio.emit("receive_room_preset_catalog", payload, to=request.sid)
 
 

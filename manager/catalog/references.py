@@ -64,7 +64,7 @@ def _id_paths(value, entry_id, path=""):
 
 
 
-def find_references(kind, entry_id):
+def find_references(kind, entry_id, *, include_staff=False):
     get_kind(kind)
     references = []
     if kind == "buff":
@@ -90,4 +90,15 @@ def find_references(kind, entry_id):
                 paths = _id_paths(payload, entry_id)
             for path in paths:
                 references.append({"kind": source_kind, "entry_id": source_id, "display_name": name, "path": path})
+    if kind in ("skill", "passive", "radiance", "item"):
+        from manager.units.repository import entries
+        from manager.units.validation import master_links
+
+        for (_, source_id), row in entries(include_staff=include_staff).items():
+            if row["kind"] != "unit":
+                continue
+            for target_kind, target, path in master_links(row["payload"]):
+                if (target_kind, target) == (kind, entry_id):
+                    references.append({"kind": "unit", "entry_id": source_id,
+                                       "display_name": row["payload"]["name"], "path": path})
     return references

@@ -10,16 +10,9 @@ from collections import OrderedDict
 from flask import request
 
 from extensions import socketio, user_sids
-from events.battle_only.catalog_access_context import (
-    catalog_request_context,
-    owner_names_for_store,
-)
-from manager.battle_only_catalog_access import get_record
-from manager.battle_only_presets import (
-    load_store as load_bo_preset_store,
-    mutate_store as mutate_bo_preset_store,
-    normalize_catalog_meta,
-)
+from events.battle_only.catalog_access_context import catalog_request_context
+from manager.room_access import GM_ROLES
+from manager.units.runtime import deployment_store
 from manager.preset_deployment import (
     PresetDeploymentError,
     apply_deployment,
@@ -145,7 +138,7 @@ def _validate_target_mode(state, payload):
 def _manager_context(context):
     return {
         "user_id": context.get("user_id"),
-        "is_app_admin": context.get("is_app_admin", False),
+        "is_author": context.get("is_author", False),
         "room_role": context.get("room_role"),
         "gm_user": context.get("user_info") or {},
         "active_users": _active_user_map(context["room"]),
@@ -183,46 +176,21 @@ def _cached_operation(room, operation_id, state=None):
     return None
 
 
-def _touch_used_records(request_data):
-    normalized = normalize_deployment_request(request_data)
-    refs = set()
-    if normalized.get("stage"):
-        refs.add(("stage", normalized["stage"]["record_id"]))
-    for side, record_type in (("ally", "ally_formation"), ("enemy", "enemy_formation")):
-        row = normalized["formations"].get(side)
-        if row:
-            refs.add((record_type, row["record_id"]))
-    for row in normalized["characters"]:
-        refs.add(("character", row["record_id"]))
-    now_ms = int(time.time() * 1000)
-
-    def _mutate(store):
-        for record_type, record_id in refs:
-            record = get_record(store, record_type, record_id)
-            if not isinstance(record, dict):
-                continue
-            meta = normalize_catalog_meta(record.get("catalog_meta"))
-            meta["last_used_at"] = now_ms
-            record["catalog_meta"] = meta
-
-    mutate_bo_preset_store(_mutate)
-
-
 @socketio.on("request_preset_deployment_catalog")
 def handle_preset_deployment_catalog(data):
     context = _require_context(data)
     if context is None:
         return
-    store = load_bo_preset_store()
+    store = deployment_store()
     catalog = build_deployment_catalog(
         store,
         user_id=context.get("user_id"),
-        is_app_admin=context.get("is_app_admin", False),
+        is_author=context.get("is_author", False),
         room_role=context.get("room_role"),
-        owner_names=owner_names_for_store(store),
         users=context["users"],
     )
-    catalog["bookmarks"] = _bookmark_payload(context["state"], catalog)
+    if context["room_role"] in GM_ROLES:
+        catalog["bookmarks"] = _bookmark_payload(context["state"], catalog)
     catalog["room"] = context["room"]
     socketio.emit("preset_deployment_catalog", catalog, to=request.sid)
 
@@ -240,7 +208,7 @@ def handle_preset_deployment_preview(data):
         summary = preview_deployment(
             context["state"],
             payload,
-            load_bo_preset_store(),
+            deployment_store(),
             **_manager_context(context),
         )
     except PresetDeploymentError as ex:
@@ -281,6 +249,9 @@ def handle_preset_deployment_apply(data):
         _emit_error("invalid_operation_id", "配置操作IDが不正です。")
         return
     cached = _cached_operation(context["room"], operation_id, context["state"])
+    if context.get('room_role') not in GM_ROLES:
+        _emit_error('permission_denied', '配置にはルームowner・gm権限が必要です。')
+        return
     if cached is not None:
         cached["duplicate"] = True
         socketio.emit("preset_deployment_applied", cached, to=request.sid)
@@ -291,7 +262,7 @@ def handle_preset_deployment_apply(data):
         summary, logs = apply_deployment(
             context["state"],
             payload,
-            load_bo_preset_store(),
+            deployment_store(),
             **_manager_context(context),
         )
     except PresetDeploymentError as ex:
@@ -318,9 +289,4 @@ def handle_preset_deployment_apply(data):
         f"[Preset] 味方{summary['added']['ally']}体・敵{summary['added']['enemy']}体を配置しました。",
         "info",
     )
-    try:
-        _touch_used_records(payload)
-    except Exception:
-        # 配置済みルーム状態をlast_used_at更新失敗で巻き戻さない。
-        logger.exception("preset last_used_at update failed: room=%s", context["room"])
     socketio.emit("preset_deployment_applied", response, to=request.sid)

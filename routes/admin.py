@@ -13,7 +13,6 @@ from manager.user_manager import (
     transfer_ownership,
     get_user_owned_items,
     is_user_management_admin,
-    OwnedPresetAssetsError,
     set_user_management_admin,
     set_catalog_author,
 )
@@ -64,14 +63,8 @@ def admin_delete_user():
     if not _can_manage_users_with_payload(data):
         return jsonify({"error": "ユーザー管理権限またはマスターキーが必要です"}), 403
     user_id = data.get('user_id')
-    try:
-        if delete_user(user_id):
-            return jsonify({"message": "Deleted"})
-    except OwnedPresetAssetsError as exc:
-        return jsonify({
-            "error": "所有するプリセット資産が残っています。先に所有権を移譲してください。",
-            "preset_assets": exc.counts,
-        }), 409
+    if delete_user(user_id):
+        return jsonify({"message": "Deleted"})
     return jsonify({"error": "Failed"}), 500
 
 

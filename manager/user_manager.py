@@ -7,21 +7,10 @@ from datetime import datetime
 import hashlib
 import secrets
 from werkzeug.security import check_password_hash, generate_password_hash
-from manager.battle_only_catalog_access import (
-    owned_asset_counts,
-    scrub_user_from_acl,
-    transfer_user_assets,
-)
-from manager.battle_only_presets import load_store, mutate_store
+
 
 
 RECOVERY_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-
-
-class OwnedPresetAssetsError(RuntimeError):
-    def __init__(self, counts):
-        super().__init__("owned preset assets remain")
-        self.counts = counts
 
 
 def generate_recovery_code():
@@ -190,10 +179,6 @@ def delete_user(user_id):
     """ユーザーを削除する（所有権はNoneになる）"""
     user = db.session.get(User, user_id)
     if user:
-        preset_counts = owned_asset_counts(load_store(), user_id)
-        if preset_counts.get("total", 0) > 0:
-            raise OwnedPresetAssetsError(preset_counts)
-        mutate_store(lambda store: scrub_user_from_acl(store, user_id), commit=False)
         # ルームの所有権を解除
         rooms = Room.query.filter_by(owner_id=user_id).all()
         room_names = [r.name for r in rooms]
@@ -239,7 +224,6 @@ def get_user_owned_items(user_id):
     return {
         "rooms": room_list,
         "characters": char_list,
-        "preset_assets": owned_asset_counts(load_store(), user_id),
     }
 
 def transfer_ownership(old_id, new_id):
@@ -251,13 +235,6 @@ def transfer_ownership(old_id, new_id):
         raise ValueError("transfer source and target must be different users")
     if not db.session.get(User, new_id):
         raise ValueError("transfer target user not found")
-
-    preset_result = {}
-    def _transfer_presets(store):
-        preset_result.update(transfer_user_assets(store, old_id, new_id))
-        scrub_user_from_acl(store, old_id)
-
-    mutate_store(_transfer_presets, commit=False)
 
     # 1. ルームの所有権移動
     rooms = Room.query.filter_by(owner_id=old_id).all()
@@ -305,5 +282,4 @@ def transfer_ownership(old_id, new_id):
         set_cached_room_owner(room_name, new_id)
     return {
         "characters": updated_count,
-        "preset_assets": preset_result,
     }

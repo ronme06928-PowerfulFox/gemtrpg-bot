@@ -1,5 +1,8 @@
 import logging
-from sqlalchemy import text, inspect, select
+from collections import Counter
+from copy import deepcopy
+
+from sqlalchemy import MetaData, Table, text, inspect, select
 from extensions import db
 
 def _migrate_skill_cost(inspector):
@@ -24,6 +27,128 @@ def _migrate_skill_cost(inspector):
     if migrated:
         db.session.commit()
         logging.info("Auto Migration: renamed skill cost in %d rows", migrated)
+
+
+def _remap_room_drafts(ids):
+    from models import Room
+
+    for room in Room.query.all():
+        if not isinstance(room.data, dict):
+            continue
+        state = deepcopy(room.data)
+        draft = state.get("battle_only")
+        if isinstance(draft, dict):
+            for field, kind in (("selected_stage_id", "stage"),
+                                ("enemy_formation_id", "enemy_formation"),
+                                ("ally_formation_id", "ally_formation")):
+                if draft.get(field):
+                    draft[field] = ids.get((kind, draft[field]))
+            for field in ("enemy_entries", "ally_entries"):
+                if isinstance(draft.get(field), list):
+                    for member in draft[field]:
+                        if isinstance(member, dict):
+                            member["preset_id"] = ids.get(("character", member.get("preset_id")))
+                            member.pop("behavior_profile_override", None)
+                    draft[field] = [member for member in draft[field]
+                                    if isinstance(member, dict) and member["preset_id"]]
+            bookmarks = draft.get("preset_bookmarks")
+            if isinstance(bookmarks, list):
+                for bookmark in bookmarks:
+                    if isinstance(bookmark, dict):
+                        key = (bookmark.get("target_type"), bookmark.get("target_id"))
+                        bookmark["target_id"] = ids.get(key)
+                draft["preset_bookmarks"] = [bookmark for bookmark in bookmarks
+                                             if isinstance(bookmark, dict) and bookmark["target_id"]]
+        placement = state.get("room_preset_state")
+        if isinstance(placement, dict) and placement.get("selected_stage_id"):
+            placement["selected_stage_id"] = ids.get(("stage", placement["selected_stage_id"]))
+        if state != room.data:
+            room.data = state
+
+
+def _migrate_unit_resources():
+    from models import CatalogEntry, CatalogHistory
+    from manager.cache_paths import SKILLS_CACHE_FILE, load_json_cache
+    from manager.units.characters import read_character, skill_catalog
+    from manager.units.repository import lock_writes, next_id, write
+
+    lock_writes()
+    connection = db.session.connection()
+    inspector = inspect(connection)
+    old_tables = {"preset_resources", "preset_resource_acl"}
+    existing = set(inspector.get_table_names())
+    for model in (CatalogEntry, CatalogHistory):
+        table = model.__table__
+        if table.name not in existing:
+            if "preset_resources" in existing:
+                table.create(connection)
+        elif "visibility" not in {col["name"] for col in inspector.get_columns(table.name)}:
+            db.session.execute(text(
+                f"ALTER TABLE {table.name} ADD COLUMN visibility VARCHAR(8) DEFAULT 'public' NOT NULL"
+            ))
+    if not old_tables.intersection(existing):
+        db.session.commit()
+        return
+    external = sorted(
+        name for name in existing - old_tables for fk in inspector.get_foreign_keys(name)
+        if fk["referred_table"] in old_tables
+    )
+    if external:
+        raise RuntimeError(f"旧プリセット表を参照する外部キーがあります: {', '.join(external)}")
+
+    counts = Counter()
+    ids = {}
+    if "preset_resources" in existing:
+        old = Table("preset_resources", MetaData(), autoload_with=connection)
+        rows = list(db.session.execute(select(old).order_by(old.c.id)).mappings())
+        kinds = {"character": "unit", "enemy_formation": "formation", "ally_formation": "formation",
+                 "stage": "stage", "collection": "unit_collection"}
+        reserved = {kind: [] for kind in kinds.values()}
+        for row in rows:
+            resource_type = row["resource_type"]
+            kind = kinds[resource_type]
+            entry_id = next_id(kind, reserved[kind])
+            reserved[kind].append(entry_id)
+            ids[resource_type, row["stable_id"]] = entry_id
+
+        masters = skill_catalog() or load_json_cache(SKILLS_CACHE_FILE)
+        for row in rows:
+            resource_type = row["resource_type"]
+            entry_id = ids[resource_type, row["stable_id"]]
+            payload = dict(row["payload"])
+            payload["name"] = row["name"]
+            if resource_type == "character":
+                payload, _ = read_character(payload, masters=masters)
+            elif kinds[resource_type] == "formation":
+                payload["type"] = resource_type.split("_")[0]
+                # 消えた参照先を指すメンバーは移さない（起動を止めない）。
+                payload["members"] = [
+                    {"unit_id": ids["character", member.get("preset_id")],
+                     "count": max(1, int(member.get("count") or 1)), "pattern_id": None}
+                    for member in payload.get("members", [])
+                    if isinstance(member, dict) and ("character", member.get("preset_id")) in ids
+                ]
+            elif resource_type == "stage":
+                for side in ("enemy", "ally"):
+                    field = f"{side}_formation_id"
+                    if payload.get(field):
+                        payload[field] = ids.get((f"{side}_formation", payload[field]))
+            if resource_type != "collection" and row["collection_id"]:
+                payload["collection_id"] = ids.get(("collection", row["collection_id"]))
+            for field in ("owner_user_id", "access_control", "creator", "created_by", "updated_by"):
+                payload.pop(field, None)
+            kind = kinds[resource_type]
+            write(kind, entry_id, payload, "public" if row["viewer_mode"] == "public" else "staff",
+                  bool(row["archived"] or payload.pop("archived", False)), "import")
+            counts[kind] += 1
+        if "rooms" in existing:
+            _remap_room_drafts(ids)
+        db.session.flush()
+    for name in ("preset_resource_acl", "preset_resources"):
+        if name in existing:
+            db.session.execute(text(f"DROP TABLE {name}"))
+    db.session.commit()
+    logging.info("Auto Migration: moved preset resources %s, removed legacy tables", dict(counts))
 
 
 def run_auto_migration(app):
@@ -164,6 +289,7 @@ def run_auto_migration(app):
                     logging.error(f"Migration Query Failed (room_members active index): {e}")
 
             _migrate_skill_cost(inspector)
+            _migrate_unit_resources()
 
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):

@@ -391,6 +391,7 @@ def register_http_routes(flask_app):
     from routes.room import room_bp
     from routes.admin import admin_bp
     from routes.catalog import catalog_bp
+    from routes.units import units_bp
     from routes.owned_characters import owned_characters_bp
 
     flask_app.add_url_rule('/', 'serve_index', serve_index)
@@ -423,6 +424,7 @@ def register_http_routes(flask_app):
     flask_app.register_blueprint(room_bp)
     flask_app.register_blueprint(admin_bp)
     flask_app.register_blueprint(catalog_bp)
+    flask_app.register_blueprint(units_bp)
     flask_app.register_blueprint(owned_characters_bp)
 
 

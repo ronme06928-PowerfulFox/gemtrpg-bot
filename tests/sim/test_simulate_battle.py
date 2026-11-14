@@ -122,28 +122,31 @@ def _preset_record(preset_id, name, side):
     }
 
 
+def _preset_package():
+    from manager.units.characters import read_character
+
+    def entry(kind, entry_id, payload):
+        return {"kind": kind, "entry_id": entry_id, "payload": payload,
+                "visibility": "public", "deprecated": False}
+
+    return {"format": "gemtrpg-units-v1", "entries": [
+        entry("unit", "U-001", read_character(_preset_record("U-001", "Ally Preset", "ally"))[0]),
+        entry("unit", "U-002", read_character(_preset_record("U-002", "Enemy Preset", "enemy"))[0]),
+        entry("formation", "F-001", {"name": "Allies", "type": "ally",
+                                    "members": [{"unit_id": "U-001", "count": 1}]}),
+        entry("formation", "F-002", {"name": "Enemies", "type": "enemy",
+                                    "members": [{"unit_id": "U-002", "count": 2}]}),
+        entry("stage", "ST-001", {"name": "Stage", "ally_formation_id": "F-001",
+                                 "enemy_formation_id": "F-002",
+                                 "field_effect_profile": {"enabled": True, "id": "field_test"}}),
+    ]}
+
+
 def _preset_store():
-    return {
-        "version": 2,
-        "character_presets": {
-            "ALLY_1": _preset_record("ALLY_1", "Ally Preset", "ally"),
-            "ENEMY_1": _preset_record("ENEMY_1", "Enemy Preset", "enemy"),
-        },
-        "ally_formations": {
-            "ALLY_FORM": {"id": "ALLY_FORM", "members": [{"preset_id": "ALLY_1"}]},
-        },
-        "enemy_formations": {
-            "ENEMY_FORM": {"id": "ENEMY_FORM", "members": [{"preset_id": "ENEMY_1", "count": 2}]},
-        },
-        "stage_presets": {
-            "STAGE_1": {
-                "id": "STAGE_1",
-                "ally_formation_id": "ALLY_FORM",
-                "enemy_formation_id": "ENEMY_FORM",
-                "field_effect_profile": {"enabled": True, "id": "field_test"},
-            },
-        },
-    }
+    from manager.units.runtime import deployment_store
+    from manager.units.transfer import package_entries
+
+    return deployment_store(package_entries(_preset_package()))
 
 
 def test_run_battle_returns_report_when_fixed_intent_wins(monkeypatch):
@@ -395,14 +398,14 @@ def test_uncommitted_reciprocal_target_does_not_force_clash(monkeypatch):
 
 
 def test_build_room_state_from_presets_uses_stage_formations_and_positions():
-    state = build_room_state_from_presets(store=_preset_store(), stage_id="STAGE_1")
+    state = build_room_state_from_presets(store=_preset_store(), stage_id="ST-001")
 
     allies = [char for char in state["characters"] if char.get("type") == "ally"]
     enemies = [char for char in state["characters"] if char.get("type") == "enemy"]
     assert len(allies) == 1
     assert len(enemies) == 2
     assert state["play_mode"] == "battle_only"
-    assert state["battle_only"]["selected_stage_id"] == "STAGE_1"
+    assert state["battle_only"]["selected_stage_id"] == "ST-001"
     assert state["battle_only"]["field_effect_profile"]["id"] == "field_test"
     assert all(char["x"] >= 0 and char["y"] >= 0 for char in state["characters"])
 
@@ -410,8 +413,8 @@ def test_build_room_state_from_presets_uses_stage_formations_and_positions():
 def test_build_room_state_from_presets_accepts_direct_preset_ids():
     state = build_room_state_from_presets(
         store=_preset_store(),
-        ally_preset_ids=["ALLY_1"],
-        enemy_preset_ids=["ENEMY_1"],
+        ally_preset_ids=["U-001"],
+        enemy_preset_ids=["U-002"],
     )
 
     assert [char["type"] for char in state["characters"]] == ["ally", "enemy"]
@@ -480,40 +483,40 @@ def test_cli_outputs_aggregate_json_for_multiple_runs(tmp_path, capsys):
 
 
 def test_cli_lists_preset_catalog_without_room_input(tmp_path, capsys):
-    store_path = tmp_path / "battle_only_presets_cache.json"
-    store_path.write_text(json.dumps(_preset_store(), ensure_ascii=False), encoding="utf-8")
+    store_path = tmp_path / "units.json"
+    store_path.write_text(json.dumps(_preset_package(), ensure_ascii=False), encoding="utf-8")
 
     rc = simulate_battle.main(["--preset-store", str(store_path), "--list-stages"])
 
     captured = capsys.readouterr()
     assert rc == 0
     assert "stage_presets:" in captured.out
-    assert "STAGE_1" in captured.out
-    assert "ally_formation_id=ALLY_FORM" in captured.out
+    assert "ST-001" in captured.out
+    assert "ally_formation_id=F-001" in captured.out
 
 
 def test_cli_lists_preset_catalog_as_json(tmp_path, capsys):
-    store_path = tmp_path / "battle_only_presets_cache.json"
-    store_path.write_text(json.dumps(_preset_store(), ensure_ascii=False), encoding="utf-8")
+    store_path = tmp_path / "units.json"
+    store_path.write_text(json.dumps(_preset_package(), ensure_ascii=False), encoding="utf-8")
 
     rc = simulate_battle.main(["--preset-store", str(store_path), "--list-presets", "--json"])
 
     captured = capsys.readouterr()
     payload = json.loads(captured.out)
     assert rc == 0
-    assert [row["id"] for row in payload["character_presets"]] == ["ALLY_1", "ENEMY_1"]
+    assert [row["id"] for row in payload["character_presets"]] == ["U-001", "U-002"]
 
 
 def test_cli_can_build_room_state_from_stage_preset(tmp_path, capsys):
-    store_path = tmp_path / "battle_only_presets_cache.json"
-    store_path.write_text(json.dumps(_preset_store(), ensure_ascii=False), encoding="utf-8")
+    store_path = tmp_path / "units.json"
+    store_path.write_text(json.dumps(_preset_package(), ensure_ascii=False), encoding="utf-8")
 
     rc = simulate_battle.main(
         [
             "--preset-store",
             str(store_path),
             "--stage-id",
-            "STAGE_1",
+            "ST-001",
             "--roll-mode",
             "median",
             "--max-rounds",

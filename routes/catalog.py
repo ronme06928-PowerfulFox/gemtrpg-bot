@@ -141,7 +141,9 @@ def history(kind, entry_id):
 @catalog_bp.get("/api/catalog/<kind>/<entry_id>/references")
 @_endpoint()
 def references(kind, entry_id):
-    return jsonify(references=find_references(kind, entry_id))
+    user = g.authenticated_user
+    return jsonify(references=find_references(
+        kind, entry_id, include_staff=user.is_catalog_author or user.is_app_admin))
 
 
 @catalog_bp.get("/api/catalog/<kind>/next_id")

@@ -11,41 +11,20 @@ from manager.preset_deployment import (
 )
 
 
-def _acl(owner="u_gm"):
-    return {
-        "owner_user_id": owner,
-        "editor_user_ids": [],
-        "viewer_mode": "public",
-        "viewer_user_ids": [],
-    }
-
-
 def _character(record_id, name, *, allow_ally=True, allow_enemy=True):
     return {
         "id": record_id,
         "name": name,
         "allow_ally": allow_ally,
         "allow_enemy": allow_enemy,
-        "access_control": _acl(),
+        "hp": 20,
+        "mp": 5,
         "catalog_meta": {"collection_id": "col_s2", "section_id": "chars"},
-        "character_json": {
-            "data": {
-                "name": name,
-                "status": [
-                    {"label": "HP", "value": 20, "max": 20},
-                    {"label": "MP", "value": 5, "max": 5},
-                ],
-                "params": [],
-                "states": [],
-                "special_buffs": [],
-            }
-        },
     }
 
 
 def _store():
     return {
-        "version": 3,
         "character_presets": {
             "c_enemy": _character("c_enemy", "敵素材"),
             "c_ally": _character("c_ally", "味方素材"),
@@ -54,18 +33,16 @@ def _store():
             "ef_1": {
                 "id": "ef_1",
                 "name": "敵編成",
-                "members": [{"preset_id": "c_enemy", "count": 2}],
-                "access_control": _acl(),
-                "catalog_meta": {"collection_id": "col_s2", "section_id": "encounters"},
+                "members": [{"unit_id": "c_enemy", "count": 2}],
+                        "catalog_meta": {"collection_id": "col_s2", "section_id": "encounters"},
             }
         },
         "ally_formations": {
             "af_1": {
                 "id": "af_1",
                 "name": "味方編成",
-                "members": [{"preset_id": "c_ally", "user_id": "offline_user"}],
-                "access_control": _acl(),
-                "catalog_meta": {"collection_id": "col_s2", "section_id": "parties"},
+                "members": [{"unit_id": "c_ally", "user_id": "offline_user"}],
+                        "catalog_meta": {"collection_id": "col_s2", "section_id": "parties"},
             }
         },
         "stage_presets": {
@@ -78,8 +55,7 @@ def _store():
                 "background_image": "https://example.invalid/stage.png",
                 "field_effect_profile": {"version": 1, "rules": []},
                 "stage_avatar": {"enabled": True, "name": "案内役"},
-                "access_control": _acl(),
-                "catalog_meta": {"collection_id": "col_s2", "section_id": "stages"},
+                        "catalog_meta": {"collection_id": "col_s2", "section_id": "stages"},
             }
         },
         "catalog_collections": {
@@ -91,8 +67,7 @@ def _store():
                     {"id": "chars", "name": "素材", "sort_order": 10},
                     {"id": "encounters", "name": "戦闘", "sort_order": 20},
                 ],
-                "access_control": _acl(),
-            }
+                    }
         },
     }
 
@@ -101,7 +76,7 @@ def _context():
     return {
         "user_id": "u_gm",
         "room_role": "gm",
-        "is_app_admin": False,
+        "is_author": False,
         "gm_user": {"user_id": "u_gm", "username": "GM太郎"},
         "active_users": {"u_gm": "GM太郎", "u_player": "PL花子"},
     }
@@ -158,7 +133,7 @@ def test_normal_stage_and_single_character_apply_atomically():
 def test_normal_deployment_assigns_unique_enemy_numbers_to_batch():
     state = _normal_state()
     store = _store()
-    store["character_presets"]["c_enemy"]["character_json"]["data"].update({
+    store["character_presets"]["c_enemy"].update({
         "name": "敵素材 [敵 1]",
         "baseName": "敵素材",
     })

@@ -2,6 +2,7 @@ import json
 from types import SimpleNamespace
 
 from events import socket_battle_only
+from manager.units.characters import read_character
 
 
 SAMPLE_CHAR_JSON = {
@@ -64,15 +65,20 @@ def _patch_common(monkeypatch, state, store, user_info=None, room='room_t'):
         lambda event, payload=None, to=None: emits.append((event, payload or {}, to)),
     )
 
-    def _load_store():
-        return store
-
-    def _mutate_store(mutator):
-        mutator(store)
-        return store
-
-    monkeypatch.setattr(socket_battle_only, 'load_bo_preset_store', _load_store)
-    monkeypatch.setattr(socket_battle_only, 'mutate_bo_preset_store', _mutate_store)
+    for unit in store.get("character_presets", {}).values():
+        if "character_json" in unit:
+            fields, _ = read_character(unit)
+            unit.update(fields)
+    for key in ("ally_formations", "enemy_formations"):
+        for formation in store.get(key, {}).values():
+            for member in formation.get("members", []):
+                member["unit_id"] = member.pop("preset_id")
+    info = user_info or {"username": "gm", "attribute": "GM", "user_id": "u_gm"}
+    monkeypatch.setattr(socket_battle_only, "deployment_store", lambda: store)
+    monkeypatch.setattr(socket_battle_only, "_catalog_request_context", lambda data: {
+        "user_info": info, "user_id": info.get("user_id"), "room": data.get("room"),
+        "room_role": "gm" if info["attribute"] == "GM" else "player", "is_author": False,
+    })
     monkeypatch.setattr(
         socket_battle_only,
         'user_sids',
@@ -89,119 +95,10 @@ def _find_event(emits, event_name):
     return [row for row in emits if row[0] == event_name]
 
 
-def test_bo_catalog_list_filters_visibility_for_player(monkeypatch):
-    state = _base_state()
-    store = {
-        'presets': {
-            'p_public': {
-                'id': 'p_public',
-                'name': '公開',
-                'visibility': 'public',
-                'allow_ally': True,
-                'allow_enemy': False,
-                'character_json': SAMPLE_CHAR_JSON,
-            },
-            'p_gm': {
-                'id': 'p_gm',
-                'name': 'GM用',
-                'visibility': 'gm',
-                'allow_ally': True,
-                'allow_enemy': True,
-                'character_json': SAMPLE_CHAR_JSON,
-            },
-        }
-    }
-    emits = _patch_common(
-        monkeypatch,
-        state,
-        store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
-    )
-
-    socket_battle_only.handle_bo_catalog_list({})
-
-    rows = _find_event(emits, 'receive_bo_catalog_list')
-    assert rows
-    payload = rows[-1][1]
-    assert payload.get('can_manage') is False
-    presets = payload.get('presets', {})
-    assert 'p_public' in presets
-    assert 'p_gm' not in presets
-
-
-def test_bo_preset_save_and_delete_by_gm(monkeypatch):
-    state = _base_state()
-    store = {'presets': {}}
-    emits = _patch_common(monkeypatch, state, store)
-    scenario_json = json.loads(json.dumps(SAMPLE_CHAR_JSON, ensure_ascii=False))
-    scenario_json['data'].update({
-        'characterType': 'scenario',
-        'tag_ids': [' 種別:瓦礫 ', '機械', '種別:瓦礫'],
-        'disabled_tag_ids': ['機械', '未知'],
-    })
-
-    socket_battle_only.handle_bo_preset_save(
-        {
-            'payload': {
-                'name': '翁',
-                'visibility': 'gm',
-                'allow_ally': True,
-                'allow_enemy': True,
-                'character_json': scenario_json,
-            }
-        }
-    )
-
-    saved = _find_event(emits, 'bo_preset_saved')
-    assert saved
-    rec = saved[-1][1].get('record', {})
-    rec_id = rec.get('id')
-    assert rec_id
-    assert rec.get('visibility') == 'gm'
-    assert rec.get('character_json', {}).get('kind') == 'character'
-    assert rec['character_json']['data']['tag_ids'] == ['種別:瓦礫', '機械']
-    assert rec['character_json']['data']['disabled_tag_ids'] == ['機械']
-    assert rec_id in store['presets']
-
-    emits.clear()
-    socket_battle_only.handle_bo_preset_delete({'id': rec_id})
-    deleted = _find_event(emits, 'bo_preset_deleted')
-    assert deleted
-    assert rec_id not in store['presets']
-
-
-def test_bo_preset_save_rejected_for_non_gm(monkeypatch):
-    state = _base_state()
-    store = {'presets': {}}
-    emits = _patch_common(
-        monkeypatch,
-        state,
-        store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
-    )
-
-    socket_battle_only.handle_bo_preset_save(
-        {
-            'payload': {
-                'name': '禁止',
-                'visibility': 'public',
-                'allow_ally': True,
-                'allow_enemy': True,
-                'character_json': SAMPLE_CHAR_JSON,
-            }
-        }
-    )
-
-    assert store['presets'] == {}
-    errors = _find_event(emits, 'bo_preset_error')
-    assert errors
-    assert errors[-1][1].get('error') == 'permission_denied'
-
-
 def test_bo_draft_update_and_start_battle(monkeypatch):
     state = _base_state()
     store = {
-        'presets': {
+        'character_presets': {
             'ally_1': {
                 'id': 'ally_1',
                 'name': '味方A',
@@ -277,7 +174,7 @@ def test_bo_start_battle_closes_orphaned_in_progress_record(monkeypatch):
         'enemy_entries': [{'preset_id': 'enemy_1', 'count': 1}],
     })
     store = {
-        'presets': {
+        'character_presets': {
             'ally_1': {
                 'id': 'ally_1', 'name': 'Ally', 'visibility': 'public',
                 'allow_ally': True, 'allow_enemy': False, 'character_json': SAMPLE_CHAR_JSON,
@@ -300,7 +197,7 @@ def test_bo_start_battle_closes_orphaned_in_progress_record(monkeypatch):
     assert state['battle_only']['status'] == 'in_battle'
 
 
-def test_bo_record_mark_result_and_export(monkeypatch):
+def test_bo_record_mark_result(monkeypatch):
     state = _base_state()
     state['battle_only'] = {
         'status': 'in_battle',
@@ -321,7 +218,7 @@ def test_bo_record_mark_result_and_export(monkeypatch):
         {'id': 'a1', 'type': 'ally', 'hp': 10},
         {'id': 'e1', 'type': 'enemy', 'hp': 0},
     ]
-    store = {'presets': {}}
+    store = {'character_presets': {}}
     emits = _patch_common(monkeypatch, state, store)
 
     socket_battle_only.handle_bo_record_mark_result({'room': 'room_t', 'record_id': 'bor_1', 'result': 'auto', 'note': 'test'})
@@ -350,7 +247,7 @@ def test_bo_start_battle_auto_places_characters_with_spacing(monkeypatch):
     state = _base_state()
     state["map_data"] = {"width": 20, "height": 15, "gridSize": 64}
     store = {
-        "presets": {
+        "character_presets": {
             "ally_1": {
                 "id": "ally_1",
                 "name": "味方A",
@@ -422,7 +319,7 @@ def test_bo_start_battle_auto_places_characters_with_spacing(monkeypatch):
 def test_bo_start_battle_forces_team_fields_by_side(monkeypatch):
     state = _base_state()
     store = {
-        "presets": {
+        "character_presets": {
             "ally_bad": {
                 "id": "ally_bad",
                 "name": "味方(入力汚染)",
@@ -498,7 +395,7 @@ def test_bo_start_battle_uses_operator_anchor_center(monkeypatch):
     state = _base_state()
     state["map_data"] = {"width": 24, "height": 16, "gridSize": 64}
     store = {
-        "presets": {
+        "character_presets": {
             "ally_1": {
                 "id": "ally_1",
                 "name": "味方A",
@@ -546,106 +443,6 @@ def test_bo_start_battle_uses_operator_anchor_center(monkeypatch):
     assert abs(int(enemy.get("y", -1)) - 10) <= 1
 
 
-def test_bo_preset_save_supports_v2_store_shape(monkeypatch):
-    state = _base_state()
-    store = {"character_presets": {}, "enemy_formations": {}}
-    emits = _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_preset_save(
-        {
-            'payload': {
-                'name': 'v2保存',
-                'visibility': 'public',
-                'allow_ally': True,
-                'allow_enemy': False,
-                'character_json': SAMPLE_CHAR_JSON,
-            }
-        }
-    )
-
-    saved = _find_event(emits, 'bo_preset_saved')
-    assert saved
-    rec = saved[-1][1].get('record', {})
-    rec_id = rec.get('id')
-    assert rec_id
-    assert rec_id in store['character_presets']
-
-
-def test_bo_enemy_formation_save_and_select(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {
-            "ally_1": {
-                "id": "ally_1",
-                "name": "AllyA",
-                "visibility": "public",
-                "allow_ally": True,
-                "allow_enemy": False,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-            "enemy_1": {
-                "id": "enemy_1",
-                "name": "敵A",
-                "visibility": "public",
-                "allow_ally": False,
-                "allow_enemy": True,
-                "character_json": SAMPLE_CHAR_JSON,
-            }
-        },
-        "enemy_formations": {},
-    }
-    emits = _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_enemy_formation_save(
-        {
-            "payload": {
-                "name": "敵編成A",
-                "visibility": "public",
-                "recommended_ally_count": 2,
-                "members": [
-                    {
-                        "preset_id": "enemy_1",
-                        "count": 2,
-                        "behavior_profile_override": {
-                            "enabled": False,
-                            "slot_generation_mode": "step_actions",
-                            "initial_loop_id": "loop_1",
-                            "loops": {
-                                "loop_1": {
-                                    "repeat": True,
-                                    "steps": [{"actions": ["S1", "S2", "S3"]}],
-                                    "transitions": [],
-                                }
-                            },
-                        },
-                    }
-                ],
-            }
-        }
-    )
-    saved = _find_event(emits, 'bo_enemy_formation_saved')
-    assert saved
-    formation_id = saved[-1][1].get('id')
-    assert formation_id
-    assert formation_id in store['enemy_formations']
-    saved_override = store['enemy_formations'][formation_id]['members'][0]['behavior_profile_override']
-    assert saved_override['enabled'] is True
-    assert saved_override['slot_generation_mode'] == 'step_actions'
-    assert saved_override['loops']['loop_1']['steps'][0]['actions'] == ['S1', 'S2', 'S3']
-
-    emits.clear()
-    socket_battle_only.handle_bo_select_enemy_formation({"room": "room_t", "formation_id": formation_id})
-    selected = _find_event(emits, 'bo_enemy_formation_selected')
-    assert selected
-    bo = state["battle_only"]
-    assert bo.get("enemy_formation_id") == formation_id
-    assert bo.get("required_ally_count") == 2
-    assert isinstance(bo.get("enemy_entries"), list)
-    assert bo["enemy_entries"][0]["preset_id"] == "enemy_1"
-    assert bo["enemy_entries"][0]["behavior_profile_override"]["enabled"] is True
-    assert bo["enemy_entries"][0]["count"] == 2
-
-
 def test_bo_select_enemy_formation_overwrites_required_ally_count(monkeypatch):
     state = _base_state()
     state["battle_only"]["required_ally_count"] = 5
@@ -674,7 +471,7 @@ def test_bo_select_enemy_formation_overwrites_required_ally_count(monkeypatch):
                 "name": "編成1",
                 "visibility": "public",
                 "recommended_ally_count": 2,
-                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+                "members": [{"preset_id": "enemy_1", "count": 1}],
             }
         },
     }
@@ -710,7 +507,7 @@ def test_bo_start_battle_room_existing_mode_uses_placed_allies(monkeypatch):
     state["battle_only"]["required_ally_count"] = 1
     state["battle_only"]["enemy_entries"] = [{"preset_id": "enemy_1", "count": 1}]
     store = {
-        "presets": {
+        "character_presets": {
             "enemy_1": {
                 "id": "enemy_1",
                 "name": "敵A",
@@ -759,58 +556,6 @@ def test_bo_start_battle_room_existing_mode_uses_placed_allies(monkeypatch):
     assert enemies[0].get("color") == "#dc3545"
 
 
-def test_bo_start_battle_applies_enemy_behavior_profile_override(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {
-            "ally_1": {
-                "id": "ally_1",
-                "name": "味方A",
-                "visibility": "public",
-                "allow_ally": True,
-                "allow_enemy": False,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-            "enemy_1": {
-                "id": "enemy_1",
-                "name": "敵A",
-                "visibility": "public",
-                "allow_ally": False,
-                "allow_enemy": True,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-        }
-    }
-    _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_draft_update(
-        {
-            "room": "room_t",
-            "payload": {
-                "ally_entries": [{"preset_id": "ally_1", "user_id": "u_1"}],
-                "enemy_entries": [{
-                    "preset_id": "enemy_1",
-                    "count": 1,
-                    "behavior_profile_override": {
-                        "enabled": True,
-                        "initial_loop_id": "loop_1",
-                        "loops": {"loop_1": {"repeat": True, "steps": [{"actions": ["S1"]}], "transitions": []}},
-                    },
-                }],
-            },
-        }
-    )
-    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
-
-    enemies = [c for c in state.get("characters", []) if c.get("type") == "enemy"]
-    assert len(enemies) == 1
-    flags = enemies[0].get("flags", {})
-    assert isinstance(flags, dict)
-    behavior = flags.get("behavior_profile")
-    assert isinstance(behavior, dict)
-    assert behavior.get("enabled") is True
-
-
 def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
     state = _base_state()
     state["battle_state"] = {
@@ -824,7 +569,6 @@ def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
     state["battle_only"]["enemy_entries"] = [{
         "preset_id": "enemy_1",
         "count": 1,
-        "behavior_profile_override": {},
     }]
     store = {
         "character_presets": {
@@ -848,7 +592,7 @@ def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
     }
     _patch_common(monkeypatch, state, store)
     profile = {
-        "enabled": False,
+        "enabled": True,
         "slot_generation_mode": "step_actions",
         "initial_loop_id": "loop_1",
         "loops": {
@@ -860,6 +604,11 @@ def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
         },
     }
 
+    store["character_presets"]["enemy_1"]["patterns"] = [
+        {"id": "BP-1", "profile": {"enabled": False}},
+        {"id": "BP-2", "profile": profile},
+    ]
+    store["character_presets"]["enemy_1"]["default_pattern_id"] = "BP-1"
     socket_battle_only.handle_bo_start_battle({
         "room": "room_t",
         "draft_payload": {
@@ -869,7 +618,7 @@ def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
             "enemy_entries": [{
                 "preset_id": "enemy_1",
                 "count": 1,
-                "behavior_profile_override": profile,
+                "pattern_id": "BP-2",
             }],
         },
     })
@@ -881,73 +630,6 @@ def test_bo_start_battle_uses_inline_draft_before_stale_room_state(monkeypatch):
     assert behavior["enabled"] is True
     assert behavior["slot_generation_mode"] == "step_actions"
     assert behavior["loops"]["loop_1"]["steps"][0]["actions"] == ["E-31", "E-31", "E-34"]
-
-
-def test_bo_start_battle_from_enemy_formation_applies_behavior_profile_override(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {
-            "ally_1": {
-                "id": "ally_1",
-                "name": "味方A",
-                "visibility": "public",
-                "allow_ally": True,
-                "allow_enemy": False,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-            "enemy_1": {
-                "id": "enemy_1",
-                "name": "敵A",
-                "visibility": "public",
-                "allow_ally": False,
-                "allow_enemy": True,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-        },
-        "enemy_formations": {
-            "fm_1": {
-                "id": "fm_1",
-                "name": "敵編成A",
-                "visibility": "public",
-                "recommended_ally_count": 1,
-                "members": [{
-                    "preset_id": "enemy_1",
-                    "count": 2,
-                    # enabled=false でも生成時に有効化されることを検証
-                    "behavior_profile_override": {
-                        "enabled": False,
-                        "initial_loop_id": "loop_1",
-                        "loops": {"loop_1": {"repeat": True, "steps": [{"actions": ["S1"]}], "transitions": []}},
-                    },
-                }],
-            }
-        },
-    }
-    emits = _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_draft_update(
-        {
-            "room": "room_t",
-            "payload": {
-                "ally_entries": [{"preset_id": "ally_1", "user_id": "u_1"}],
-                "enemy_entries": [],
-            },
-        }
-    )
-    socket_battle_only.handle_bo_select_enemy_formation({"room": "room_t", "formation_id": "fm_1"})
-    selected = _find_event(emits, 'bo_enemy_formation_selected')
-    assert selected
-
-    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
-    enemies = [c for c in state.get("characters", []) if c.get("type") == "enemy"]
-    assert len(enemies) == 2
-    for enemy in enemies:
-        flags = enemy.get("flags", {})
-        assert isinstance(flags, dict)
-        behavior = flags.get("behavior_profile")
-        assert isinstance(behavior, dict)
-        assert behavior.get("enabled") is True
-        assert isinstance(behavior.get("loops"), dict) and behavior.get("loops")
 
 
 def test_bo_validate_entry_ready_in_room_existing_mode(monkeypatch):
@@ -1056,7 +738,7 @@ def test_bo_ally_formation_and_stage_select(monkeypatch):
                 "name": "敵編成A",
                 "visibility": "public",
                 "recommended_ally_count": 2,
-                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+                "members": [{"preset_id": "enemy_1", "count": 1}],
             }
         },
         "ally_formations": {},
@@ -1064,43 +746,15 @@ def test_bo_ally_formation_and_stage_select(monkeypatch):
     }
     emits = _patch_common(monkeypatch, state, store)
 
-    socket_battle_only.handle_bo_ally_formation_save(
-        {
-            "payload": {
-                "name": "味方編成A",
-                "visibility": "public",
-                "recommended_ally_count": 2,
-                "members": [{"preset_id": "ally_1", "slot_label": "前衛1", "user_id": "u_1"}],
-            }
-        }
-    )
-    ally_saved = _find_event(emits, "bo_ally_formation_saved")
-    assert ally_saved
-    ally_formation_id = str(ally_saved[-1][1].get("id") or "")
-    assert ally_formation_id
-    assert ally_formation_id in store.get("ally_formations", {})
-
-    emits.clear()
-    socket_battle_only.handle_bo_stage_preset_save(
-        {
-            "payload": {
-                "name": "入門ステージ",
-                "visibility": "public",
-                "enemy_formation_id": "ef_1",
-                "ally_formation_id": ally_formation_id,
-                "required_ally_count": 2,
-                "concept": "入門",
-                "description": "テスト用",
-            }
-        }
-    )
-    stage_saved = _find_event(emits, "bo_stage_preset_saved")
-    assert stage_saved
-    stage_id = str(stage_saved[-1][1].get("id") or "")
-    assert stage_id
-    assert stage_id in store.get("stage_presets", {})
-
-    emits.clear()
+    ally_formation_id = "F-002"
+    stage_id = "ST-001"
+    store["ally_formations"][ally_formation_id] = {
+        "members": [{"unit_id": "ally_1", "count": 2}],
+    }
+    store["stage_presets"][stage_id] = {
+        "enemy_formation_id": "ef_1", "ally_formation_id": ally_formation_id,
+        "required_ally_count": 2,
+    }
     socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": stage_id})
     selected = _find_event(emits, "bo_stage_preset_selected")
     assert selected
@@ -1115,236 +769,6 @@ def test_bo_ally_formation_and_stage_select(monkeypatch):
     assert isinstance(bo.get("stage_field_effect_profile"), dict)
     assert isinstance(bo.get("stage_avatar_profile"), dict)
     assert bo.get("stage_field_effect_enabled") is True
-
-
-def test_bo_stage_field_effect_profile_roundtrip_and_start(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {
-            "ally_1": {
-                "id": "ally_1",
-                "name": "AllyA",
-                "visibility": "public",
-                "allow_ally": True,
-                "allow_enemy": False,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-            "enemy_1": {
-                "id": "enemy_1",
-                "name": "EnemyA",
-                "visibility": "public",
-                "allow_ally": False,
-                "allow_enemy": True,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-        },
-        "enemy_formations": {
-            "ef_1": {
-                "id": "ef_1",
-                "name": "EnemyFormation",
-                "visibility": "public",
-                "recommended_ally_count": 1,
-                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
-            }
-        },
-        "ally_formations": {},
-        "stage_presets": {},
-    }
-    emits = _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_stage_preset_save(
-        {
-            "payload": {
-                "name": "Stage-Effect",
-                "visibility": "public",
-                "enemy_formation_id": "ef_1",
-                "required_ally_count": 1,
-                "field_effect_profile": {
-                    "version": 1,
-                    "rules": [
-                        {
-                            "rule_id": "r_speed_1",
-                            "display_name": "霧の鈍足",
-                            "description": "速度を下げる霧",
-                            "flavor_text": "白い霧が足を絡め取る。",
-                            "type": "SPEED_ROLL_MOD",
-                            "scope": "ALL",
-                            "value": -1,
-                            "priority": 100,
-                            "skill_constraints": [
-                                {
-                                    "id": "stage_fp_block",
-                                    "mode": "block",
-                                    "match": {"cost_types": ["FP"]},
-                                    "reason": "stage block",
-                                }
-                            ],
-                        }
-                    ],
-                },
-                "stage_avatar": {"enabled": True, "name": "Avatar", "description": "desc", "icon": "icon_1"},
-            }
-        }
-    )
-    stage_saved = _find_event(emits, "bo_stage_preset_saved")
-    assert stage_saved
-    rec = stage_saved[-1][1].get("record", {})
-    stage_id = str(rec.get("id") or "")
-    assert stage_id
-    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("type") == "SPEED_ROLL_MOD"
-    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("display_name") == "霧の鈍足"
-    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("description") == "速度を下げる霧"
-    assert rec.get("field_effect_profile", {}).get("rules", [{}])[0].get("flavor_text") == "白い霧が足を絡め取る。"
-    assert rec.get("stage_avatar", {}).get("name") == "Avatar"
-
-    state["battle_only"]["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
-    emits.clear()
-    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": stage_id})
-    bo = state.get("battle_only", {})
-    assert bo.get("selected_stage_id") == stage_id
-    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("rule_id") == "r_speed_1"
-    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("display_name") == "霧の鈍足"
-    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("description") == "速度を下げる霧"
-    assert bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0].get("flavor_text") == "白い霧が足を絡め取る。"
-    assert bo.get("stage_avatar_profile", {}).get("name") == "Avatar"
-    bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
-
-    emits.clear()
-    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
-    assert isinstance(state.get("field_effects"), list)
-    assert len(state.get("field_effects")) == 1
-    first = state["field_effects"][0]
-    assert first.get("source_type") == "stage_preset"
-    assert first.get("source_id") == stage_id
-    assert isinstance(first.get("rule"), dict)
-    assert first.get("rule", {}).get("skill_constraints", [{}])[0].get("id") == "stage_fp_block"
-    assert state.get("stage_avatar_profile", {}).get("name") == "Avatar"
-
-
-def test_bo_stage_preset_resave_keeps_effect_metadata_and_avatar_disabled(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {
-            "ally_1": {
-                "id": "ally_1",
-                "name": "AllyA",
-                "visibility": "public",
-                "allow_ally": True,
-                "allow_enemy": False,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-            "enemy_1": {
-                "id": "enemy_1",
-                "name": "EnemyA",
-                "visibility": "public",
-                "allow_ally": False,
-                "allow_enemy": True,
-                "character_json": SAMPLE_CHAR_JSON,
-            },
-        },
-        "enemy_formations": {
-            "ef_1": {
-                "id": "ef_1",
-                "name": "EnemyFormation",
-                "visibility": "public",
-                "recommended_ally_count": 1,
-                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
-            }
-        },
-        "ally_formations": {},
-        "stage_presets": {
-            "stage_meta": {
-                "id": "stage_meta",
-                "name": "Original Stage",
-                "visibility": "public",
-                "access_control": {
-                    "owner_user_id": "u_gm",
-                    "editor_user_ids": [],
-                    "viewer_mode": "public",
-                    "viewer_user_ids": [],
-                },
-                "enemy_formation_id": "ef_1",
-                "required_ally_count": 1,
-                "field_effect_profile": {
-                    "version": 1,
-                    "rules": [
-                        {
-                            "rule_id": "cold_air",
-                            "display_name": "Cold Air",
-                            "description": "All actors lose speed.",
-                            "flavor_text": "A pale mist coils around every ankle.",
-                            "type": "SPEED_ROLL_MOD",
-                            "scope": "ALL",
-                            "value": -1,
-                        }
-                    ],
-                },
-                "stage_avatar": {
-                    "enabled": False,
-                    "name": "Hidden Avatar",
-                    "description": "This avatar is display-only when enabled.",
-                    "icon": "ST",
-                },
-            }
-        },
-    }
-    emits = _patch_common(monkeypatch, state, store)
-
-    socket_battle_only.handle_bo_stage_preset_save(
-        {
-            "payload": {
-                "id": "stage_meta",
-                "name": "Renamed Stage",
-                "visibility": "public",
-                "enemy_formation_id": "ef_1",
-                "required_ally_count": 1,
-            },
-            "overwrite": True,
-        }
-    )
-
-    saved = _find_event(emits, "bo_stage_preset_saved")
-    assert saved
-    rec = saved[-1][1].get("record", {})
-    rule = rec.get("field_effect_profile", {}).get("rules", [{}])[0]
-    assert rec.get("name") == "Renamed Stage"
-    assert rule.get("rule_id") == "cold_air"
-    assert rule.get("display_name") == "Cold Air"
-    assert rule.get("description") == "All actors lose speed."
-    assert rule.get("flavor_text") == "A pale mist coils around every ankle."
-    assert rec.get("stage_avatar", {}).get("enabled") is False
-    assert rec.get("stage_avatar", {}).get("name") == "Hidden Avatar"
-
-    emits.clear()
-    socket_battle_only.handle_bo_catalog_list({})
-    catalog = _find_event(emits, "receive_bo_catalog_list")
-    assert catalog
-    catalog_rec = catalog[-1][1].get("stage_presets", {}).get("stage_meta", {})
-    catalog_rule = catalog_rec.get("field_effect_profile", {}).get("rules", [{}])[0]
-    assert catalog_rule.get("display_name") == "Cold Air"
-    assert catalog_rule.get("description") == "All actors lose speed."
-    assert catalog_rule.get("flavor_text") == "A pale mist coils around every ankle."
-    assert catalog_rec.get("stage_avatar", {}).get("enabled") is False
-
-    emits.clear()
-    socket_battle_only.handle_bo_select_stage_preset({"room": "room_t", "stage_id": "stage_meta"})
-    bo = state.get("battle_only", {})
-    selected_rule = bo.get("stage_field_effect_profile", {}).get("rules", [{}])[0]
-    assert selected_rule.get("display_name") == "Cold Air"
-    assert selected_rule.get("description") == "All actors lose speed."
-    assert selected_rule.get("flavor_text") == "A pale mist coils around every ankle."
-    assert bo.get("stage_avatar_profile", {}).get("enabled") is False
-    assert bo.get("stage_avatar_enabled") is False
-
-    bo["ally_entries"] = [{"preset_id": "ally_1", "user_id": "u_1"}]
-    emits.clear()
-    socket_battle_only.handle_bo_start_battle({"room": "room_t"})
-    runtime_rule = state.get("field_effects", [{}])[0].get("rule", {})
-    assert runtime_rule.get("display_name") == "Cold Air"
-    assert runtime_rule.get("description") == "All actors lose speed."
-    assert runtime_rule.get("flavor_text") == "A pale mist coils around every ankle."
-    assert state.get("stage_avatar_profile", {}).get("enabled") is False
-    assert state.get("stage_avatar_enabled") is False
 
 
 def test_bo_stage_field_effect_toggle_disables_injection(monkeypatch):
@@ -1454,7 +878,7 @@ def test_bo_stage_selection_uses_stage_avatar_enabled_default(monkeypatch):
                 "name": "EnemyFormation",
                 "visibility": "public",
                 "recommended_ally_count": 0,
-                "members": [{"preset_id": "enemy_1", "count": 1, "behavior_profile_override": {}}],
+                "members": [{"preset_id": "enemy_1", "count": 1}],
             }
         },
         "ally_formations": {},
@@ -1482,44 +906,3 @@ def test_bo_stage_selection_uses_stage_avatar_enabled_default(monkeypatch):
     socket_battle_only.handle_bo_start_battle({"room": "room_t"})
     assert state["stage_avatar_profile"]["name"] == "Hidden Avatar"
     assert state["stage_avatar_enabled"] is False
-
-
-def test_bo_export_three_presets_json_filters_visibility_for_player(monkeypatch):
-    state = _base_state()
-    store = {
-        "character_presets": {},
-        "enemy_formations": {
-            "enemy_public": {"id": "enemy_public", "name": "公開敵", "visibility": "public", "members": []},
-            "enemy_gm": {"id": "enemy_gm", "name": "GM敵", "visibility": "gm", "members": []},
-        },
-        "ally_formations": {
-            "ally_public": {"id": "ally_public", "name": "公開味方", "visibility": "public", "members": []},
-            "ally_gm": {"id": "ally_gm", "name": "GM味方", "visibility": "gm", "members": []},
-        },
-        "stage_presets": {
-            "stage_public": {"id": "stage_public", "name": "公開ステージ", "visibility": "public", "enemy_formation_id": "enemy_public"},
-            "stage_gm": {"id": "stage_gm", "name": "GMステージ", "visibility": "gm", "enemy_formation_id": "enemy_gm"},
-        },
-    }
-    emits = _patch_common(
-        monkeypatch,
-        state,
-        store,
-        user_info={"username": "alice", "attribute": "Player", "user_id": "u_1"},
-    )
-
-    socket_battle_only.handle_bo_export_enemy_formations_json({})
-    socket_battle_only.handle_bo_export_ally_formations_json({})
-    socket_battle_only.handle_bo_export_stage_presets_json({})
-
-    enemy_rows = _find_event(emits, "bo_export_enemy_formations_json")
-    ally_rows = _find_event(emits, "bo_export_ally_formations_json")
-    stage_rows = _find_event(emits, "bo_export_stage_presets_json")
-    assert enemy_rows and ally_rows and stage_rows
-
-    enemy_items = json.loads(enemy_rows[-1][1].get("content", "{}")).get("items", {})
-    ally_items = json.loads(ally_rows[-1][1].get("content", "{}")).get("items", {})
-    stage_items = json.loads(stage_rows[-1][1].get("content", "{}")).get("items", {})
-    assert "enemy_public" in enemy_items and "enemy_gm" not in enemy_items
-    assert "ally_public" in ally_items and "ally_gm" not in ally_items
-    assert "stage_public" in stage_items and "stage_gm" not in stage_items

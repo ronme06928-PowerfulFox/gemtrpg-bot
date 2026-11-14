@@ -3,6 +3,7 @@ import copy
 import pytest
 
 from manager import room_preset_apply
+from manager.units.characters import build_character, read_character
 
 
 SAMPLE_ENEMY_JSON = {
@@ -27,25 +28,25 @@ def _store():
                 "id": "enemy_1",
                 "name": "GoblinPreset",
                 "visibility": "public",
+                **read_character(SAMPLE_ENEMY_JSON)[0],
                 "allow_ally": False,
                 "allow_enemy": True,
-                "character_json": SAMPLE_ENEMY_JSON,
             },
             "ally_only": {
                 "id": "ally_only",
                 "name": "AllyOnly",
                 "visibility": "public",
+                **read_character(SAMPLE_ENEMY_JSON)[0],
                 "allow_ally": True,
                 "allow_enemy": False,
-                "character_json": SAMPLE_ENEMY_JSON,
             },
             "gm_enemy": {
                 "id": "gm_enemy",
                 "name": "SecretEnemy",
-                "visibility": "gm",
+                "visibility": "staff",
+                **read_character(SAMPLE_ENEMY_JSON)[0],
                 "allow_ally": False,
                 "allow_enemy": True,
-                "character_json": SAMPLE_ENEMY_JSON,
             },
         },
         "enemy_formations": {
@@ -53,7 +54,7 @@ def _store():
                 "id": "form_1",
                 "name": "Two Goblins",
                 "visibility": "public",
-                "members": [{"preset_id": "enemy_1", "count": 2}],
+                "members": [{"unit_id": "enemy_1", "count": 2}],
             }
         },
         "stage_presets": {
@@ -283,12 +284,12 @@ def test_enemy_formation_append_mode_is_reserved_for_future_option():
 
 def test_runtime_enemy_preserves_normalized_tag_state():
     record = copy.deepcopy(_store()["character_presets"]["enemy_1"])
-    record["character_json"]["data"].update({
-        "tag_ids": [" 種別:瓦礫 ", "機械", "種別:瓦礫"],
-        "disabled_tag_ids": ["機械", "未知"],
+    record.update({
+        "tags": [" 種別:瓦礫 ", "機械", "種別:瓦礫"],
+        "disabled_tags": ["機械", "未知"],
     })
 
-    enemy = room_preset_apply.build_runtime_enemy_from_preset(record, 1)
+    enemy = build_character(record, "enemy", 1)
 
     assert enemy["tag_ids"] == ["種別:瓦礫", "機械"]
     assert enemy["disabled_tag_ids"] == ["機械"]
@@ -296,12 +297,12 @@ def test_runtime_enemy_preserves_normalized_tag_state():
 
 def test_runtime_enemy_uses_base_name_instead_of_saved_display_suffix():
     record = copy.deepcopy(_store()["character_presets"]["enemy_1"])
-    record["character_json"]["data"].update({
+    record.update({
         "name": "Goblin [敵 1]",
         "baseName": "Goblin",
     })
 
-    enemy = room_preset_apply.build_runtime_enemy_from_preset(record, 1)
+    enemy = build_character(record, "enemy", 1)
 
     assert enemy["name"] == "Goblin"
     assert enemy["baseName"] == "Goblin"

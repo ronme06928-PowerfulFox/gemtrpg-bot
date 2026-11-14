@@ -5,14 +5,9 @@ from __future__ import annotations
 import copy
 from dataclasses import dataclass
 
-from manager.battle_only_catalog_access import (
-    capabilities,
-    filter_visible_records,
-    get_record,
-    record_map,
-    validate_parent_references,
-)
-from manager.battle_only_presets import normalize_catalog_meta
+from manager.room_access import GM_ROLES
+from manager.units.characters import build_character, skill_catalog
+from manager.units.runtime import can_read, get_record, record_map, valid_deployment_target, visible_records
 from manager.buff_catalog import get_buff_effect
 from manager.game_logic import (
     apply_buff,
@@ -24,7 +19,6 @@ from manager.granted_skills.service import apply_grant_skill_change
 from manager.room_preset_apply import (
     apply_stage_background_to_state,
     assign_runtime_character_number,
-    build_runtime_character_from_preset,
     normalize_stage_avatar,
     normalize_stage_field_effect_profile,
 )
@@ -61,7 +55,7 @@ def _safe_int(value, default=0):
 
 def _record_sort_key(record):
     rec = record if isinstance(record, dict) else {}
-    meta = normalize_catalog_meta(rec.get("catalog_meta"))
+    meta = rec.get("catalog_meta") or {}
     return (
         meta.get("sort_order", 2147483647),
         str(rec.get("name") or rec.get("id") or "").lower(),
@@ -80,32 +74,31 @@ def _collection_sort_key(record):
 
 def _catalog_record(record_type, record):
     rec = record if isinstance(record, dict) else {}
-    meta = normalize_catalog_meta(rec.get("catalog_meta"))
+    meta = rec.get("catalog_meta") or {}
     result = {
         "id": str(rec.get("id") or ""),
         "record_type": record_type,
         "name": str(rec.get("name") or rec.get("id") or ""),
         "description": str(rec.get("description") or ""),
         "catalog_meta": meta,
-        "capabilities": copy.deepcopy(rec.get("capabilities") or {}),
         "shared_via": str(rec.get("shared_via") or rec.get("visibility") or "public"),
     }
     if record_type == "character":
         result.update({
             "allow_ally": bool(rec.get("allow_ally", True)),
             "allow_enemy": bool(rec.get("allow_enemy", True)),
-            "tag_ids": [str(value) for value in rec.get("tag_ids", []) if str(value).strip()],
+            "tag_ids": [str(value) for value in rec.get("tags", []) if str(value).strip()],
         })
     elif record_type in {"enemy_formation", "ally_formation"}:
         members = rec.get("members") if isinstance(rec.get("members"), list) else []
         result.update({
             "member_count": sum(
                 max(1, _safe_int(row.get("count"), 1))
-                for row in members if isinstance(row, dict) and str(row.get("preset_id") or "").strip()
+                for row in members if isinstance(row, dict) and str(row.get("unit_id") or "").strip()
             ),
             "member_kinds": len([
                 row for row in members
-                if isinstance(row, dict) and str(row.get("preset_id") or "").strip()
+                if isinstance(row, dict) and str(row.get("unit_id") or "").strip()
             ]),
         })
     elif record_type == "stage":
@@ -132,34 +125,21 @@ def build_deployment_catalog(
     store,
     *,
     user_id=None,
-    is_app_admin=False,
+    is_author=False,
     room_role=None,
-    owner_names=None,
     bookmarks=None,
     users=None,
 ):
     visible = {}
     for record_type in RECORD_TYPES:
-        rows = filter_visible_records(
-            record_map(store, record_type) or {},
-            user_id=user_id,
-            is_app_admin=is_app_admin,
-            room_role=room_role,
-            owner_names=owner_names,
-        )
+        rows = visible_records(record_map(store, record_type), is_author=is_author, room_role=room_role)
         visible[record_type] = {
             record_id: _catalog_record(record_type, record)
             for record_id, record in rows.items()
-            if isinstance(record, dict) and (record.get("capabilities") or {}).get("can_use")
+            if isinstance(record, dict)
         }
 
-    collections = filter_visible_records(
-        record_map(store, "collection") or {},
-        user_id=user_id,
-        is_app_admin=is_app_admin,
-        room_role=room_role,
-        owner_names=owner_names,
-    )
+    collections = visible_records(record_map(store, "collection"), is_author=is_author, room_role=room_role)
     collection_counts = {}
     section_counts = {}
     for rows in visible.values():
@@ -186,7 +166,7 @@ def build_deployment_catalog(
         "section_counts": section_counts,
         "bookmarks": copy.deepcopy(bookmarks if isinstance(bookmarks, list) else []),
         "users": copy.deepcopy(users if isinstance(users, list) else []),
-        "can_deploy": str(room_role or "").lower() in {"owner", "gm"},
+        "can_deploy": room_role in GM_ROLES,
         "max_deployed_characters": MAX_DEPLOYED_CHARACTERS,
     }
 
@@ -273,23 +253,21 @@ def _require_deployable(store, record_type, record_id, access):
     record = get_record(store, record_type, record_id)
     if not isinstance(record, dict):
         raise PresetDeploymentError("not_found", "プリセットが見つかりません。", refresh_required=True)
-    caps = capabilities(record, **access)
-    if not caps.get("can_deploy"):
+    if not can_read(record, **access):
         raise PresetDeploymentError("permission_denied", "このプリセットを配置する権限がありません。", refresh_required=True)
     if record_type in {"enemy_formation", "ally_formation", "stage"}:
-        if not validate_parent_references(store, record_type, record):
+        if not valid_deployment_target(store, record_type, record):
             raise PresetDeploymentError("invalid_reference", "参照先を利用できないプリセットです。", refresh_required=True)
     return record
 
 
-def resolve_deployment_request(store, request_data, *, user_id=None, is_app_admin=False, room_role=None):
+def resolve_deployment_request(store, request_data, *, user_id=None, is_author=False, room_role=None):
     request_data = normalize_deployment_request(request_data)
     access = {
-        "user_id": user_id,
-        "is_app_admin": is_app_admin,
+        "is_author": is_author,
         "room_role": room_role,
     }
-    if str(room_role or "").lower() not in {"owner", "gm"}:
+    if room_role not in GM_ROLES:
         raise PresetDeploymentError("permission_denied", "配置にはルームowner・gm権限が必要です。")
 
     resolved = copy.deepcopy(request_data)
@@ -327,7 +305,7 @@ def resolve_deployment_request(store, request_data, *, user_id=None, is_app_admi
             continue
         members = formation["record"].get("members")
         for member in members if isinstance(members, list) else []:
-            if isinstance(member, dict) and str(member.get("preset_id") or "").strip():
+            if isinstance(member, dict) and str(member.get("unit_id") or "").strip():
                 total += max(1, _safe_int(member.get("count"), 1))
     total += sum(row["count"] for row in resolved["characters"])
     resolved["new_character_count"] = total
@@ -450,14 +428,14 @@ def _formation_rows(formation, side):
     for member in members if isinstance(members, list) else []:
         if not isinstance(member, dict):
             continue
-        preset_id = str(member.get("preset_id") or "").strip()
+        preset_id = str(member.get("unit_id") or "").strip()
         if not preset_id:
             continue
         rows.append({
             "preset_id": preset_id,
             "count": max(1, _safe_int(member.get("count"), 1)),
             "user_id": str(member.get("user_id") or "").strip() or None,
-            "behavior_profile_override": copy.deepcopy(member.get("behavior_profile_override") or {}),
+            "pattern_id": member.get("pattern_id"),
             "side": side,
         })
     return rows
@@ -592,6 +570,7 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
         }
 
     new_chars = []
+    masters = skill_catalog()
     serial = len(candidate.get("characters", [])) + 1
     gm_name, gm_id = _owner_for(None, active_users, gm_user)
     for side in SIDES:
@@ -607,17 +586,13 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
                 raise PresetDeploymentError("invalid_reference", "編成内のキャラクターが見つかりません。", refresh_required=True)
             owner_name, owner_id = _owner_for(row.get("user_id"), active_users, gm_user) if side == "ally" else (gm_name, gm_id)
             for _ in range(row["count"]):
-                char = build_runtime_character_from_preset(
-                    rec,
-                    serial,
-                    side=side,
+                char = build_character(
+                    rec, side, serial,
+                    pattern_id=row.get("pattern_id"), masters=masters,
                     owner_name=owner_name,
                     owner_id=owner_id,
                 )
                 serial += 1
-                if row.get("behavior_profile_override") and side == "enemy":
-                    flags = char.setdefault("flags", {})
-                    flags["behavior_profile"] = copy.deepcopy(row["behavior_profile_override"])
                 apply_passive_effect_buffs(char)
                 assign_runtime_character_number(char, candidate["characters"])
                 candidate["characters"].append(char)
@@ -629,10 +604,8 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
         side = row["side"]
         owner_name, owner_id = _owner_for(row.get("user_id"), active_users, gm_user) if side == "ally" else (gm_name, gm_id)
         for _ in range(row["count"]):
-            char = build_runtime_character_from_preset(
-                row["record"],
-                serial,
-                side=side,
+            char = build_character(
+                row["record"], side, serial, masters=masters,
                 owner_name=owner_name,
                 owner_id=owner_id,
             )
@@ -786,7 +759,7 @@ def _build_battle_only_candidate(state, resolved, store, *, gm_user=None, active
                 {
                     "preset_id": row["preset_id"],
                     "count": row["count"],
-                    "behavior_profile_override": copy.deepcopy(row.get("behavior_profile_override") or {}),
+                    "pattern_id": row.get("pattern_id"),
                 }
                 for row in rows
             ]
@@ -802,7 +775,7 @@ def _build_battle_only_candidate(state, resolved, store, *, gm_user=None, active
             _, owner_id = _owner_for(row.get("user_id"), active_users, gm_user)
             existing.extend({"preset_id": row["record_id"], "user_id": owner_id or gm_id} for _ in range(row["count"]))
         else:
-            existing.append({"preset_id": row["record_id"], "count": row["count"], "behavior_profile_override": {}})
+            existing.append({"preset_id": row["record_id"], "count": row["count"], "pattern_id": None})
         bo[key] = existing
         summary["added"][side] += row["count"]
 
@@ -843,7 +816,7 @@ def preview_deployment(state, request_data, store, **context):
         store,
         request_data,
         user_id=context.get("user_id"),
-        is_app_admin=context.get("is_app_admin", False),
+        is_author=context.get("is_author", False),
         room_role=context.get("room_role"),
     )
     build = build_deployment_candidate(
@@ -861,7 +834,7 @@ def apply_deployment(state, request_data, store, **context):
         store,
         request_data,
         user_id=context.get("user_id"),
-        is_app_admin=context.get("is_app_admin", False),
+        is_author=context.get("is_author", False),
         room_role=context.get("room_role"),
     )
     build = build_deployment_candidate(

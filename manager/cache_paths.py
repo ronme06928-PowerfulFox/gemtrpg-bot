@@ -15,7 +15,6 @@ PASSIVES_CACHE_FILE = CACHE_DIR / "passives_cache.json"
 BUFF_CATALOG_CACHE_FILE = CACHE_DIR / "buff_catalog_cache.json"
 GLOSSARY_CACHE_FILE = CACHE_DIR / "glossary_catalog_cache.json"
 SUMMON_TEMPLATES_CACHE_FILE = CACHE_DIR / "summon_templates_cache.json"
-BATTLE_ONLY_PRESETS_CACHE_FILE = CACHE_DIR / "battle_only_presets_cache.json"
 
 
 def ensure_cache_dir() -> None:

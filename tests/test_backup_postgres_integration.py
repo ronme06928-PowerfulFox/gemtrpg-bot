@@ -112,7 +112,8 @@ def test_dump_and_restore_preserve_application_data(postgres, tmp_path):
     tools = postgres["tools"]
     folder = backup.create_backup(postgres["uri"]("backup_source"), tools, tmp_path)
     manifest = backup.verify_backup(folder, tools)
-    assert manifest["public_table_count"] == 10
+    from extensions import db
+    assert manifest["public_table_count"] == len(db.metadata.tables)
     target = backup.parse_connection_url(postgres["uri"]("backup_restored"))
     assert target.host == "127.0.0.1"
     with backup.connection_environment(target) as env:

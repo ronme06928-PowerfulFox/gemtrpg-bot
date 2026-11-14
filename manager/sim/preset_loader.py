@@ -6,12 +6,10 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from manager.battle_only_runtime import (
-    _apply_enemy_behavior_override,
-    _bo_assign_auto_positions,
-    _build_runtime_character_from_preset,
-)
-from manager.battle_only_presets import load_store as load_bo_preset_store
+from manager.battle_only_runtime import _bo_assign_auto_positions
+from manager.units.characters import build_character, skill_catalog
+from manager.units.runtime import deployment_store
+from manager.units.transfer import package_entries
 from manager.sim.reporting import safe_int
 
 
@@ -52,7 +50,7 @@ def load_preset_store_from_path(path: str | None) -> dict:
         from flask import has_app_context
 
         if has_app_context():
-            return load_bo_preset_store()
+            return deployment_store()
         os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
         os.environ.setdefault("GEMTRPG_SKIP_IMPORT_STARTUP", "1")
         from app import create_app
@@ -63,12 +61,16 @@ def load_preset_store_from_path(path: str | None) -> dict:
             register_routes=False,
         )
         with app.app_context():
-            return load_bo_preset_store()
+            from manager.catalog.kinds import KINDS
+            from manager.catalog.repository import load_kind_into_memory
+
+            store = deployment_store()
+            for kind in KINDS:
+                load_kind_into_memory(kind)
+            return store
     with Path(path).open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
-    if not isinstance(payload, dict):
-        raise ValueError("preset store JSON must be an object")
-    return payload
+    return deployment_store(package_entries(payload))
 
 
 def _preset_map(store: dict) -> dict:
@@ -101,9 +103,9 @@ def _require_preset(store: dict, preset_id: str, side: PresetSide) -> dict:
     return rec
 
 
-def _build_character_from_preset(store: dict, preset_id: str, side: PresetSide, serial_no: int) -> dict:
+def _build_character_from_preset(store: dict, preset_id: str, side: PresetSide, serial_no: int, *, masters, pattern_id=None) -> dict:
     rec = _require_preset(store, preset_id, side)
-    return _build_runtime_character_from_preset(rec, side, serial_no)
+    return build_character(rec, side, serial_no, masters=masters, pattern_id=pattern_id)
 
 
 def _build_characters_from_preset_ids(
@@ -111,16 +113,17 @@ def _build_characters_from_preset_ids(
     preset_ids: list[str] | None,
     side: PresetSide,
     start_serial: int,
+    masters: dict,
 ) -> list[dict]:
     chars = []
     serial_no = int(start_serial)
     for preset_id in preset_ids or []:
-        chars.append(_build_character_from_preset(store, preset_id, side, serial_no))
+        chars.append(_build_character_from_preset(store, preset_id, side, serial_no, masters=masters))
         serial_no += 1
     return chars
 
 
-def _build_characters_from_formation(store: dict, formation_id: str | None, side: PresetSide, start_serial: int) -> list[dict]:
+def _build_characters_from_formation(store: dict, formation_id: str | None, side: PresetSide, start_serial: int, masters: dict) -> list[dict]:
     formation_id = str(formation_id or "").strip()
     if not formation_id:
         return []
@@ -133,17 +136,15 @@ def _build_characters_from_formation(store: dict, formation_id: str | None, side
     for member in formation.get("members") or []:
         if not isinstance(member, dict):
             continue
-        preset_id = str(member.get("preset_id") or "").strip()
+        preset_id = str(member.get("unit_id") or "").strip()
         if not preset_id:
             continue
         count = safe_int(member.get("count"), 1)
         if count <= 0:
             count = 1
         for _ in range(count):
-            char = _build_character_from_preset(store, preset_id, side, serial_no)
-            if side == "enemy":
-                _apply_enemy_behavior_override(char, member.get("behavior_profile_override"))
-            chars.append(char)
+            chars.append(_build_character_from_preset(
+                store, preset_id, side, serial_no, masters=masters, pattern_id=member.get("pattern_id")))
             serial_no += 1
     return chars
 
@@ -157,8 +158,9 @@ def build_room_state_from_presets(
     enemy_formation_id: str | None = None,
     stage_id: str | None = None,
     anchor: dict | None = None,
+    masters: dict | None = None,
 ) -> dict:
-    store = copy.deepcopy(store) if isinstance(store, dict) else load_bo_preset_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
     state = empty_room_state_for_presets()
 
     if stage_id:
@@ -171,12 +173,13 @@ def build_room_state_from_presets(
         if isinstance(stage.get("field_effect_profile"), dict):
             state["battle_only"]["field_effect_profile"] = copy.deepcopy(stage.get("field_effect_profile"))
 
+    masters = skill_catalog() if masters is None else masters
     allies = []
     enemies = []
-    allies.extend(_build_characters_from_formation(store, ally_formation_id, "ally", 1))
-    allies.extend(_build_characters_from_preset_ids(store, ally_preset_ids, "ally", len(allies) + 1))
-    enemies.extend(_build_characters_from_formation(store, enemy_formation_id, "enemy", len(allies) + 1))
-    enemies.extend(_build_characters_from_preset_ids(store, enemy_preset_ids, "enemy", len(allies) + len(enemies) + 1))
+    allies.extend(_build_characters_from_formation(store, ally_formation_id, "ally", 1, masters))
+    allies.extend(_build_characters_from_preset_ids(store, ally_preset_ids, "ally", len(allies) + 1, masters))
+    enemies.extend(_build_characters_from_formation(store, enemy_formation_id, "enemy", len(allies) + 1, masters))
+    enemies.extend(_build_characters_from_preset_ids(store, enemy_preset_ids, "enemy", len(allies) + len(enemies) + 1, masters))
 
     if not allies:
         raise ValueError("at least one ally preset or ally formation is required")
