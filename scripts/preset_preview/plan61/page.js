@@ -307,7 +307,7 @@
   panel.className = 'proto-panel';
   panel.innerHTML = `<details open><summary>試作の切替</summary><div>
     <label>レイアウト<select data-proto="layout"><option value="toc">目次＋1セクション（管理画面と同様）</option><option value="long">全セクションを縦に表示</option></select></label>
-    <label>スキル表示<select data-proto="skills"><option value="table">表形式</option><option value="card">カード形式（コスト・効果つき）</option></select></label></div></details>`;
+    <label>スキル表示<select data-proto="skills"><option value="card">カード形式（コスト・効果つき）</option><option value="table">表形式</option></select></label></div></details>`;
   document.body.appendChild(panel);
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('plan61-proto') || '{}'); } catch (e) { /* 覚えなくてよい */ }

@@ -24,7 +24,7 @@ const data = {
 
 const [style, script] = await Promise.all([read('scripts/preset_preview/plan61/page.css'), read('scripts/preset_preview/plan61/page.js')]);
 const html = `<!doctype html>
-<html lang="ja" data-layout="toc" data-skills="table" data-scene="edit"><head><meta charset="utf-8">
+<html lang="ja" data-layout="toc" data-skills="card" data-scene="edit"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>計画61 キャラの画面 · 試作</title>
 <style>${style}</style>
