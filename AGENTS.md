@@ -95,6 +95,11 @@ python app.py --pull    # 本番の公開APIからマスターデータ7種類�
 - `save_specific_room_state` は **デバウンス**（約2秒）して書き込みを集約する。即時の DB 反映を前提にしたコードを書かないこと（読み取りはメモリ優先なので整合する）。
 - worker=1 / eventlet のため、重い同期処理はイベントループ全体をブロックする点に注意。
 
+## マスターデータ管理画面の使い方
+
+- 管理画面を直したら、使い方ページ（`static/help/master_data.html`）と写真（`static/help/master_data/`）も直す。
+- 別フォルダの確認用DBでアプリを起動し、`python scripts/catalog_preview/help/shots.py --db <確認用の instance/gemtrpg.db> --publish` で撮り直す。`static/help/master_data/` に出力された写真の切り出し範囲を確認する。
+
 ## 確認用の出力の片付け
 
 マニュアル・動画・アプリのアニメーションなどの確認で作る画像・PDF・MP4の部品・ソースの写しは、ストレージを大きく使う。作ること自体はかまわないが、作業の区切り（コミット・push、段階の完了、確認の完了）ごとに整理する。

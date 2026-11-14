@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>マスターデータ管理画面の使い方</title>
+  <style>
+:root {
+  --text: #1e293b; --sub: #4b5563; --edge: #d6dee8; --control: #7b8798; --soft: #f5f7fa; --bg: #ffffff;
+  --primary: #1d4ed8; --primary-soft: #e8efff; --warn: #8a4b00; --warn-soft: #fff4dc;
+  --size: 16px; --leading: 1.85; --measure: 38em; --gap: 1.1em;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--soft); color: var(--text); font-size: var(--size); line-height: var(--leading); }
+.help-page { margin: 0 auto; padding: 32px 24px 96px; max-width: 1180px; background: var(--bg); min-height: 100vh; }
+
+/* 見出しと本文 */
+.help-title { max-width: var(--measure); margin-bottom: 28px; }
+.help-kicker { margin: 0; color: var(--sub); font-size: .82em; letter-spacing: .04em; }
+.help-title h1 { margin: .2em 0 .4em; font-size: 1.75em; line-height: 1.35; }
+.help-lead { margin: 0; color: var(--sub); }
+.help-body { min-width: 0; }
+.help-body section { max-width: var(--measure); margin: 0 0 3.2em; scroll-margin-top: 16px; }
+.help-body h2 { display: flex; align-items: center; gap: .6em; margin: 0 0 .8em; padding-bottom: .35em; border-bottom: 2px solid var(--edge); font-size: 1.45em; line-height: 1.4; }
+.help-num { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; border-radius: 6px; background: var(--primary); color: #fff; font-size: .72em; }
+.help-body h3 { margin: 1.8em 0 .5em; font-size: 1.15em; line-height: 1.45; }
+.help-body p { margin: 0 0 var(--gap); }
+.help-body b { font-weight: 700; }
+.ui { padding: 0 .3em; border: 1px solid var(--control); border-radius: 4px; background: var(--bg); font-weight: 600; }
+code { padding: 0 .25em; border-radius: 3px; background: var(--soft); font-size: .92em; }
+a { color: var(--primary); }
+
+/* 手順・前提・結果・困ったとき */
+.help-steps { margin: 0 0 var(--gap); padding-left: 1.6em; }
+.help-steps li + li { margin-top: .55em; }
+.help-steps li::marker { color: var(--primary); font-weight: 700; }
+.help-pre, .help-result { padding: .5em .8em; border-radius: 6px; background: var(--soft); }
+.help-result { background: var(--primary-soft); }
+.help-pre > span, .help-result > span { display: inline-block; margin-right: .6em; padding: 0 .5em; border-radius: 3px; background: var(--bg); color: var(--sub); font-size: .85em; font-weight: 700; }
+.help-trouble { margin: 1.2em 0 0; padding: .8em 1em; border-left: 3px solid var(--warn); background: var(--warn-soft); }
+.help-trouble::before { content: "うまくいかないとき"; display: block; margin-bottom: .4em; color: var(--warn); font-size: .85em; font-weight: 700; }
+#appendix .help-trouble::before { content: none; }
+.help-trouble dt { font-weight: 700; }
+.help-trouble dd { margin: .1em 0 .7em; }
+.help-trouble dd:last-child { margin-bottom: 0; }
+
+/* 役割の印と流れ */
+.help-role { display: inline-block; margin-left: .6em; padding: 0 .6em; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); background: var(--warn-soft); font-size: .62em; font-weight: 700; vertical-align: middle; }
+p .help-role { font-size: .8em; margin: 0 .2em; }
+.help-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 0 0 var(--gap); padding: 0; list-style: none; }
+.help-flow li { position: relative; display: grid; gap: .1em; padding: .5em 1.4em .5em .9em; }
+.help-flow li + li::before { content: "→"; position: absolute; left: -.45em; top: .45em; color: var(--sub); }
+.help-state { padding: 0 .6em; border: 1px solid var(--control); border-radius: 999px; font-weight: 700; }
+.help-flow small { color: var(--sub); font-size: .78em; }
+
+/* 表 */
+table { width: 100%; margin: 0 0 var(--gap); border-collapse: collapse; font-size: .95em; }
+th, td { padding: .5em .75em; border-bottom: 1px solid var(--edge); text-align: left; vertical-align: top; }
+thead th { background: var(--soft); color: var(--sub); font-size: .88em; }
+tbody th { width: 34%; }
+@media (min-width: 600px) { tbody th { white-space: nowrap; width: auto; } }
+.help-body { overflow-wrap: anywhere; }
+
+/* 図 */
+.help-figure { margin: 1.4em 0 1.6em; }
+.help-figure-editor { max-width: 30em; }
+.help-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 4px 14px #0f172a14; }
+.help-figure figcaption { margin-top: .55em; color: var(--sub); font-size: .86em; line-height: 1.6; }
+.help-fig-no { margin-right: .6em; color: var(--text); font-weight: 700; }
+/* 目次 */
+.help-toc { margin: 0 0 32px; padding: 1em 1.2em; border: 1px solid var(--edge); border-radius: 8px; background: var(--soft); max-width: var(--measure); }
+.help-toc-title { margin: 0 0 .4em; color: var(--sub); font-size: .85em; font-weight: 700; }
+.help-toc ol { margin: 0; padding-left: 1.6em; columns: 2; column-gap: 2em; }
+.help-toc li { break-inside: avoid; }
+.help-toc a { text-decoration: none; }
+.help-toc a:hover { text-decoration: underline; }
+.help-toc-admin::after { content: "管理者"; margin-left: .5em; color: var(--warn); font-size: .75em; font-weight: 700; white-space: nowrap; }
+@media (min-width: 900px) {
+  .help-page { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 40px; }
+  .help-title { grid-column: 1 / -1; }
+  .help-toc { grid-column: 1; grid-row: 2; position: sticky; top: 16px; align-self: start; margin: 0; padding: .9em 1em; }
+  .help-toc ol { columns: 1; padding-left: 1.4em; }
+  .help-toc li + li { margin-top: .25em; }
+  .help-body { grid-column: 2; grid-row: 2; }
+}
+@media (max-width: 680px) {
+  .help-page { padding: 24px 16px 80px; }
+  .help-toc ol { columns: 1; }
+}
+  </style>
+</head>
+<body>
+<div class="help-page">
+<header class="help-title">
+  <p class="help-kicker">ジェムリアTRPG ダイスボット</p>
+  <h1>マスターデータ管理画面の使い方</h1>
+  <p class="help-lead">スキル・バフ・用語などのマスターデータを、アプリの中で作り、確かめてもらって公開するための画面です。この使い方では、やりたいことごとに手順を説明します。</p>
+</header>
+
+<nav class="help-toc" aria-label="目次">
+  <p class="help-toc-title">目次</p>
+  <ol>
+    <li><a href="#start">はじめに</a></li>
+    <li><a href="#browse">データを探す</a></li>
+    <li><a href="#edit">データを直す</a></li>
+    <li><a href="#new-skill">スキルを作る</a></li>
+    <li><a href="#text">文章と効果をそろえる</a></li>
+    <li><a href="#request">効果を頼む</a></li>
+    <li><a href="#withdraw">取り下げと却下</a></li>
+    <li class="help-toc-admin"><a href="#approve">承認する</a></li>
+    <li class="help-toc-admin"><a href="#deprecate">廃止と版の戻し</a></li>
+    <li class="help-toc-admin"><a href="#answer">リクエストに答える</a></li>
+    <li><a href="#appendix">付録</a></li>
+  </ol>
+</nav>
+
+<main class="help-body">
+
+<section id="start">
+  <h2><span class="help-num">1</span>はじめに</h2>
+  <p>マスターデータ管理画面は、ロビーの<b class="ui">マスターデータ</b>から開きます。用語・バフ・スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの7種類を、ここで見て、直して、公開します。</p>
+
+  <h3>できることとロール</h3>
+  <p>できることは、アカウントのロールで変わります。ロールはアプリ管理者が付けます。</p>
+  <table>
+    <thead><tr><th>ロール</th><th>できること</th></tr></thead>
+    <tbody>
+      <tr><th>一般</th><td>公開中と廃止のデータを見る</td></tr>
+      <tr><th>制作者</th><td>下書きを作って直し、承認を申請する。作れない効果を頼む</td></tr>
+      <tr><th>アプリ管理者</th><td>申請を承認・却下する。データを廃止する、前の版に戻す。リクエストに答える</td></tr>
+    </tbody>
+  </table>
+  <p>このページの<span class="help-role">管理者</span>の印が付いた節は、アプリ管理者だけが使う操作です。</p>
+
+  <h3>公開までの流れ</h3>
+  <p>直した内容は、すぐにはゲームに出ません。<b>下書き</b>として保存し、<b>承認を申請</b>して、アプリ管理者が<b>承認</b>したときに公開されます。却下されたときは、理由を読んで直し、申請し直します。</p>
+  <ol class="help-flow" aria-label="公開までの流れ">
+    <li><span class="help-state">下書き</span><small>制作者が保存</small></li>
+    <li><span class="help-state">承認待ち</span><small>制作者が申請</small></li>
+    <li><span class="help-state">公開中</span><small>管理者が承認</small></li>
+  </ol>
+  <p>公開すると、遊んでいるルームにもすぐに反映されます。</p>
+</section>
+
+<section id="browse">
+  <h2><span class="help-num">2</span>データを探す</h2>
+  <p>上の<b>種類のタブ</b>で種類を選び、検索と状態で一覧を絞ります。一覧で選んだデータの中身は、右の詳細に出ます。</p>
+  <figure class="help-figure">
+    <img width="1280" height="720" loading="lazy" src="master_data/01_browse.png" alt="管理画面の全体。上に種類のタブ、その下に検索と状態、左に一覧、右に詳細">
+    <figcaption><span class="help-fig-no">図2-1</span>管理画面の全体。上から種類のタブ、検索と状態、一覧と詳細が並びます。</figcaption>
+  </figure>
+  <ol class="help-steps">
+    <li><b>種類のタブ</b>で、見たい種類を選びます。タブの数字は公開中の件数です。</li>
+    <li>検索の欄に ID・名前・説明の一部を入れると、一覧が絞られます。</li>
+    <li>状態のボタン（<b class="ui">公開中</b>・<b class="ui">廃止</b>・<b class="ui">下書き</b>・<b class="ui">承認待ち</b>・<b class="ui">却下</b>）で、見る状態を切り替えます。下書きから先は制作者にだけ出ます。</li>
+    <li>一覧のカードを選ぶと、右に詳細が出ます。詳細の下の<b class="ui">使われている所</b>と<b class="ui">履歴</b>は、押すと開きます。</li>
+  </ol>
+
+  <h3>スキルの画面</h3>
+  <p>スキルは件数が多いので、専用の画面で探します。<b class="ui">スキル</b>のタブを押すと、左にカテゴリの列が出ます。カテゴリの数字は、今の検索と状態に合う件数です。<b class="ui">← マスターデータ</b>で、前に見ていた種類に戻ります。</p>
+  <figure class="help-figure">
+    <img width="1280" height="630" loading="lazy" src="master_data/02_skill.png" alt="スキルの画面。左にカテゴリの列、真ん中に一覧、右に詳細">
+    <figcaption><span class="help-fig-no">図2-2</span>スキルの画面。詳細には、ゲームでの見え方・威力の見込み・効果の説明が並びます。</figcaption>
+  </figure>
+  <h3>威力の見込み</h3>
+  <p>スキルの詳細には<b class="ui">威力の見込み</b>が出ます。補正なしで、自分のほかの値はすべて0、相手はいないとして計算した最小・平均・最大です。<b class="ui">補正を適用</b>を入れると、チャットパレットが使う補正の値を入れて計算し直せます。入れた値はこのブラウザーが覚え、ほかのスキルでも同じ値を使います。</p>
+</section>
+
+<section id="edit">
+  <h2><span class="help-num">3</span>データを直す</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
+  <ol class="help-steps">
+    <li>直したいデータを選び、詳細の<b class="ui">編集</b>を押します。編集を始めただけでは下書きは作られません。最初に<b class="ui">下書きを保存</b>か<b class="ui">承認を申請</b>を押したときに作られます。</li>
+    <li>左の目次で節を選び、真ん中の欄を直します。右には、直した内容のプレビューと、検査で見つかった問題が出ます。</li>
+    <li>直し終わったら、下の<b class="ui">下書きを保存</b>を押します。続けて申請するなら<b class="ui">承認を申請</b>を押します。</li>
+  </ol>
+  <figure class="help-figure">
+    <img width="1280" height="720" loading="lazy" src="master_data/03_editor.png" alt="編集の画面。左に節の目次、真ん中に入力、右にプレビュー、下に保存と申請のボタン">
+    <figcaption><span class="help-fig-no">図3-1</span>編集の画面。左の目次で節を選び、真ん中で直し、右で結果を確かめます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>保存すると、一覧の状態が<b>下書き</b>になります。申請すると<b>承認待ち</b>になり、アプリ管理者の承認を待ちます。</p>
+  <dl class="help-trouble">
+    <dt>節を移ると、入力が消えないか心配</dt>
+    <dd>節を移るだけでは保存されませんが、入力と問題は残っています。上の帯の<b>編集中・未保存</b>は、保存していない変更がある印です。</dd>
+    <dt><b class="ui">← 戻る</b>を押したら「保存していない変更があります」と出た</dt>
+    <dd><b class="ui">下書きを保存して移る</b>で保存してから戻ります。捨ててよいときは<b class="ui">変更を捨てる</b>、続けるときは<b class="ui">編集に戻る</b>を押します。</dd>
+  </dl>
+</section>
+
+<section id="new-skill">
+  <h2><span class="help-num">4</span>スキルを作る</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。スキルの画面を開いた所から始めます。</p>
+  <ol class="help-steps">
+    <li>上の<b class="ui">＋新しく作る</b>を押し、カテゴリを選んで<b class="ui">編集を始める</b>を押します。IDは、承認するときに次の番号が付きます。</li>
+    <li><b class="ui">本体</b>の節で、名前・分類・距離・属性・取得コスト・基礎威力・ダイス威力を入れます。ダイス威力は、<b class="ui">＋ 足す</b>か<b class="ui">− 引く</b>と、ダイスの数と面で選びます。振らないスキルは<b class="ui">振らない</b>に印を入れます。</li>
+    <li>チャットパレットの<b class="ui">項目から作る</b>を押すと、基礎威力・ダイス威力・分類からチャットパレットを作ります。</li>
+    <li><b class="ui">コスト</b>・<b class="ui">補正</b>・<b class="ui">効果</b>の節で、使用コスト・条件で増える威力・効果を設定します。効果は<b class="ui">効果を追加</b>で足し、効果タイプ・タイミング・対象を選びます。</li>
+    <li><b class="ui">文章</b>の節で<b class="ui">効果から文章を作る</b>を押し、ゲームの書き方の文章を作ります（<a href="#text">文章と効果をそろえる</a>）。</li>
+    <li>右のプレビューで、ゲームでの見え方と威力の見込みを確かめ、保存して申請します。</li>
+  </ol>
+  <figure class="help-figure help-figure-editor">
+    <img width="584" height="480" loading="lazy" src="master_data/04_effects.png" alt="効果の節。効果ごとに、効果タイプ・タイミング・対象・値の欄が並ぶ">
+    <figcaption><span class="help-fig-no">図4-1</span>効果の節。効果タイプは系統ごとにまとまって並びます。</figcaption>
+  </figure>
+  <dl class="help-trouble">
+    <dt>チャットパレットの注意が出た</dt>
+    <dd>チャットパレットが、項目から作る式と違います。<b class="ui">項目から作る</b>で作り直します。補正を付けないスキルは、特記に印の文を書きます（<a href="#no-correction">補正を付けない印</a>）。</dd>
+    <dt>作りたい効果が、効果タイプに無い</dt>
+    <dd>効果のリクエストを出します（<a href="#request">効果を頼む</a>）。</dd>
+  </dl>
+</section>
+
+<section id="text">
+  <h2><span class="help-num">5</span>文章と効果をそろえる</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
+  <p>スキルには、遊ぶ人が読む<b>文章</b>（コスト・発動時効果・特記）と、ゲームが動かす<b>効果の設定</b>の2つがあります。2つが食い違わないように、文章から効果を作る道具と、効果から文章を作る道具があります。</p>
+  <table>
+    <thead><tr><th>使う場面</th><th>道具</th></tr></thead>
+    <tbody>
+      <tr><th>決まった言い回しで文章を書いた</th><td>目次の下の<b class="ui">文章から効果を作る</b>で、文章を読み取って効果の設定を作り直す</td></tr>
+      <tr><th>効果をフォームで組んだ</th><td><b class="ui">文章</b>の節の<b class="ui">効果から文章を作る</b>で、設定から文章を作る</td></tr>
+    </tbody>
+  </table>
+
+  <h3>効果から文章を作る</h3>
+  <ol class="help-steps">
+    <li><b class="ui">文章</b>の節を開き、<b class="ui">効果から文章を作る</b>を押します。</li>
+    <li>コスト・発動時効果・特記の欄ごとに、左に今の文章、右に効果から作った文章が並びます。違う文字には色が付きます。</li>
+    <li>置き換える欄の<b class="ui">作った文章に置き換える</b>を押します。違う欄をまとめて置き換えるときは<b class="ui">違う欄をすべて置き換える</b>を押します。</li>
+  </ol>
+  <figure class="help-figure help-figure-editor">
+    <img width="584" height="480" loading="lazy" src="master_data/05_writer.png" alt="文章の節の見比べ。左に今の文章、右に作った文章が並び、違う数字に色が付いている">
+    <figcaption><span class="help-fig-no">図5-1</span>効果の出血を4から6に変えたあとの見比べ。違う文字に色が付きます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>置き換えても保存はしません。保存するまでは元に戻せます。</p>
+  <p>文章と効果が食い違っているときは、<b class="ui">文章</b>の節の見出しの下に「文章と効果の設定が食い違っています」と出ます。申請は止まりませんが、出ているときは見比べて直します。文にできない設定があるときは、その一覧が出るので、その文だけは手で書きます。</p>
+</section>
+
+<section id="request">
+  <h2><span class="help-num">6</span>効果を頼む</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
+  <p>今の効果タイプで作れない効果は、アプリ管理者にリクエストとして頼みます。出したリクエストは、制作者の全員が見られます。</p>
+  <ol class="help-steps">
+    <li>頼みたい効果を使う下書きを、先に<b class="ui">下書きを保存</b>で保存します。</li>
+    <li><b class="ui">効果</b>の節の上の「作りたい効果がタイプに無いときは <b class="ui">リクエストを出す</b>」を押します。下書きをひもづけずに出すときは、見出しの<b class="ui">リクエスト</b>から<b class="ui">＋新しく出す</b>を押します。</li>
+    <li>題と欲しい効果を書きます。文の例と近い効果タイプは、分かれば書きます。</li>
+    <li><b class="ui">リクエストを出す</b>を押すと、編集の画面に戻ります。</li>
+  </ol>
+  <p class="help-result"><span>結果</span>見出しの<b class="ui">リクエスト</b>の件数が増え、下書きの上の帯に「効果のリクエスト：題（受付）」と出ます。</p>
+  <table>
+    <thead><tr><th>状態</th><th>意味</th></tr></thead>
+    <tbody>
+      <tr><th>受付</th><td>出したばかり。出した人は直したり取り下げたりできる</td></tr>
+      <tr><th>対応中</th><td>アプリ管理者が作っている</td></tr>
+      <tr><th>実装済み</th><td>効果タイプができた。使う効果タイプは管理者のメモにある</td></tr>
+      <tr><th>見送り</th><td>今は作らない。理由は管理者のメモにある</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section id="withdraw">
+  <h2><span class="help-num">7</span>取り下げと却下</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
+  <p>下書きや申請を取り下げるときは、一覧で選び、詳細の<b class="ui">取り下げ</b>を押します。承認待ちの間は編集できないので、直したいときも一度取り下げます。編集中の下書きは、編集の画面の<b class="ui">その他 ▾</b>からも取り下げられます。取り下げると下書きは消え、公開中の版はそのまま残ります。</p>
+  <p>却下されたときは、詳細に<b>却下の理由</b>が出ます。理由を読んで直し、もう一度<b class="ui">承認を申請</b>を押します。</p>
+</section>
+
+<section id="approve" class="help-admin">
+  <h2><span class="help-num">8</span>承認する<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
+  <ol class="help-steps">
+    <li>見出しの<b class="ui">承認待ち</b>を押し、申請の一覧から1つ選びます。</li>
+    <li>変わった項目だけが、左に公開中の版、右に下書きで並びます。違う文字には色が付きます。変わっていない項目は<b class="ui">変わっていない項目も見る</b>で開きます。</li>
+    <li>よければ<b class="ui">承認して公開</b>を押します。新しいデータは、承認のときに正式IDが付きます。直してほしいときは<b class="ui">却下…</b>を押し、理由を書いて<b class="ui">却下する</b>を押します。</li>
+  </ol>
+  <figure class="help-figure">
+    <img width="1230" height="330" loading="lazy" src="master_data/06_review.png" alt="承認の画面。変わった項目が左右に並び、下に承認と却下のボタン">
+    <figcaption><span class="help-fig-no">図8-1</span>承認の画面。変わった項目だけを左右に並べます。</figcaption>
+  </figure>
+  <p class="help-result"><span>結果</span>承認すると公開中になり、遊んでいるルームにもすぐに反映されます。</p>
+</section>
+
+<section id="deprecate" class="help-admin">
+  <h2><span class="help-num">9</span>廃止と版の戻し<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
+  <p>使わなくなったデータは、詳細の<b class="ui">廃止</b>で廃止します。廃止しても、すでにそのデータを使っている所の参照は残ります。<b class="ui">廃止を取り消す</b>で元に戻せます。</p>
+  <p>前の版に戻すときは、詳細の<b class="ui">履歴</b>を開き、戻したい版の<b class="ui">この版に戻す</b>を押します。その版の内容で、新しい版として公開し直します。</p>
+</section>
+
+<section id="answer" class="help-admin">
+  <h2><span class="help-num">10</span>リクエストに答える<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
+  <ol class="help-steps">
+    <li>見出しの<b class="ui">リクエスト</b>を押し、一覧から1つ選びます。</li>
+    <li>詳細の下の<b>管理者の操作</b>で状態を選び、管理者のメモを書いて<b class="ui">状態とメモを保存</b>を押します。<b>実装済み</b>にするときは、使う効果タイプをメモに書きます。</li>
+  </ol>
+  <p>作るときは<b class="ui">依頼文としてコピー</b>を押すと、リクエストの中身・元の下書き・作り方をまとめた文がコピーされます。そのまま開発の依頼に使えます。</p>
+</section>
+
+<section id="appendix">
+  <h2><span class="help-num">付</span>付録</h2>
+  <h3>挿入の使い方</h3>
+  <p>文章の欄の名前の右にある<b class="ui">挿入 ▾</b>で、タイミングと用語を選んで入れられます。用語は <code>[[W-00|出血]]</code> のような形で入り、ゲームでは用語図鑑へのリンクになります。</p>
+  <h3>言い回しの早見表</h3>
+  <p>文章から効果を作るときに読める言い回しは、目次の下の<b class="ui">文章から効果を作る</b>の早見表にまとめています。コストは「([[W-19|使用時]]):FPを3消費」、効果は「([[W-20|的中時]]):出血4を付与」のように、タイミングを頭に付けて書きます。</p>
+  <h3 id="no-correction">補正を付けない印</h3>
+  <p>チャットパレットに物理補正・魔法補正を付けないスキルは、特記に「このスキルには物理補正を適用しない。」（魔法のスキルは「魔法補正」）と書きます。この文があると、チャットパレットの注意と<b class="ui">項目から作る</b>が、補正の項を付けない形になります。</p>
+  <h3>困ったとき</h3>
+  <dl class="help-trouble">
+    <dt>通信に失敗したと出た</dt>
+    <dd>入力は残っています。少し待ってから、同じ操作をもう一度行います。続くときは、見出しの<b class="ui">更新</b>を押します。</dd>
+    <dt>食い違いの知らせが消えない</dt>
+    <dd><b class="ui">効果から文章を作る</b>で見比べて、違う欄を置き換えます。文にできない設定がある文は、効果の設定に合うように手で直します。</dd>
+    <dt>ほかの人の公開で、一覧が古い</dt>
+    <dd>ほかの人が公開すると知らせが出て、一覧が読み直されます。編集中の入力はそのまま残ります。</dd>
+  </dl>
+</section>
+
+</main>
+</div>
+</body>
+</html>

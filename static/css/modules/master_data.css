@@ -83,6 +83,7 @@
 .cat-callout, .cat-message { padding: 9px 18px; background: var(--cat-primary-soft); color: var(--cat-sub); font-size: 12px; overflow-wrap: anywhere; }
 .cat-message { position: absolute; right: 18px; bottom: 18px; z-index: 30; display: flex; align-items: flex-start; gap: 12px; max-width: min(480px, calc(100% - 36px)); max-height: 180px; overflow: auto; border: 1px solid var(--cat-primary); border-radius: 8px; box-shadow: 0 8px 24px var(--cat-shadow); }
 .cat-message span { flex: 1; }
+.cat-help-link { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
 .cat-message .cat-button { flex-shrink: 0; padding: 0 8px; min-height: 28px; }
 .cat-message.is-error, .cat-field-error { color: var(--cat-danger); }
 .cat-message.is-error { background: var(--cat-danger-soft); border-color: var(--cat-danger); }

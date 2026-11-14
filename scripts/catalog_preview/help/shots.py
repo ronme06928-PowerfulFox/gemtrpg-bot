@@ -4,16 +4,26 @@
   1. 手元の instance/gemtrpg.db ではない、別のフォルダからアプリを起動する（起動したときのカレントの instance/ が使われる）。
   2. python scripts/catalog_preview/help/shots.py --base http://127.0.0.1:5000 --db <そのフォルダ>/instance/gemtrpg.db
 写真は _local/catalog_preview/help/shots/ に、1280×720 で書く。利用者は制作者とアプリ管理者の両方の印を付けて作る。
+--publish を付けると、使い方ページ用の範囲に切り出して static/help/master_data/ に書く。
 """
 import argparse
 import sqlite3
 import uuid
+from functools import partial
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
 OUT = ROOT / "_local" / "catalog_preview" / "help" / "shots"
+PUBLISHED = ROOT / "static" / "help" / "master_data"
+# 試作の「要る所を切り出す」の範囲（1280×720、左・上・幅・高さ）。
+CROPS = {
+    "02_skill": (0, 90, 1280, 630),
+    "04_effects": (176, 145, 584, 480),
+    "05_writer": (176, 145, 584, 480),
+    "06_review": (25, 90, 1230, 330),
+}
 
 
 def wait(page, ms=900):
@@ -32,11 +42,14 @@ def pick(page, text):
     wait(page)
 
 
-def shot(page, name):
-    OUT.mkdir(parents=True, exist_ok=True)
+def shot(page, name, *, publish):
+    output = PUBLISHED if publish else OUT
+    output.mkdir(parents=True, exist_ok=True)
     page.mouse.move(2, 2)  # ⓘ の説明などが出たままにならないように、カーソルを外す。
     wait(page, 300)
-    page.screenshot(path=str(OUT / f"{name}.png"))
+    crop = CROPS.get(name) if publish else None
+    clip = dict(zip(("x", "y", "width", "height"), crop)) if crop else None
+    page.screenshot(path=str(output / f"{name}.png"), clip=clip)
     print("wrote", name)
 
 
@@ -44,7 +57,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:5000")
     parser.add_argument("--db", required=True)
+    parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()
+    capture = partial(shot, publish=args.publish)
     login = "help" + uuid.uuid4().hex[:8]
     with sync_playwright() as p:
         browser = p.chromium.launch(channel="chrome")
@@ -67,23 +82,23 @@ def main():
         }""")
 
         open_workspace(page, args.base)
-        shot(page, "01_browse")
+        capture(page, "01_browse")
 
         page.locator('[data-kind="skill"]').click(); wait(page, 1200)
         pick(page, "Ps-04"); wait(page, 1200)
-        shot(page, "02_skill")
+        capture(page, "02_skill")
 
         page.locator('#cat-detail [data-action="edit"]').click(); wait(page, 1200)
-        shot(page, "03_editor")
+        capture(page, "03_editor")
 
         page.locator('[data-section="effects"]').click(); wait(page)
-        shot(page, "04_effects")
+        capture(page, "04_effects")
 
         value = page.locator('[data-effect-index="0"][data-effect-path="value"]').first
         value.fill("6"); value.dispatch_event("change"); wait(page)
         page.locator('[data-section="description"]').click(); wait(page)
         page.get_by_role("button", name="効果から文章を作る", exact=True).click(); wait(page)
-        shot(page, "05_writer")
+        capture(page, "05_writer")
 
         page.locator('.cat-editbar [data-action="back"]').click(); wait(page)
         leave = page.get_by_role("button", name="変更を捨てる")
@@ -91,7 +106,7 @@ def main():
             leave.click(); wait(page)
         page.get_by_role("button", name="承認待ち").first.click(); wait(page)
         page.locator("[data-pending-id]").first.click(); wait(page, 1500)
-        shot(page, "06_review")
+        capture(page, "06_review")
         browser.close()
 
 

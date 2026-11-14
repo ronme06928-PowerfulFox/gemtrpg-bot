@@ -24,7 +24,7 @@
     let model = models[options.kind || 'glossary'];
     if (!model) throw new Error('未対応の種類です。');
     panel.classList.add('bo-workspace', 'cat-workspace');
-    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2></div><div class="bo-workspace__header-actions"><span id="cat-request-action"></span><span id="cat-pending-action"></span>${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
+    panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2></div><div class="bo-workspace__header-actions"><span id="cat-request-action"></span><span id="cat-pending-action"></span><a class="cat-button cat-help-link" href="/static/help/master_data.html" target="_blank" rel="noopener">使い方</a>${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
     const scene = panel.querySelector('.cat-scene');
     const message = panel.querySelector('.cat-message');
     let destroyed = false;
@@ -986,7 +986,7 @@
       if ([...document.querySelectorAll('.modal-backdrop')].at(-1) !== overlay || !panel.contains(document.activeElement)) return;
       if (event.key === 'Escape') { event.preventDefault(); panel.querySelector('[data-action="close"]').click(); }
       if (event.key === 'Tab') {
-        const controls = [...panel.querySelectorAll('button,input,select,textarea,summary')].filter(control => !control.disabled && control.getClientRects().length);
+        const controls = [...panel.querySelectorAll('a[href],button,input,select,textarea,summary')].filter(control => !control.disabled && control.getClientRects().length);
         const first = controls[0], last = controls[controls.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
