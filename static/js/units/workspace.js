@@ -260,12 +260,18 @@
       const picker = state.picker;
       if (!picker) return;
       get('.unit-candidates').innerHTML = views.candidateList(views.candidates(picker.source,state.records,masters,state.draft),
-        get('[data-candidate-search]').value);
+        get('[data-candidate-search]').value, picker.source, get('[data-candidate-category]')?.value || '');
     }
 
     function openPicker(control) {
       state.picker = {...control.dataset};
-      showDialog('候補を選択','<label class="cat-field">候補を検索<input type="search" data-candidate-search></label><div class="unit-candidates"></div>');
+      const rows = views.candidates(state.picker.source,state.records,masters,state.draft);
+      const categories = views.categories(rows);
+      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加'}[state.picker.source] || '候補を選択';
+      showDialog(title,`<div class="unit-candidate-filters"><label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-candidate-search placeholder="ID・名前・効果の文で検索"></label>
+        ${categories.length ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-candidate-category><option value="">すべての分類</option>${categories.map(c => `<option>${h(c)}</option>`).join('')}</select></label>` : ''}</div>
+        <div class="unit-candidates ${views.master.includes(state.picker.source) ? 'is-detail' : ''}"></div>`);
+      get('.unit-dialog article')?.classList.toggle('is-wide', views.master.includes(state.picker.source));
       renderCandidates();
       get('[data-candidate-search]').focus();
     }
@@ -357,7 +363,7 @@
 
     async function onAction(control) {
       if (!control) return;
-      const {unitAction:action,id,kind,section,path,index,group,revision} = control.dataset;
+      const {unitAction:action,id,kind,section,path,index,revision} = control.dataset;
       const readActions = ['close','close-dialog','reload','tab','record','section'];
       if (!canEdit() && !readActions.includes(action)) return;
       if (action === 'close') { if (await canLeave()) close(); }
@@ -408,10 +414,6 @@
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
         rows.splice(Number(index),1);
-        update(true);
-      }
-      if (action === 'add-param') {
-        addRow('params',{label:({能力値:'筋力',補正:'物理補正',技能:'技能',その他:'項目'})[group],value:0});
         update(true);
       }
       if (action === 'add-rule') {
@@ -548,6 +550,7 @@
     });
     panel.addEventListener('change', event => {
       if (event.target.matches('[data-unit-file]')) run(() => readFile(event.target));
+      if (event.target.matches('[data-candidate-category]')) renderCandidates();
     });
     document.addEventListener('keydown',onKey);
     window.addEventListener('beforeunload',beforeUnload);

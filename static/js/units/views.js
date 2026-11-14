@@ -20,12 +20,29 @@
       (kind === 'unit' ? item.payload['allow_' + side] !== false : item.payload.type === side));
   }
 
-  function candidateList(rows, query) {
+  // 候補の中身（スキルはパレット・コスト・効果、ほかのマスターは説明）を、閲覧用のカードで見せる。
+  const plain = text => String(text || '').replace(/\[\[[^|\]\n]+\|([^\]\n]+)\]\]/g, '$1');
+  const detailOf = (source, p) => source === 'skill'
+    ? [p['チャットパレット'] ? `<pre class="unit-candidate-palette">${h(p['チャットパレット'])}</pre>` : '',
+      `<p>${h([plain(p.コスト), plain(p.発動時効果)].filter(Boolean).join(' ') || '効果なし')}</p>`,
+      p.特記 ? `<p class="cat-caption">${h(plain(p.特記))}</p>` : ''].join('')
+    : master.includes(source) ? `<p>${h(p.description || '')}</p>` : '';
+  const searchText = (source, row) => [row.entry_id, nameOf(row.payload),
+    source === 'skill' ? [row.payload.分類, plain(row.payload.コスト), plain(row.payload.発動時効果), plain(row.payload.特記)].join(' ') : row.payload.description || '']
+    .join(' ').toLowerCase();
+
+  function candidateList(rows, query, source = '', category = '') {
     const needle = query.trim().toLowerCase();
-    return rows.filter(row => (row.entry_id + ' ' + nameOf(row.payload)).toLowerCase().includes(needle)).map(row =>
+    const shown = rows.filter(row => (!category || row.payload.分類 === category) && searchText(source,row).includes(needle));
+    if (!master.includes(source)) return shown.map(row =>
       button(`<code>${h(row.entry_id)}</code> ${h(nameOf(row.payload))}`,'candidate',`data-id="${h(row.entry_id)}"`)).join('')
       || '<p class="cat-empty">候補がありません。</p>';
+    return shown.map(row => `<article class="unit-candidate"><header><code>${h(row.entry_id)}</code><strong>${h(nameOf(row.payload))}</strong>
+      ${row.payload.分類 ? `<span class="cat-badge">${h(row.payload.分類)}</span>` : ''}
+      ${button('追加','candidate',`data-id="${h(row.entry_id)}"`,'cat-primary unit-candidate-add')}</header>${detailOf(source,row.payload)}</article>`).join('')
+      || '<p class="cat-empty">候補がありません。</p>';
   }
+  const categories = rows => [...new Set(rows.map(row => row.payload.分類).filter(Boolean))];
 
   function preview(kind, row, records, masters) {
     const p = row.payload;
@@ -62,5 +79,5 @@
     </tbody></table>`;
   }
 
-  window.UnitViews = {master, issues, collectionOptions, candidates, candidateList, preview, importSummary, importReport};
+  window.UnitViews = {master, issues, collectionOptions, candidates, candidateList, categories, preview, importSummary, importReport};
 })();

@@ -91,16 +91,10 @@
 .unit-subhead:first-child { margin-top: 0; }
 .unit-param-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px 10px; }
 .unit-param-grid .cat-field { margin: 0; }
-.unit-param { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 4px; font-size: 12px; color: var(--cat-sub); }
-.unit-param > span, .unit-param > input:first-child:not([aria-label="項目名"]) { grid-column: 1 / -1; }
-.unit-param > input[data-path$=".value"] { grid-column: 1; }
-.unit-workspace .unit-icon { min-height: 0; padding: 0 6px; border: 0; background: none; color: var(--cat-sub); font-size: 14px; }
-.unit-workspace .unit-add { margin-top: 6px; }
 .unit-skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 10px; }
 .unit-skill { padding: 9px 10px; border: 1px solid var(--cat-edge); border-radius: 8px; background: var(--cat-bg); }
 .unit-skill header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
 .unit-skill header code { font-size: 11px; color: var(--cat-sub); }
-.unit-skill header .unit-icon { margin-left: auto; }
 .unit-skill .cat-field { margin-bottom: 4px; }
 .unit-skill-text { margin: 4px 0; font-size: 11.5px; color: var(--cat-sub); }
 .unit-footer { padding: 6px 14px; }
@@ -128,3 +122,21 @@
   .unit-records { display: flex; gap: 5px; max-height: 92px; overflow: auto; }
   .unit-records button { flex: 0 0 auto; min-width: 125px; max-width: 185px; }
 }
+/* 一覧の札が見切れないように（マスターデータの「行の中の span は1行で切る」決まりを外す）。 */
+.unit-records .bo-workspace__record > .unit-record-badges { overflow: visible; white-space: normal; }
+/* 外すボタンは、ほかの操作と離して文字で示す。 */
+.unit-workspace .unit-remove { min-height: 24px; padding: 1px 8px; font-size: 12px; }
+.unit-skill footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.unit-skill footer .cat-field { margin: 0; }
+.unit-members td:last-child { width: auto; text-align: right; }
+/* 候補の一覧：スキルなどは閲覧用のカードで中身を見て選ぶ。 */
+.unit-dialog article.is-wide { width: min(100%, 960px); }
+.unit-candidate-filters { display: grid; grid-template-columns: minmax(0, 1fr) 180px; gap: 8px; margin: 8px 0; }
+.unit-candidate-filters .cat-field { margin: 0; }
+.unit-candidates.is-detail { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 8px; max-height: 60vh; }
+.unit-candidate { padding: 8px 10px; border: 1px solid var(--cat-edge); border-radius: 8px; background: var(--cat-bg); font-size: 12.5px; }
+.unit-candidate header { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; background: none; color: var(--cat-text); }
+.unit-candidate header code { font-size: 11px; color: var(--cat-sub); }
+.unit-candidate-add { margin-left: auto; }
+.unit-candidate p { margin: 3px 0; }
+.unit-candidate-palette { margin: 3px 0; font-family: Consolas, "Courier New", monospace; font-size: 11.5px; white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -99,26 +99,23 @@
       const groups = {'能力値': /^(筋力|生命力|体格|精神力|敏捷|直感|経験|シナリオ経験)$/,
         '補正': /補正|行動回数|速度/, '技能': /技能|判定|^(五感|採取|本能|鑑定|対話|尋問|諜報|窃取|隠密|運動|制作|回避)$/};
       const categorise = label => Object.keys(groups).find(key => groups[key].test(label || '')) || 'その他';
-      // 項目名は固定の表示にし、値だけを並べて直す（名前が空の行＝追加したての行だけ、項目名を入力できる）。
-      const cell = (param, i) => `<div class="unit-param">${param.label
-        ? `<span>${h(param.label)}</span>` : `<input data-path="params.${i}.label" placeholder="項目名" aria-label="項目名">`}
-        <input data-path="params.${i}.value" value="${h(param.value)}" aria-label="${h(param.label || '値')}">
-        ${edit ? button('×','remove-row',`data-path="params" data-index="${i}" aria-label="${h(param.label)}を削除"`,'unit-icon') : ''}</div>`;
+      // パラメータの項目は決まっているので、項目名は固定の表示にし、値だけを直す（追加・削除はしない）。
+      const cell = (param, i) => `<label class="cat-field">${h(param.label || '（名前なし）')}
+        <input data-path="params.${i}.value" value="${h(param.value)}"></label>`;
       return [...Object.keys(groups), 'その他'].map(group => {
         const cells = (p.params || []).map((param,i) => categorise(param.label) === group ? cell(param,i) : '').join('');
-        if (!cells && group === 'その他' && !edit) return '';
-        return `<h4 class="unit-subhead">${group}</h4><div class="unit-param-grid">${cells}</div>`
-          + (edit ? button('＋ 追加','add-param',`data-group="${group}"`,'unit-add') : '');
-      }).join('');
+        return cells ? `<h4 class="unit-subhead">${group}</h4><div class="unit-param-grid">${cells}</div>` : '';
+      }).join('') || '<p class="cat-caption">パラメータはありません。JSONインポートで取り込めます。</p>';
     }
     if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p><div class="unit-skill-grid">' +
       (p.skills || []).map((skill,i) => {
         const master = masters.skill.find(item => item.entry_id === skill.id)?.payload || {};
         return `<article class="unit-skill"><header><code>${h(skill.id)}</code><strong>${h(nameOf(master))}</strong>${master.分類 ? `<span class="cat-badge">${h(master.分類)}</span>` : ''}
-          ${edit ? button('×','remove-row',`data-path="skills" data-index="${i}" aria-label="${h(skill.id)}を削除"`,'unit-icon') : ''}</header>
+          </header>
           ${field('固有名称',`skills.${i}.name`,skill.name,'text',`placeholder="${h(nameOf(master))}"`)}
           <p class="unit-skill-text">${h([plain(master.コスト), plain(master.発動時効果)].filter(Boolean).join(' ') || '効果なし')}</p>
-          ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}</article>`;
+          <footer>${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
+          ${edit ? button('このスキルを外す','remove-row',`data-path="skills" data-index="${i}"`,'cat-danger unit-remove') : ''}</footer></article>`;
       }).join('') + '</div>' + picker('＋ スキルを追加','skill','skills',edit) + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
     if (section === 'gear') return card('パッシブ',items('passive','passives','＋ パッシブを追加')) +
       card('輝化スキル',items('radiance','radiance','＋ 輝化スキルを追加')) +
@@ -132,7 +129,7 @@
     if (section === 'members') return `<table class="unit-members"><thead><tr><th>ユニット</th><th>数</th><th></th></tr></thead><tbody>${
       (p.members || []).map((member,i) => `<tr><td><code>${h(member.unit_id)}</code> ${h(resource(member.unit_id))}</td>
         <td><input type="number" min="1" data-path="members.${i}.count" value="${h(member.count)}" aria-label="${h(resource(member.unit_id))}の数"></td>
-        <td>${edit ? button('×','remove-row',`data-path="members" data-index="${i}" aria-label="メンバー${i + 1}を削除"`,'unit-icon') : ''}</td></tr>`).join('')
+        <td>${edit ? button('外す','remove-row',`data-path="members" data-index="${i}" aria-label="${h(resource(member.unit_id))}を編成から外す"`,'cat-danger unit-remove') : ''}</td></tr>`).join('')
       || '<tr><td colspan="3" class="cat-caption">メンバーなし</td></tr>'}</tbody></table>` + picker('＋ メンバーを追加',p.type + '-unit','members',edit);
     if (section === 'battle') return ['enemy','ally'].map(side => {
       const path = side + '_formation_id';
