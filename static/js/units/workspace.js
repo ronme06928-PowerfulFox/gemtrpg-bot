@@ -92,7 +92,7 @@
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
       get('.unit-records').innerHTML = rows.map(row => `<button type="button" class="bo-workspace__record ${row.entry_id === state.selected ? 'is-selected' : ''}"
         data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${row.entry_id === state.selected}">
-        <code class="cat-id">${h(row.entry_id)}</code> <strong>${h(row.payload.name)}</strong><div>${badges(row)}</div></button>`).join('')
+        <code class="cat-id">${h(row.entry_id)}</code><strong>${h(row.payload.name)}</strong><span class="unit-record-badges">${badges(row)}</span></button>`).join('')
         || '<p class="cat-empty">該当する資源はありません。</p>';
     }
 
@@ -103,8 +103,8 @@
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
           `data-kind="${kind}" aria-pressed="${state.kind === kind}"`,state.kind === kind ? 'cat-primary' : '')).join('');
       get('.unit-filters').innerHTML = (canEdit() ? button('＋ 新規作成','new','','cat-primary') : '') +
-        `<label class="cat-field">検索<input type="search" data-filter="search" value="${h(state.search)}"></label>
-        <label class="cat-field">分類<select data-filter="collection">${views.collectionOptions(state.records,state.collection)}</select></label>
+        `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名前・タグで検索" value="${h(state.search)}"></label>
+        <label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection)}</select></label>
         <label class="unit-inline"><input type="checkbox" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済みも表示</label>`;
       renderList();
     }
@@ -145,7 +145,8 @@
       if (canEdit()) get('.unit-check').innerHTML = state.check ? views.issues(state.check) : '<p class="cat-caption">確認中…</p>';
       const refs = state.refs;
       get('.unit-references').innerHTML = !state.selected ? '<p>未保存</p>' : !refs ? '<p>確認中…</p>' :
-        (refs.references.map(ref => `<p><code>${h(ref.entry_id)}</code> ${h(ref.display_name)}</p>`).join('') +
+        ([...new Map(refs.references.map(ref => [ref.kind + ':' + ref.entry_id, ref])).values()]
+          .map(ref => `<p><code>${h(ref.entry_id)}</code> ${h(ref.display_name)}</p>`).join('') +
          (refs.room_reference_count ? `<p>ルーム ${h(refs.room_reference_count)}件</p>` : '') || '<p>使用中の資源はありません。</p>');
       const save = get('[data-unit-action="save"]');
       if (save) save.disabled = state.conflict || !!Object.keys(state.check?.errors || {}).length;

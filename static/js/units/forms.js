@@ -94,23 +94,32 @@
     }
     if (section === 'status') return grid(num('最大HP','hp',p.hp,'min="0"'), num('最大MP','mp',p.mp,'min="0"'),
       num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"')) +
-      card('初期状態', grid(...[...new Set([...states, ...Object.keys(p.states || {})])].map(key => num(key,`states.${encodeURIComponent(key).replaceAll('.', '%2E')}`,p.states?.[key]))));
+      `<h4 class="unit-subhead">初期状態</h4><div class="unit-param-grid">${[...new Set([...states, ...Object.keys(p.states || {})])].map(key => num(key,`states.${encodeURIComponent(key).replaceAll('.', '%2E')}`,p.states?.[key])).join('')}</div>`;
     if (section === 'params') {
       const groups = {'能力値': /^(筋力|生命力|体格|精神力|敏捷|直感|経験|シナリオ経験)$/,
         '補正': /補正|行動回数|速度/, '技能': /技能|判定|^(五感|採取|本能|鑑定|対話|尋問|諜報|窃取|隠密|運動|制作|回避)$/};
       const categorise = label => Object.keys(groups).find(key => groups[key].test(label || '')) || 'その他';
-      return [...Object.keys(groups), 'その他'].map(group => card(group,
-        (p.params || []).map((param,i) => categorise(param.label) === group ? grid(
-          field('項目',`params.${i}.label`,param.label), field('値',`params.${i}.value`,param.value), edit ? remove('params',i) : '') : '').join('')
-        + (edit ? button('＋ パラメータを追加','add-param',`data-group="${group}"`) : ''))).join('');
+      // 項目名は固定の表示にし、値だけを並べて直す（名前が空の行＝追加したての行だけ、項目名を入力できる）。
+      const cell = (param, i) => `<div class="unit-param">${param.label
+        ? `<span>${h(param.label)}</span>` : `<input data-path="params.${i}.label" placeholder="項目名" aria-label="項目名">`}
+        <input data-path="params.${i}.value" value="${h(param.value)}" aria-label="${h(param.label || '値')}">
+        ${edit ? button('×','remove-row',`data-path="params" data-index="${i}" aria-label="${h(param.label)}を削除"`,'unit-icon') : ''}</div>`;
+      return [...Object.keys(groups), 'その他'].map(group => {
+        const cells = (p.params || []).map((param,i) => categorise(param.label) === group ? cell(param,i) : '').join('');
+        if (!cells && group === 'その他' && !edit) return '';
+        return `<h4 class="unit-subhead">${group}</h4><div class="unit-param-grid">${cells}</div>`
+          + (edit ? button('＋ 追加','add-param',`data-group="${group}"`,'unit-add') : '');
+      }).join('');
     }
-    if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p>' +
+    if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p><div class="unit-skill-grid">' +
       (p.skills || []).map((skill,i) => {
         const master = masters.skill.find(item => item.entry_id === skill.id)?.payload || {};
-        return card(`${skill.id} ${nameOf(master)}`, grid(field('固有名称',`skills.${i}.name`,skill.name),
-          field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')) +
-          `<p class="cat-caption">コスト ${h(plain(master.コスト) || 'なし')}</p><p>${h(plain(master.発動時効果))}</p>` + (edit ? remove('skills',i) : ''));
-      }).join('') + picker('＋ スキルを追加','skill','skills',edit) + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
+        return `<article class="unit-skill"><header><code>${h(skill.id)}</code><strong>${h(nameOf(master))}</strong>${master.分類 ? `<span class="cat-badge">${h(master.分類)}</span>` : ''}
+          ${edit ? button('×','remove-row',`data-path="skills" data-index="${i}" aria-label="${h(skill.id)}を削除"`,'unit-icon') : ''}</header>
+          ${field('固有名称',`skills.${i}.name`,skill.name,'text',`placeholder="${h(nameOf(master))}"`)}
+          <p class="unit-skill-text">${h([plain(master.コスト), plain(master.発動時効果)].filter(Boolean).join(' ') || '効果なし')}</p>
+          ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}</article>`;
+      }).join('') + '</div>' + picker('＋ スキルを追加','skill','skills',edit) + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
     if (section === 'gear') return card('パッシブ',items('passive','passives','＋ パッシブを追加')) +
       card('輝化スキル',items('radiance','radiance','＋ 輝化スキルを追加')) +
       card('アイテム',items('item','items','＋ アイテムを追加'));
@@ -120,9 +129,11 @@
       field('予定スキルを公開','behavior.show_planned',p.behavior?.show_planned,'checkbox'),
       select('行動スロット','behavior.slot_mode',{normal:'通常',none:'なし'},p.behavior?.slot_mode || 'normal'))
       + field('スキルの制約（JSON）','behavior.constraints',window.CatalogJson.stringify(p.behavior?.constraints || []),'area');
-    if (section === 'members') return (p.members || []).map((member,i) => card(resource(member.unit_id),
-      `<code>${h(member.unit_id)}</code>` + grid(num('数',`members.${i}.count`,member.count,'min="1"'),
-      edit ? remove('members',i) : ''))).join('') + picker('＋ メンバーを追加',p.type + '-unit','members',edit);
+    if (section === 'members') return `<table class="unit-members"><thead><tr><th>ユニット</th><th>数</th><th></th></tr></thead><tbody>${
+      (p.members || []).map((member,i) => `<tr><td><code>${h(member.unit_id)}</code> ${h(resource(member.unit_id))}</td>
+        <td><input type="number" min="1" data-path="members.${i}.count" value="${h(member.count)}" aria-label="${h(resource(member.unit_id))}の数"></td>
+        <td>${edit ? button('×','remove-row',`data-path="members" data-index="${i}" aria-label="メンバー${i + 1}を削除"`,'unit-icon') : ''}</td></tr>`).join('')
+      || '<tr><td colspan="3" class="cat-caption">メンバーなし</td></tr>'}</tbody></table>` + picker('＋ メンバーを追加',p.type + '-unit','members',edit);
     if (section === 'battle') return ['enemy','ally'].map(side => {
       const path = side + '_formation_id';
       return card(sides[side], `<p>${h(resource(p[path]))}</p>` + picker('編成を選択',side + '-formation',path,edit)

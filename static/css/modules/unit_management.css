@@ -57,3 +57,74 @@
   .unit-records button { min-width: 125px; max-width: 185px; }
   .unit-editor { padding: 8px; }
 }
+/* 試作（計画61 §3.7・3.8）に合わせた詰めた見た目。マスターデータの部品の大きさを、この画面の中だけ小さくする。 */
+.unit-workspace { font-size: 13px; line-height: 1.5; }
+.unit-workspace .cat-button { min-height: 28px; padding: 3px 10px; font-size: 12.5px; }
+.unit-workspace input:not([type="checkbox"]):not([type="radio"]), .unit-workspace select, .unit-workspace textarea { min-height: 30px; padding: 4px 7px; font-size: 13px; }
+.unit-workspace .cat-field { gap: 3px; margin: 0 0 8px; font-size: 12px; color: var(--cat-sub); }
+.unit-workspace .bo-workspace__header { padding: 10px 16px; }
+.unit-workspace .bo-workspace__header h2 { font-size: 17px; }
+.unit-tabs { padding: 6px 12px; gap: 6px; }
+.unit-tabs .cat-button { min-height: 30px; }
+.unit-filters { display: grid; gap: 6px; padding: 8px; }
+.unit-filters .cat-field { margin: 0; }
+.unit-filters .unit-inline { margin: 0; font-size: 12px; }
+.unit-records { display: grid; gap: 4px; align-content: start; padding: 6px 8px; }
+.unit-records button { display: grid; gap: 1px; margin: 0; padding: 6px 9px; min-height: 0; }
+.unit-records .cat-id { font-size: 11px; }
+.unit-records strong { font-size: 13px; }
+.unit-record-badges { display: flex; flex-wrap: wrap; gap: 3px; }
+.unit-workspace .cat-badge { padding: 0 6px; font-size: 11px; line-height: 1.6; }
+.unit-detail-header { padding: 8px 14px; justify-content: flex-start; }
+.unit-detail-header h3 { font-size: 15px; color: var(--cat-text); }
+.unit-detail-header .cat-id { color: var(--cat-sub); }
+.unit-editor { grid-template-columns: 160px minmax(0, 1fr) minmax(0, 300px); gap: 0; padding: 0; overflow: hidden; }
+.unit-toc { gap: 2px; padding: 10px 8px; border-right: 1px solid var(--cat-edge); align-content: start; overflow: auto; height: 100%; }
+.unit-toc .cat-button { justify-content: flex-start; border: 0; background: none; padding: 6px 9px; min-height: 0; font-size: 13px; }
+.unit-toc .cat-button[aria-current="true"] { background: var(--cat-primary-soft); color: var(--cat-primary); font-weight: 700; }
+.unit-section { padding: 14px 18px 40px; overflow: auto; height: 100%; }
+.unit-confirm { padding: 12px; overflow: auto; height: 100%; border-left: 1px solid var(--cat-edge); background: var(--cat-soft); }
+.unit-workspace .unit-card { margin: 0 0 10px; padding: 9px 10px; }
+.unit-workspace .unit-card h4 { margin: 0 0 6px; font-size: 12.5px; color: var(--cat-sub); }
+.unit-palette { font-family: Consolas, "Courier New", monospace; font-size: 11.5px; line-height: 1.55; }
+.unit-subhead { margin: 12px 0 6px; font-size: 12.5px; color: var(--cat-sub); }
+.unit-subhead:first-child { margin-top: 0; }
+.unit-param-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px 10px; }
+.unit-param-grid .cat-field { margin: 0; }
+.unit-param { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 4px; font-size: 12px; color: var(--cat-sub); }
+.unit-param > span, .unit-param > input:first-child:not([aria-label="項目名"]) { grid-column: 1 / -1; }
+.unit-param > input[data-path$=".value"] { grid-column: 1; }
+.unit-workspace .unit-icon { min-height: 0; padding: 0 6px; border: 0; background: none; color: var(--cat-sub); font-size: 14px; }
+.unit-workspace .unit-add { margin-top: 6px; }
+.unit-skill-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; margin-bottom: 10px; }
+.unit-skill { padding: 9px 10px; border: 1px solid var(--cat-edge); border-radius: 8px; background: var(--cat-bg); }
+.unit-skill header { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.unit-skill header code { font-size: 11px; color: var(--cat-sub); }
+.unit-skill header .unit-icon { margin-left: auto; }
+.unit-skill .cat-field { margin-bottom: 4px; }
+.unit-skill-text { margin: 4px 0; font-size: 11.5px; color: var(--cat-sub); }
+.unit-footer { padding: 6px 14px; }
+@media (max-width: 950px) {
+  .unit-editor { grid-template-columns: minmax(0, 1fr); overflow: auto; }
+  .unit-toc { border-right: 0; border-bottom: 1px solid var(--cat-edge); height: auto; }
+  .unit-section, .unit-confirm { height: auto; overflow: visible; }
+  .unit-confirm { border-left: 0; border-top: 1px solid var(--cat-edge); }
+}
+/* 全体の header { background: #333 } が効かないように、この画面の中の header を明るく戻す。 */
+.unit-workspace .unit-detail-header, .unit-workspace .unit-skill header, .unit-workspace .unit-dialog header { background: none; color: var(--cat-text); }
+.unit-references p, .unit-check p { margin: 2px 0; font-size: 12.5px; }
+.unit-members { width: 100%; margin-bottom: 8px; border-collapse: collapse; }
+.unit-members th, .unit-members td { padding: 5px 6px; border-bottom: 1px solid var(--cat-edge); text-align: left; vertical-align: middle; }
+.unit-members th { font-size: 11.5px; font-weight: 600; color: var(--cat-sub); background: var(--cat-soft); }
+.unit-members code { font-size: 11px; color: var(--cat-sub); }
+.unit-members input { width: 72px; }
+.unit-members td:last-child { width: 32px; }
+/* 狭い幅：上の詰めた見た目の後に置き、一覧は横並び、目次は折り返す。 */
+@media (max-width: 950px) {
+  .unit-toc { display: flex; flex-wrap: wrap; position: static; overflow: visible; }
+  .unit-section { padding: 12px 14px 24px; }
+}
+@media (max-width: 680px) {
+  .unit-records { display: flex; gap: 5px; max-height: 92px; overflow: auto; }
+  .unit-records button { flex: 0 0 auto; min-width: 125px; max-width: 185px; }
+}
