@@ -104,3 +104,8 @@ textarea { width: 100%; resize: vertical; } .mono { font-family: Consolas, monos
 .proto-panel { position: fixed; right: 12px; bottom: 12px; z-index: 10; padding: 10px 12px; border: 1px solid var(--control); border-radius: 8px; background: #fffffff0; box-shadow: 0 6px 20px #0f172a26; font-size: 12px; }
 .proto-panel summary { cursor: pointer; font-weight: 700; }
 .proto-panel div { display: grid; gap: 6px; margin-top: 6px; } .proto-panel label { display: grid; gap: 2px; color: var(--sub); }
+.image-pick { display: flex; align-items: center; gap: 8px; }
+.thumb { display: grid; place-items: center; width: 64px; height: 64px; border: 1px dashed var(--control); border-radius: 6px; color: var(--sub); font-size: 11px; overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.new-menu { margin-bottom: 4px; } .new-menu summary { list-style: none; text-align: center; }
+.new-menu div { display: grid; gap: 4px; margin-top: 4px; }

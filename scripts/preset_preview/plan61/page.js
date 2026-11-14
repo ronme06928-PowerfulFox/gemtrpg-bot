@@ -102,7 +102,7 @@
   function sectionBody(key, char) {
     if (key === 'basic') return `<div class="grid2">
       <label class="field">キャラクター名<input value="${h(char.name)}" data-field="name"></label>
-      <label class="field">画像URL<input value="${h(char.image)}" placeholder="https://…" data-field="image"></label></div>
+      <div class="field"><span>画像</span><div class="image-pick"><span class="thumb">${char.image ? `<img src="${h(char.image)}" alt="">` : '未設定'}</span>${button('画像を選択', 'pick-image')}${char.image ? button('解除', 'clear-image') : ''}</div></div></div>
       <fieldset class="field"><legend>キャラ区分</legend><label class="check"><input type="checkbox" ${char.allow_ally ? 'checked' : ''} data-field="allow_ally">味方キャラクター</label><label class="check"><input type="checkbox" ${char.allow_enemy ? 'checked' : ''} data-field="allow_enemy">敵キャラクター</label></fieldset>
       <label class="check"><input type="checkbox" ${char.scenario ? 'checked' : ''} data-field="scenario">シナリオキャラクター（輝化予算・タグ制限の対象外）</label>
       <label class="check"><input type="checkbox" ${char.gm_only ? 'checked' : ''} data-field="gm_only">GM限定表示</label>
@@ -194,7 +194,7 @@
   function importScene() {
     const result = state.imported;
     return `<div class="editor"><div class="editbar">${button('← 編集', 'go-edit')}<strong>JSONインポート</strong></div>
-      <div class="import-grid"><section class="sec"><h3>JSON入力</h3><p class="muted small">CharaCreator出力・既存プリセットの書き出しに対応。新規作成・移行共通の入口。</p>
+      <div class="import-grid"><section class="sec"><h3>JSON入力</h3><p class="muted small">CharaCreator出力・既存プリセットの書き出しに対応。新規作成・移行共通の入口。</p>${button('ファイル読込', 'noop')}
         <textarea rows="20" class="mono" data-field="import">${h(state.importText)}</textarea>${button('解析', 'read-import', 'btn-primary')}</section>
       <section class="sec">${result ? `<h3>解析結果</h3>
         <table class="result"><tbody>
@@ -228,7 +228,7 @@
     const scene = root.dataset.scene;
     app.innerHTML = `<div class="ws"><header class="ws-head"><div><h2>プリセット管理</h2><p class="muted small">計画61 試作：キャラクター編集フォーム・行動パターン管理</p></div></header>
       <nav class="ws-tabs">${[['edit', 'キャラクター'], ['formation', '編成'], ['stage', 'ステージ']].map(([key, label]) => `<button type="button" data-scene="${key}" aria-selected="${scene === key || (key === 'edit' && scene === 'import')}" ${key === 'stage' ? 'disabled' : ''}>${label}</button>`).join('')}</nav>
-      <div class="ws-body">${scene === 'formation' ? '' : `<aside class="ws-list">${characters.map(row => `<button type="button" class="rec" data-select="${row.id}" aria-current="${row.id === state.selected}"><code>${h(row.id)}</code><strong>${h(row.name)}</strong><span>${row.allow_ally ? '<span class="tag">味方</span>' : ''}${row.allow_enemy ? '<span class="tag tag-enemy">敵</span>' : ''}${row.allow_enemy ? `<span class="muted small">パターン ${row.patterns.length}</span>` : ''}</span></button>`).join('')}</aside>`}
+      <div class="ws-body">${scene === 'formation' ? '' : `<aside class="ws-list"><details class="new-menu"><summary class="btn btn-primary">＋ 新規作成</summary><div>${button('空のキャラクター', 'new-blank')}${button('JSONインポート', 'go-import')}</div></details>${characters.map(row => `<button type="button" class="rec" data-select="${row.id}" aria-current="${row.id === state.selected}"><code>${h(row.id)}</code><strong>${h(row.name)}</strong><span>${row.allow_ally ? '<span class="tag">味方</span>' : ''}${row.allow_enemy ? '<span class="tag tag-enemy">敵</span>' : ''}${row.allow_enemy ? `<span class="muted small">パターン ${row.patterns.length}</span>` : ''}</span></button>`).join('')}</aside>`}
       <main class="ws-main">${scene === 'import' ? importScene() : scene === 'formation' ? formationScene() : editScene()}</main></div></div>`;
   }
 
@@ -258,6 +258,9 @@
       'open-chart': () => alert('既存の行動チャートエディター（behavior_flow_editor_modal.js）でこのパターンを編集。'),
       'copy-other': () => alert('複製先キャラクターを選択。未所持スキルがあれば一覧表示し、置換か削除を選択。'),
       'go-import': () => { root.dataset.scene = 'import'; render(); },
+      'pick-image': () => update(c => { alert('既存の画像選択モーダル（ギャラリー／新規アップロード／デフォルト素材）を表示。アップロードはアプリ経由でCloudinaryへ保存。試作では既定素材を設定。'); c.image = 'https://res.cloudinary.com/demo/image/upload/w_160/sample.jpg'; }),
+      'clear-image': () => update(c => { c.image = ''; }),
+      'new-blank': () => { const id = `NEW_${characters.length + 1}`; characters.push({ ...readCharacter({ data: { name: '新規キャラクター' } }).fields, id, allow_ally: false, allow_enemy: true }); state.selected = id; state.section = 'basic'; root.dataset.scene = 'edit'; render(); },
       'go-edit': () => { root.dataset.scene = 'edit'; render(); },
       'read-import': () => { try { state.imported = readCharacter(JSON.parse(state.importText)); } catch (error) { alert(`JSON解析エラー：${error.message}`); } render(); },
       'create-import': () => {
