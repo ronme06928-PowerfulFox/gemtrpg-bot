@@ -21,7 +21,7 @@ BEHAVIOR_KEYS = {
     "constraints": ("skill_constraints", []),
 }
 CHARACTER_KEYS = {
-    "name", "image", "status", "params", "states", "commands", "SPassive",
+    "name", "image", "status", "params", "commands", "SPassive",
     "inventory", "radiance_skills", "hidden_skills", "special_buffs", "tag_ids",
     "disabled_tag_ids", "flags", "hp", "maxHp", "mp", "maxMp", "characterType",
     "isNPC", "gmOnly",
@@ -70,15 +70,6 @@ def read_character(raw, *, masters=None):
         row.get("label") or row.get("name"): row for row in _list(data.get("status"))
         if isinstance(row, dict) and isinstance(row.get("label") or row.get("name"), str)
     }
-    states = {key: 0 for key in STATES}
-    raw_states = data.get("states")
-    if isinstance(raw_states, dict):
-        states.update({name: _integer(value) for name, value in raw_states.items()})
-    for row in _list(raw_states):
-        if isinstance(row, dict) and isinstance(row.get("name"), str):
-            states[row["name"]] = _integer(row.get("value"))
-    states.update({name: _integer(row.get("value")) for name, row in status.items()
-                   if name not in ("HP", "MP")})
     skills, other_lines = [], []
     for line in str(data.get("commands") or "").splitlines():
         line = line.strip()
@@ -118,7 +109,6 @@ def read_character(raw, *, masters=None):
         "gm_only": bool(data.get("gmOnly")),
         "allow_ally": bool(envelope.get("allow_ally", True)),
         "allow_enemy": bool(envelope.get("allow_enemy", True)),
-        "states": states,
         "params": [{"label": row["label"], "value": row.get("value", 0)}
                    for row in _list(data.get("params"))
                    if isinstance(row, dict) and isinstance(row.get("label"), str)],
@@ -146,6 +136,7 @@ def read_character(raw, *, masters=None):
         unit["initial_" + key] = min(maximum, max(0, _integer(
             row.get("value", data.get(key)), maximum)))
     discarded = sorted(set(data) - CHARACTER_KEYS)
+    discarded.extend(f"status.{label}" for label in status if label not in ("HP", "MP"))
     discarded += sorted(f"flags.{key}" for key in set(flags) - {key for key, _ in BEHAVIOR_KEYS.values()} - {"behavior_profile"})
     return deepcopy(unit), discarded
 
@@ -183,11 +174,9 @@ def build_character(unit, side, serial_no, *, pattern_id=None, owner_name=None,
     name = name or ("味方" if side == "ally" else "敵")
     hp, mp = unit.get("hp", 0), unit.get("mp", 0)
     current_hp, current_mp = unit.get("initial_hp", hp), unit.get("initial_mp", mp)
-    states = dict.fromkeys(STATES, 0)
-    states.update(unit.get("states", {}))
     status = [{"label": "HP", "value": current_hp, "max": hp},
               {"label": "MP", "value": current_mp, "max": mp}]
-    status += [{"label": key, "value": value, "max": value} for key, value in states.items()]
+    status += [{"label": key, "value": 0, "max": 0} for key in STATES]
     params = unit.get("params", [])
     inventory = {item["id"]: item["count"] for item in unit.get("items", [])}
     buffs = unit.get("special_buffs", [])
@@ -203,7 +192,7 @@ def build_character(unit, side, serial_no, *, pattern_id=None, owner_name=None,
         "isNPC": unit.get("scenario", False),
         "hp": current_hp, "mp": current_mp, "maxHp": hp, "maxMp": mp,
         "params": params, "status": status, "initial_status": deepcopy(status),
-        "states": [{"name": key, "value": value, "max": value} for key, value in states.items()],
+        "states": [{"name": key, "value": 0, "max": 0} for key in STATES],
         "commands": "\n".join(commands), "flags": flags,
         "hidden_skills": [skill["id"] for skill in unit.get("skills", []) if skill.get("hidden")],
         "SPassive": unit.get("passives", []) + radiance, "radiance_skills": radiance,

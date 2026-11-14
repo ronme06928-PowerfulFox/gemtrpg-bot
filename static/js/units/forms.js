@@ -10,8 +10,7 @@
   const scopes = {ALL:'全員', ALLY:'味方のみ', ENEMY:'敵のみ'};
   const operators = {GTE:'以上', GT:'より大きい', LTE:'以下', LT:'より小さい', EQ:'等しい', NE:'等しくない'};
   const sides = {enemy:'敵編成', ally:'味方編成'};
-  const states = ['FP', '出血', '破裂', '亀裂', '戦慄', '荊棘'];
-  // スキルの文章の用語リンク [[W-20|的中時]] は、カードでは表示名だけを見せる。
+  // スキルの文章の用語リンク [[W-20|的中時]] は、台帳では表示名を使う。
   const plain = text => String(text || '').replace(/\[\[[^|\]\n]+\|([^\]\n]+)\]\]/g, '$1');
   const button = (label, action, attrs = '', style = '') =>
     `<button type="button" class="cat-button ${style}" data-unit-action="${action}" ${attrs}>${label}</button>`;
@@ -23,7 +22,8 @@
   const select = (label, path, choices, value) => `<label class="cat-field">${h(label)}<select data-path="${path}">${options(choices,value)}</select></label>`;
   const grid = (...fields) => `<div class="unit-fields">${fields.join('')}</div>`;
   const card = (title, body) => `<section class="bo-workspace__card unit-card"><h4>${h(title)}</h4>${body}</section>`;
-  const remove = (path, index) => button('削除','remove-row', `data-path="${path}" data-index="${index}"`, 'cat-danger');
+  const remove = (path, index, label = '外す') =>
+    button(label,'remove-row', `data-path="${path}" data-index="${index}"`, 'cat-danger unit-remove');
   const picker = (label, source, path, edit) => edit ? button(label,'picker',`data-source="${source}" data-path="${path}"`) : '';
   const badge = (label, style = '') => `<span class="cat-badge ${style}">${label}</span>`;
   const badges = row => {
@@ -39,7 +39,7 @@
 
   function defaults(kind, side) {
     if (kind === 'unit') return {name:'', image:'', allow_ally: true, allow_enemy: true, scenario:false,
-      gm_only:false, hp:0, mp:0, states:{}, params:[], skills:[], other_lines:[], passives:[], radiance:[],
+      gm_only:false, hp:0, mp:0, params:[], skills:[], other_lines:[], passives:[], radiance:[],
       items:[], tags:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
     if (kind === 'formation') return {name:'', type:side, recommended_ally_count:0, members:[]};
     return {name:'', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
@@ -76,7 +76,9 @@
     const items = (key, path, label) => (p[path] || []).map((item, i) => {
       const id = typeof item === 'string' ? item : item.id;
       const master = masters[key].find(r => r.entry_id === id);
-      return card(`${id} ${nameOf(master?.payload)}`, (path === 'items' ? field('個数',`items.${i}.count`,item.count,'number','min="0"') : '') + (edit ? remove(path,i) : ''));
+      return `<div class="unit-item-row"><code class="cat-id">${h(id)}</code><strong>${h(nameOf(master?.payload))}</strong>
+        ${path === 'items' ? field('個数',`items.${i}.count`,item.count,'number','min="0"') : ''}
+        ${edit ? remove(path,i) : ''}</div>`;
     }).join('') + picker(label,key,path,edit);
     const resource = id => records.find(item => item.entry_id === id)?.payload.name || id || '未設定';
     const num = (label, path, value = 0, attrs = '') => field(label,path,value,'number',attrs);
@@ -93,8 +95,7 @@
       return field('名前','name',p.name) + field('コンセプト','concept',p.concept) + field('説明','description',p.description,'area') + tags() + common;
     }
     if (section === 'status') return grid(num('最大HP','hp',p.hp,'min="0"'), num('最大MP','mp',p.mp,'min="0"'),
-      num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"')) +
-      `<h4 class="unit-subhead">初期状態</h4><div class="unit-param-grid">${[...new Set([...states, ...Object.keys(p.states || {})])].map(key => num(key,`states.${encodeURIComponent(key).replaceAll('.', '%2E')}`,p.states?.[key])).join('')}</div>`;
+      num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"'));
     if (section === 'params') {
       const groups = {'能力値': /^(筋力|生命力|体格|精神力|敏捷|直感|経験|シナリオ経験)$/,
         '補正': /補正|行動回数|速度/, '技能': /技能|判定|^(五感|採取|本能|鑑定|対話|尋問|諜報|窃取|隠密|運動|制作|回避)$/};
@@ -107,15 +108,21 @@
         return cells ? `<h4 class="unit-subhead">${group}</h4><div class="unit-param-grid">${cells}</div>` : '';
       }).join('') || '<p class="cat-caption">パラメータはありません。JSONインポートで取り込めます。</p>';
     }
-    if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p><div class="unit-skill-grid">' +
+    if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p><div class="unit-skill-ledger">' +
       (p.skills || []).map((skill,i) => {
         const master = masters.skill.find(item => item.entry_id === skill.id)?.payload || {};
-        return `<article class="unit-skill"><header><code>${h(skill.id)}</code><strong>${h(nameOf(master))}</strong>${master.分類 ? `<span class="cat-badge">${h(master.分類)}</span>` : ''}
-          </header>
-          ${field('固有名称',`skills.${i}.name`,skill.name,'text',`placeholder="${h(nameOf(master))}"`)}
-          <p class="unit-skill-text">${h([plain(master.コスト), plain(master.発動時効果)].filter(Boolean).join(' ') || '効果なし')}</p>
-          <footer>${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
-          ${edit ? button('このスキルを外す','remove-row',`data-path="skills" data-index="${i}"`,'cat-danger unit-remove') : ''}</footer></article>`;
+        const cost = plain(master.コスト);
+        const effect = plain(master.発動時効果);
+        const summary = [cost, effect].filter(Boolean).join(' / ') || '効果なし';
+        return `<div class="unit-skill-row">
+          <code class="cat-id">${h(skill.id)}</code><strong>${h(nameOf(master) || skill.id)}</strong>
+          <span class="unit-skill-category">${h(master.分類 || '—')}</span>
+          ${field('固有名称',`skills.${i}.name`,skill.name,'text')}
+          ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
+          ${edit ? remove('skills',i) : ''}
+          <details class="unit-skill-effect"><summary><span>${h(summary)}</span></summary>
+            <dl><dt>コスト</dt><dd>${h(cost || '—')}</dd><dt>効果</dt><dd>${h(effect || '—')}</dd></dl>
+          </details></div>`;
       }).join('') + '</div>' + picker('＋ スキルを追加','skill','skills',edit) + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
     if (section === 'gear') return card('パッシブ',items('passive','passives','＋ パッシブを追加')) +
       card('輝化スキル',items('radiance','radiance','＋ 輝化スキルを追加')) +
@@ -147,7 +154,7 @@
         field('条件パラメータ',path+'.condition.param',rule.condition?.param),
         select('条件演算子',path+'.condition.operator',operators,rule.condition?.operator || 'GTE'),
         field('条件値',path+'.condition.value',rule.condition?.value,'number'))
-        + (edit ? button('条件を解除','clear-reference',`data-path="${path}.condition"`) + remove('field_effect_profile.rules',i) : ''));
+        + (edit ? button('条件を解除','clear-reference',`data-path="${path}.condition"`) + remove('field_effect_profile.rules',i,'削除') : ''));
     }).join('') + (edit ? button('＋ 効果ルールを追加','add-rule') : '');
     if (section === 'avatar') return field('ステージアバターを表示','stage_avatar.enabled',p.stage_avatar?.enabled,'checkbox') +
       field('名前','stage_avatar.name',p.stage_avatar?.name) + field('説明','stage_avatar.description',p.stage_avatar?.description,'area') +
@@ -155,5 +162,5 @@
     return '';
   }
 
-  window.UnitForms = {sections, sides, button, options, field, card, badges, defaults, overwriteUnit, palette, render, nameOf, image};
+  window.UnitForms = {sections, sides, button, options, field, card, badges, defaults, overwriteUnit, palette, render, nameOf, image, plain};
 })();

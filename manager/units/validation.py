@@ -13,7 +13,7 @@ MASTER_FIELDS = {"skills": "skill", "passives": "passive", "radiance": "radiance
 UNIT_FIELDS = {
     "name": str, "image": str, "scenario": bool, "gm_only": bool,
     "allow_ally": bool, "allow_enemy": bool, "hp": int, "mp": int,
-    "initial_hp": int, "initial_mp": int, "states": dict, "params": list,
+    "initial_hp": int, "initial_mp": int, "params": list,
     "skills": list, "other_lines": list, "passives": list, "radiance": list,
     "items": list, "special_buffs": list, "tags": list, "disabled_tags": list,
     "behavior": dict, "patterns": list, "default_pattern_id": (str, type(None)),
@@ -62,8 +62,6 @@ def _check_unit(unit, errors, previous):
         initial = unit.get("initial_" + field, maximum)
         if type(maximum) is not int or type(initial) is not int or not 0 <= initial <= maximum:
             errors[field] = "現在値と最大値が不正です"
-    if any(type(value) is not int for value in unit.get("states", {}).values()):
-        errors["states"] = "状態の値には整数が必要です"
     if any(not isinstance(row, dict) or not _text(row.get("label")) for row in unit.get("params", [])):
         errors["params"] = "パラメータにはラベルが必要です"
     if any(not isinstance(line, str) for line in unit.get("other_lines", [])):

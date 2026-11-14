@@ -318,3 +318,40 @@ def test_formation_side_is_immutable_after_create(unit_app):
     package = transfer.export_package()
     package["entries"][0]["payload"] = updated
     assert "type" in transfer.preview(package)[0]["errors"]
+
+
+def test_initial_states_are_discarded_and_start_at_zero(unit_app):
+    unit, discarded = read_character({"name": "Enemy", "states": {"FP": 8}, "status": [
+        {"label": "HP", "value": 8, "max": 12},
+        {"label": "MP", "value": 2, "max": 6},
+        {"label": "出血", "value": 10},
+        {"name": "FP", "value": 5},
+    ]})
+    assert discarded == ["states", "status.出血", "status.FP"]
+    assert "states" not in unit
+    incoming = {**unit, "states": {"FP": 8, "custom": 4}}
+    saved, _ = repository.save("unit", None, incoming)
+    assert "states" not in saved.payload
+    for side in ("enemy", "ally"):
+        char = build_character(incoming, side, 1)
+        assert char["hp"] == 8 and char["mp"] == 2
+        assert not any(row["value"] or row["name"] == "custom" for row in char["states"])
+        assert all(row["value"] == 0 for row in char["initial_status"][2:])
+
+
+def test_startup_removes_initial_states_from_units_and_history(unit_app):
+    from models import CatalogHistory
+
+    row, _ = repository.save("unit", None, {"name": "Enemy", "hp": 9, "initial_hp": 4})
+    key = row.entry_id
+    for old in (row, CatalogHistory.query.filter_by(kind="unit", entry_id=key).one()):
+        old.payload = {**old.payload, "states": {"FP": 7}}
+    db.session.commit()
+
+    for _ in range(2):
+        run_auto_migration(unit_app)
+        db.session.expire_all()
+        current = repository.get("unit", key)
+        assert current.revision == 1
+        assert current.payload == {"name": "Enemy", "hp": 9, "initial_hp": 4}
+        assert [snapshot.payload for snapshot in repository.history("unit", key)] == [current.payload]

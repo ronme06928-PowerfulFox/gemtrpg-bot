@@ -17,6 +17,7 @@ await import('./static/js/master_data/json.js');
 await import('./static/js/master_data/catalog_api.js');
 await import('./static/js/units/api.js');
 await import('./static/js/master_data/glossary.js');
+await import('./static/js/master_data/skill.js');
 await import('./static/js/units/forms.js');
 await import('./static/js/units/views.js');
 const api = UnitApi;
@@ -38,6 +39,25 @@ assert.match(UnitViews.candidateList(candidates,'visible'), /data-unit-action="c
 assert.doesNotMatch(UnitViews.candidateList(candidates,'visible'), /<datalist|<select/);
 assert.doesNotMatch(UnitForms.render('basic',{kind:'formation',row:draft,records,edit:true}), /data-path="type"/);
 assert.match(UnitViews.importReport([{kind:'unit',entry_id:'U-001',operation:'overwrite',base_revision:2,errors:{},warnings:{ref:'廃止済み'}}]), /上書き（版 2）/);
+const skillRows = [
+  {entry_id:'Ps-01',payload:{デフォルト名称:'Sword',分類:'物理',コスト:'MP 2',発動時効果:'Bleed',特記:'Note',チャットパレット:'1d6 Sword'}},
+  {entry_id:'Pb-01',payload:{デフォルト名称:'Mace',分類:'物理',発動時効果:'Bleed'}},
+];
+const tabs = UnitViews.skillTabs('Ps');
+assert.deepEqual([...tabs.matchAll(/data-category="([^"]*)"/g)].map(match => match[1]),
+  ['', 'Ps','Pb','Pp','Ms','Mb','Mp','B','C','D','E']);
+const results = UnitViews.candidateList(skillRows,'bleed','skill','Ps');
+for (const value of ['Sword','MP 2','Bleed','Note','1d6 Sword','追加']) assert.ok(results.includes(value));
+assert.ok(!results.includes('Mace'));
+assert.ok(!UnitViews.candidateList(skillRows,'Sword','skill','Pb').includes('Sword'));
+const unit = {payload:{...UnitForms.defaults('unit'),skills:[{id:'Ps-01'}]},visibility:'staff',deprecated:true};
+const context = {kind:'unit',row:unit,edit:true,masters:{skill:skillRows},records:[]};
+assert.ok(!('states' in UnitForms.defaults('unit')));
+assert.doesNotMatch(UnitForms.render('status',context), /初期状態|states\./);
+assert.match(UnitForms.render('status',context), /initial_hp/);
+assert.match(UnitForms.render('skills',context), /unit-skill-row.*[\s\S]*外す/);
+const record = UnitViews.recordRow({...unit,entry_id:'U-001'},true);
+for (const value of ['U-001','味方','敵','非公開','廃止']) assert.ok(record.includes(value));
 await api.save('formation', 'F-001', {payload: {type: 'enemy'}, base_revision: 3});
 await api.readCharacter({kind: 'character', data: {name: 'NPC'}});
 await api.exportPackage('SC-01', false);

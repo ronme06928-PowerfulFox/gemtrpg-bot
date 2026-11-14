@@ -29,6 +29,27 @@ def _migrate_skill_cost(inspector):
         logging.info("Auto Migration: renamed skill cost in %d rows", migrated)
 
 
+def _remove_unit_initial_states(inspector):
+    from models import CatalogEntry, CatalogHistory
+
+    changed = 0
+    for model in (CatalogEntry, CatalogHistory):
+        table = model.__table__
+        if not inspector.has_table(table.name):
+            continue
+        for row_id, payload in db.session.execute(
+            select(table.c.id, table.c.payload).where(table.c.kind == "unit")
+        ).all():
+            if not isinstance(payload, dict) or "states" not in payload:
+                continue
+            updated = {key: value for key, value in payload.items() if key != "states"}
+            db.session.execute(table.update().where(table.c.id == row_id).values(payload=updated))
+            changed += 1
+    if changed:
+        db.session.commit()
+        logging.info("Auto Migration: removed initial states from %d unit rows", changed)
+
+
 def _remap_room_drafts(ids):
     from models import Room
 
@@ -290,6 +311,7 @@ def run_auto_migration(app):
 
             _migrate_skill_cost(inspector)
             _migrate_unit_resources()
+            _remove_unit_initial_states(inspect(db.session.connection()))
 
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):

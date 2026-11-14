@@ -90,9 +90,7 @@
       const query = state.search.trim().toLowerCase();
       const rows = tabRows().filter(row => (!state.collection || row.payload.collection_id === state.collection) &&
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
-      get('.unit-records').innerHTML = rows.map(row => `<button type="button" class="bo-workspace__record ${row.entry_id === state.selected ? 'is-selected' : ''}"
-        data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${row.entry_id === state.selected}">
-        <code class="cat-id">${h(row.entry_id)}</code><strong>${h(row.payload.name)}</strong><span class="unit-record-badges">${badges(row)}</span></button>`).join('')
+      get('.unit-records').innerHTML = rows.map(row => views.recordRow(row,row.entry_id === state.selected)).join('')
         || '<p class="cat-empty">該当する資源はありません。</p>';
     }
 
@@ -257,21 +255,25 @@
     }
 
     function renderCandidates() {
-      const picker = state.picker;
-      if (!picker) return;
-      get('.unit-candidates').innerHTML = views.candidateList(views.candidates(picker.source,state.records,masters,state.draft),
-        get('[data-candidate-search]').value, picker.source, get('[data-candidate-category]')?.value || '');
+      const {source, category} = state.picker;
+      const list = get('.unit-candidates');
+      list.innerHTML = views.candidateList(views.candidates(source,state.records,masters,state.draft),
+        get('[data-candidate-search]').value,source,category);
+      get('.unit-candidate-scroll').scrollTop = 0;
     }
 
     function openPicker(control) {
-      state.picker = {...control.dataset};
-      const rows = views.candidates(state.picker.source,state.records,masters,state.draft);
-      const categories = views.categories(rows);
-      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加'}[state.picker.source] || '候補を選択';
-      showDialog(title,`<div class="unit-candidate-filters"><label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-candidate-search placeholder="ID・名前・効果の文で検索"></label>
-        ${categories.length ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-candidate-category><option value="">すべての分類</option>${categories.map(c => `<option>${h(c)}</option>`).join('')}</select></label>` : ''}</div>
-        <div class="unit-candidates ${views.master.includes(state.picker.source) ? 'is-detail' : ''}"></div>`);
-      get('.unit-dialog article')?.classList.toggle('is-wide', views.master.includes(state.picker.source));
+      const {source, path} = control.dataset;
+      state.picker = {source, path, category:''};
+      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',
+        'enemy-unit':'敵メンバーを追加','ally-unit':'味方メンバーを追加','enemy-formation':'敵編成を選択','ally-formation':'味方編成を選択'}[source];
+      showDialog(title,`<label class="cat-field unit-candidate-search">候補検索<input type="search" data-candidate-search placeholder="ID・名称・説明"></label>
+        ${source === 'skill' ? `<nav class="unit-candidate-tabs" aria-label="スキル分類">${views.skillTabs('')}</nav>` : ''}
+        <div class="unit-candidate-scroll">
+          <div class="unit-candidate-head" aria-hidden="true"><span>ID</span><span>名称</span><span>分類</span><span>操作</span></div>
+          <div class="unit-candidates"></div>
+        </div>`);
+      get('.unit-dialog > article').classList.add('is-wide');
       renderCandidates();
       get('[data-candidate-search]').focus();
     }
@@ -409,6 +411,11 @@
       }
       if (action === 'clear-image') { setPath('image',''); update(true); }
       if (action === 'picker') openPicker(control);
+      if (action === 'candidate-category') {
+        state.picker.category = control.dataset.category;
+        dialog.querySelectorAll('[data-category]').forEach(tab => tab.setAttribute('aria-pressed',String(tab === control)));
+        renderCandidates();
+      }
       if (action === 'candidate') pick(id);
       if (action === 'clear-reference') { setPath(path,null); update(true); }
       if (action === 'remove-row') {
@@ -550,7 +557,6 @@
     });
     panel.addEventListener('change', event => {
       if (event.target.matches('[data-unit-file]')) run(() => readFile(event.target));
-      if (event.target.matches('[data-candidate-category]')) renderCandidates();
     });
     document.addEventListener('keydown',onKey);
     window.addEventListener('beforeunload',beforeUnload);

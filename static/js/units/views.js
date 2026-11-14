@@ -1,6 +1,6 @@
 (function () {
   const h = window.CatalogGlossary.escape;
-  const {button, options, nameOf, card, palette, image} = window.UnitForms;
+  const {button, options, nameOf, card, palette, image, badges, plain, sides} = window.UnitForms;
   const master = ['skill','passive','radiance','item'];
   const issues = (result = {}) => [['errors','エラー','error'],['warnings','注意','warning']].map(([key,label,style]) => {
     const rows = Object.values(result[key] || {});
@@ -20,29 +20,44 @@
       (kind === 'unit' ? item.payload['allow_' + side] !== false : item.payload.type === side));
   }
 
-  // 候補の中身（スキルはパレット・コスト・効果、ほかのマスターは説明）を、閲覧用のカードで見せる。
-  const plain = text => String(text || '').replace(/\[\[[^|\]\n]+\|([^\]\n]+)\]\]/g, '$1');
-  const detailOf = (source, p) => source === 'skill'
-    ? [p['チャットパレット'] ? `<pre class="unit-candidate-palette">${h(p['チャットパレット'])}</pre>` : '',
-      `<p>${h([plain(p.コスト), plain(p.発動時効果)].filter(Boolean).join(' ') || '効果なし')}</p>`,
-      p.特記 ? `<p class="cat-caption">${h(plain(p.特記))}</p>` : ''].join('')
-    : master.includes(source) ? `<p>${h(p.description || '')}</p>` : '';
-  const searchText = (source, row) => [row.entry_id, nameOf(row.payload),
-    source === 'skill' ? [row.payload.分類, plain(row.payload.コスト), plain(row.payload.発動時効果), plain(row.payload.特記)].join(' ') : row.payload.description || '']
-    .join(' ').toLowerCase();
+  function recordRow(row, selected) {
+    return `<button type="button" class="bo-workspace__record ${selected ? 'is-selected' : ''}"
+      data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${selected}">
+      <code class="cat-id">${h(row.entry_id)}</code><strong title="${h(row.payload.name)}">${h(row.payload.name)}</strong>
+      <span class="unit-record-badges">${badges(row)}</span></button>`;
+  }
+
+  const skillPrefix = id => id.split('-')[0];
+  const skillPrefixes = ['Ps','Pb','Pp','Ms','Mb','Mp','B','C','D','E'];
+  function skillTabs(category) {
+    return ['すべて', ...skillPrefixes].map(label => {
+      const id = label === 'すべて' ? '' : label;
+      return button(label,'candidate-category',`data-category="${id}" aria-pressed="${id === category}"`);
+    }).join('');
+  }
 
   function candidateList(rows, query, source = '', category = '') {
     const needle = query.trim().toLowerCase();
-    const shown = rows.filter(row => (!category || row.payload.分類 === category) && searchText(source,row).includes(needle));
-    if (!master.includes(source)) return shown.map(row =>
-      button(`<code>${h(row.entry_id)}</code> ${h(nameOf(row.payload))}`,'candidate',`data-id="${h(row.entry_id)}"`)).join('')
-      || '<p class="cat-empty">候補がありません。</p>';
-    return shown.map(row => `<article class="unit-candidate"><header><code>${h(row.entry_id)}</code><strong>${h(nameOf(row.payload))}</strong>
-      ${row.payload.分類 ? `<span class="cat-badge">${h(row.payload.分類)}</span>` : ''}
-      ${button('追加','candidate',`data-id="${h(row.entry_id)}"`,'cat-primary unit-candidate-add')}</header>${detailOf(source,row.payload)}</article>`).join('')
-      || '<p class="cat-empty">候補がありません。</p>';
+    const visible = rows.filter(row => {
+      if (category && skillPrefix(row.entry_id) !== category) return false;
+      const p = row.payload;
+      return [row.entry_id,nameOf(p),p.分類,p.description, p.チャットパレット,plain(p.コスト),
+        plain(p.発動時効果),plain(p.特記),...(p.tags || [])].join(' ').toLowerCase().includes(needle);
+    });
+    if (!visible.length) return '<p class="cat-empty">該当候補なし</p>';
+    return visible.map(row => {
+      const p = row.payload;
+      const skill = source === 'skill';
+      const group = skill ? `${skillPrefix(row.entry_id)} · ${p.分類 || '—'}`
+        : row.kind === 'formation' ? sides[p.type] : row.kind === 'unit' ? badges(row) : (p.分類 || p.category || '—');
+      const detail = skill ? [['パレット',p.チャットパレット],['コスト',plain(p.コスト)],['効果',plain(p.発動時効果)],['特記',plain(p.特記)]]
+        : [['説明',p.description],['タグ',(p.tags || []).join('、')],['構成',p.members?.map(m => `${m.unit_id} × ${m.count}`).join('、')]];
+      return `<article class="unit-candidate"><header><code class="cat-id">${h(row.entry_id)}</code><strong>${h(nameOf(p))}</strong>
+        <span>${row.kind === 'unit' ? group : h(group)}</span>
+        ${button('追加','candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を追加"`,'unit-candidate-add')}</header>
+        <dl>${detail.filter(([,value]) => skill || value).map(([key,value]) => `<dt>${key}</dt><dd>${h(value || '—')}</dd>`).join('')}</dl></article>`;
+    }).join('');
   }
-  const categories = rows => [...new Set(rows.map(row => row.payload.分類).filter(Boolean))];
 
   function preview(kind, row, records, masters) {
     const p = row.payload;
@@ -79,5 +94,5 @@
     </tbody></table>`;
   }
 
-  window.UnitViews = {master, issues, collectionOptions, candidates, candidateList, categories, preview, importSummary, importReport};
+  window.UnitViews = {master, issues, collectionOptions, candidates, candidateList, skillTabs, recordRow, preview, importSummary, importReport};
 })();
