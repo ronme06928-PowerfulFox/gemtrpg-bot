@@ -10,6 +10,7 @@
     ...Object.fromEntries(records.filter(r => r.kind === 'unit_collection').map(r => [r.entry_id,r.payload.name]))},value);
 
   function candidates(source, records, masters, row) {
+    if (source === 'collection') return records.filter(row => row.kind === 'unit_collection');
     if (master.includes(source)) {
       const key = {skill:'skills',passive:'passives',radiance:'radiance',item:'items'}[source];
       const used = (row.payload[key] || []).map(entry => entry.id || entry);
@@ -45,6 +46,7 @@
         plain(p.発動時効果),plain(p.特記),...(p.tags || [])].join(' ').toLowerCase().includes(needle);
     });
     if (!visible.length) return '<p class="cat-empty">該当候補なし</p>';
+    const action = source === 'collection' ? '選択' : '追加';
     return visible.map(row => {
       const p = row.payload;
       const skill = source === 'skill';
@@ -54,7 +56,7 @@
         : [['説明',p.description],['タグ',(p.tags || []).join('、')],['構成',p.members?.map(m => `${m.unit_id} × ${m.count}`).join('、')]];
       return `<article class="unit-candidate"><header><code class="cat-id">${h(row.entry_id)}</code><strong>${h(nameOf(p))}</strong>
         <span>${row.kind === 'unit' ? group : h(group)}</span>
-        ${button('追加','candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を追加"`,'unit-candidate-add')}</header>
+        ${button(action,'candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を${action}"`,'unit-candidate-add')}</header>
         <dl>${detail.filter(([,value]) => skill || value).map(([key,value]) => `<dt>${key}</dt><dd>${h(value || '—')}</dd>`).join('')}</dl></article>`;
     }).join('');
   }

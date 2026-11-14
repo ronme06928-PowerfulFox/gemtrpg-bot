@@ -110,7 +110,8 @@
     function renderDetail() {
       const row = state.draft;
       if (!row) { detail.innerHTML = '<p class="cat-empty">一覧から資源を選択してください。</p>'; return; }
-      const currentSection = sections[state.kind].find(([id]) => id === state.section)[1];
+      const sectionLabel = sections[state.kind].find(([id]) => id === state.section)[1];
+      const currentSection = Array.isArray(sectionLabel) ? sectionLabel.join('') : sectionLabel;
       const persisted = !!state.selected;
       const inUse = !state.refs || state.refs.references.length > 0 || state.refs.room_reference_count > 0;
       const sectionBody = state.section === 'history'
@@ -120,7 +121,7 @@
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
         <div class="unit-editor">
           <nav aria-label="目次" class="unit-toc">${sections[state.kind].map(([id,label]) =>
-            button(label,'section',`data-section="${id}" aria-current="${id === state.section ? 'true' : 'false'}"`)).join('')}</nav>
+            button(Array.isArray(label) ? label.map(part => `<span>${part}</span>`).join('') : label,'section',`data-section="${id}" aria-current="${id === state.section ? 'true' : 'false'}"`)).join('')}</nav>
           <section class="unit-section"><h3>${currentSection}</h3>
             <fieldset ${disabled(!canEdit() && state.section !== 'history')}>${sectionBody}</fieldset></section>
           <aside class="unit-confirm"><h3>確認</h3><div class="unit-preview"></div>
@@ -265,9 +266,10 @@
     function openPicker(control) {
       const {source, path} = control.dataset;
       state.picker = {source, path, category:''};
-      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',
+      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',collection:'分類を選択',
         'enemy-unit':'敵メンバーを追加','ally-unit':'味方メンバーを追加','enemy-formation':'敵編成を選択','ally-formation':'味方編成を選択'}[source];
       showDialog(title,`<label class="cat-field unit-candidate-search">候補検索<input type="search" data-candidate-search placeholder="ID・名称・説明"></label>
+        ${source === 'collection' ? button('未分類','candidate','data-id=""') : ''}
         ${source === 'skill' ? `<nav class="unit-candidate-tabs" aria-label="スキル分類">${views.skillTabs('')}</nav>` : ''}
         <div class="unit-candidate-scroll">
           <div class="unit-candidate-head" aria-hidden="true"><span>ID</span><span>名称</span><span>分類</span><span>操作</span></div>
@@ -280,13 +282,39 @@
 
     function pick(id) {
       const {source,path} = state.picker;
-      if (source.endsWith('-formation')) setPath(path,id);
+      if (source === 'collection') setPath(path,id || null);
+      else if (source.endsWith('-formation')) setPath(path,id);
       else if (source.endsWith('-unit')) addRow(path,{unit_id:id,count:1,pattern_id:null});
       else if (source === 'skill') addRow(path,{id,name:'',hidden:false});
       else if (source === 'item') addRow(path,{id,count:1});
       else addRow(path,id);
       closeDialog();
       update(true);
+      if (source === 'collection') get('[data-source="collection"]')?.focus();
+    }
+
+    function renameSkill(index) {
+      const skill = payload().skills[index];
+      const master = masters.skill.find(row => row.entry_id === skill.id);
+      const defaultName = forms.nameOf(master?.payload) || skill.id;
+      showDialog('スキルの名称変更',`<form data-skill-name-form data-index="${index}">
+        <p>マスターの名称 <strong>${h(defaultName)}</strong></p>
+        <label class="cat-field">固有名称<input type="text" data-skill-name value="${h(skill.name)}" required></label>
+        <div class="cat-actions"><button type="submit" class="cat-button cat-primary">適用</button>
+          ${skill.name ? button('マスターの名称に戻す','reset-skill-name',`data-index="${index}"`) : ''}</div>
+      </form>`);
+      const input = get('[data-skill-name]');
+      input.focus();
+      input.select();
+    }
+
+    function applySkillName(index, value) {
+      if (payload().skills[index].name !== value) {
+        setPath(`skills.${index}.name`,value);
+        closeDialog();
+        update(true);
+        get(`[data-unit-action="rename-skill"][data-index="${index}"]`)?.focus();
+      } else closeDialog();
     }
 
     const confirm = (title, message, confirmText) =>
@@ -411,6 +439,8 @@
       }
       if (action === 'clear-image') { setPath('image',''); update(true); }
       if (action === 'picker') openPicker(control);
+      if (action === 'rename-skill') renameSkill(index);
+      if (action === 'reset-skill-name') applySkillName(index,'');
       if (action === 'candidate-category') {
         state.picker.category = control.dataset.category;
         dialog.querySelectorAll('[data-category]').forEach(tab => tab.setAttribute('aria-pressed',String(tab === control)));
@@ -535,7 +565,6 @@
       let value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value || 0) : input.value;
       if (path === 'tags') value = input.value.split(/[,、\n]/).map(part => part.trim()).filter(Boolean);
       if (path === 'other_lines') value = input.value.split(/\r?\n/).filter(line => line.trim());
-      if (path === 'collection_id') value ||= null;
       if (input.validity.badInput) return;
       if (path === 'behavior.constraints') {
         try {
@@ -554,6 +583,20 @@
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
       update();
+    });
+    panel.addEventListener('submit', event => {
+      const form = event.target;
+      if (!form.matches('[data-skill-name-form]')) return;
+      event.preventDefault();
+      if (!canEdit()) return;
+      const input = get('[data-skill-name]');
+      const value = input.value.trim();
+      if (!value) {
+        input.value = '';
+        input.reportValidity();
+        return;
+      }
+      run(() => applySkillName(form.dataset.index,value));
     });
     panel.addEventListener('change', event => {
       if (event.target.matches('[data-unit-file]')) run(() => readFile(event.target));

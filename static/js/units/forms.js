@@ -1,8 +1,8 @@
 (function () {
   const h = window.CatalogGlossary.escape;
   const sections = {
-    unit: [['basic','基本情報'], ['status','ステータス'], ['params','パラメータ'], ['skills','スキル'],
-      ['gear','パッシブ・輝化スキル・アイテム'], ['behavior','行動設定'], ['history','履歴']],
+    unit: [['basic','基本情報'], ['status','ステータス'], ['skills','スキル'],
+      ['gear',['パッシブ・','輝化スキル・','アイテム']], ['behavior','行動設定'], ['history','履歴']],
     formation: [['basic','基本情報'], ['members','メンバー'], ['history','履歴']],
     stage: [['basic','基本情報'], ['battle','編成'], ['field','フィールド効果'], ['avatar','ステージアバター'], ['history','履歴']],
   };
@@ -84,8 +84,15 @@
     const num = (label, path, value = 0, attrs = '') => field(label,path,value,'number',attrs);
     const tags = () => field('タグ','tags', (p.tags || []).join('、'));
     if (section === 'basic') {
-      const common = grid(select('分類','collection_id', {'':'未分類', ...Object.fromEntries(records.filter(r => r.kind === 'unit_collection').map(r => [r.entry_id,r.payload.name]))},p.collection_id),
-        select('公開範囲','visibility',{public:'公開',staff:'制作者・GMのみ'},row.visibility));
+      const collection = records.find(r => r.kind === 'unit_collection' && r.entry_id === p.collection_id);
+      const common = `<div class="unit-classification">
+        <fieldset class="unit-choice"><legend>分類</legend><div class="unit-current-choice">
+          <span>${h(collection?.payload.name || p.collection_id || '未分類')}</span>
+          ${picker('分類を選択','collection','collection_id',edit)}</div></fieldset>
+        <fieldset class="unit-choice"><legend>公開範囲</legend><div class="unit-radio-options">
+          ${Object.entries({public:'公開',staff:'制作者・GMのみ'}).map(([value,label]) => `<label>
+            <input type="radio" data-path="visibility" name="unit-visibility" value="${value}" ${row.visibility === value ? 'checked' : ''}> ${label}</label>`).join('')}
+        </div></fieldset></div>`;
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
         card('画像',image(p.image) + (edit ? button('画像を選択','image') + (p.image ? button('画像を解除','clear-image') : '') : '')),
         card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy,'checkbox')),
@@ -94,19 +101,20 @@
         grid(`<p>種類 <strong>${h(sides[p.type])}</strong></p>`,num('推奨人数','recommended_ally_count',p.recommended_ally_count,'min="0"')) + common;
       return field('名前','name',p.name) + field('コンセプト','concept',p.concept) + field('説明','description',p.description,'area') + tags() + common;
     }
-    if (section === 'status') return grid(num('最大HP','hp',p.hp,'min="0"'), num('最大MP','mp',p.mp,'min="0"'),
-      num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"'));
-    if (section === 'params') {
+    if (section === 'status') {
+      const vitals = grid(num('最大HP','hp',p.hp,'min="0"'), num('最大MP','mp',p.mp,'min="0"'),
+        num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"'));
       const groups = {'能力値': /^(筋力|生命力|体格|精神力|敏捷|直感|経験|シナリオ経験)$/,
         '補正': /補正|行動回数|速度/, '技能': /技能|判定|^(五感|採取|本能|鑑定|対話|尋問|諜報|窃取|隠密|運動|制作|回避)$/};
       const categorise = label => Object.keys(groups).find(key => groups[key].test(label || '')) || 'その他';
       // パラメータの項目は決まっているので、項目名は固定の表示にし、値だけを直す（追加・削除はしない）。
       const cell = (param, i) => `<label class="cat-field">${h(param.label || '（名前なし）')}
         <input data-path="params.${i}.value" value="${h(param.value)}"></label>`;
-      return [...Object.keys(groups), 'その他'].map(group => {
+      const params = [...Object.keys(groups), 'その他'].map(group => {
         const cells = (p.params || []).map((param,i) => categorise(param.label) === group ? cell(param,i) : '').join('');
-        return cells ? `<h4 class="unit-subhead">${group}</h4><div class="unit-param-grid">${cells}</div>` : '';
+        return cells ? card(group,`<div class="unit-param-grid">${cells}</div>`) : '';
       }).join('') || '<p class="cat-caption">パラメータはありません。JSONインポートで取り込めます。</p>';
+      return card('HP・MP',vitals) + params;
     }
     if (section === 'skills') return '<p class="cat-caption">チャットパレットは配置時にマスターから生成します。</p><div class="unit-skill-ledger">' +
       (p.skills || []).map((skill,i) => {
@@ -115,11 +123,15 @@
         const effect = plain(master.発動時効果);
         const summary = [cost, effect].filter(Boolean).join(' / ') || '効果なし';
         return `<div class="unit-skill-row">
-          <code class="cat-id">${h(skill.id)}</code><strong>${h(nameOf(master) || skill.id)}</strong>
-          <span class="unit-skill-category">${h(master.分類 || '—')}</span>
-          ${field('固有名称',`skills.${i}.name`,skill.name,'text')}
-          ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
-          ${edit ? remove('skills',i) : ''}
+          <div class="unit-skill-heading">
+            <code class="cat-id">${h(skill.id)}</code><strong>${h(skill.name || nameOf(master) || skill.id)}</strong>
+            <span class="unit-skill-category">${h(master.分類 || '—')}</span>
+            ${edit ? button('名称変更','rename-skill',`data-index="${i}" aria-label="${h(skill.name || nameOf(master) || skill.id)}の名称変更"`) : ''}
+          </div>
+          <div class="unit-skill-actions">
+            ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
+            ${edit ? remove('skills',i) : ''}
+          </div>
           <details class="unit-skill-effect"><summary><span>${h(summary)}</span></summary>
             <dl><dt>コスト</dt><dd>${h(cost || '—')}</dd><dt>効果</dt><dd>${h(effect || '—')}</dd></dl>
           </details></div>`;
