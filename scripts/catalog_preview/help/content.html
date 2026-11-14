@@ -28,10 +28,10 @@
   <h2><span class="help-num">1</span>はじめに</h2>
   <p>マスターデータ管理画面は、ロビーの<b class="ui">マスターデータ</b>から開きます。用語・バフ・スキル・アイテム・特殊パッシブ・輝化スキル・召喚テンプレートの7種類を、ここで見て、直して、公開します。</p>
 
-  <h3>できることと役割</h3>
-  <p>できることは、アカウントの役割で変わります。役割はアプリ管理者が付けます。</p>
+  <h3>できることとロール</h3>
+  <p>できることは、アカウントのロールで変わります。ロールはアプリ管理者が付けます。</p>
   <table>
-    <thead><tr><th>役割</th><th>できること</th></tr></thead>
+    <thead><tr><th>ロール</th><th>できること</th></tr></thead>
     <tbody>
       <tr><th>一般</th><td>公開中と廃止のデータを見る</td></tr>
       <tr><th>制作者</th><td>下書きを作って直し、承認を申請する。作れない効果を頼む</td></tr>
@@ -76,7 +76,7 @@
 
 <section id="edit">
   <h2><span class="help-num">3</span>データを直す</h2>
-  <p class="help-pre"><span>前提</span>制作者の役割が要ります。</p>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
   <ol class="help-steps">
     <li>直したいデータを選び、詳細の<b class="ui">編集</b>を押します。公開中のデータを直すときは、下書きが作られ、その上で直します。</li>
     <li>左の目次で節を選び、真ん中の欄を直します。右には、直した内容のプレビューと、検査で見つかった問題が出ます。</li>
@@ -97,7 +97,7 @@
 
 <section id="new-skill">
   <h2><span class="help-num">4</span>スキルを作る</h2>
-  <p class="help-pre"><span>前提</span>制作者の役割が要ります。スキルの画面を開いておきます。</p>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。スキルの画面を開いた所から始めます。</p>
   <ol class="help-steps">
     <li>上の<b class="ui">＋新しく作る</b>を押し、カテゴリを選んで<b class="ui">編集を始める</b>を押します。IDは、承認するときに次の番号が付きます。</li>
     <li><b class="ui">本体</b>の節で、名前・分類・距離・属性・取得コスト・基礎威力・ダイス威力を入れます。ダイス威力は、<b class="ui">＋ 足す</b>か<b class="ui">− 引く</b>と、ダイスの数と面で選びます。振らないスキルは<b class="ui">振らない</b>に印を入れます。</li>
@@ -145,6 +145,7 @@
 
 <section id="request">
   <h2><span class="help-num">6</span>効果を頼む</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
   <p>今の効果タイプで作れない効果は、アプリ管理者にリクエストとして頼みます。出したリクエストは、制作者の全員が見られます。</p>
   <ol class="help-steps">
     <li>頼みたい効果を使う下書きを、先に<b class="ui">下書きを保存</b>で保存します。</li>
@@ -166,12 +167,14 @@
 
 <section id="withdraw">
   <h2><span class="help-num">7</span>取り下げと却下</h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「制作者」ロールが必要です。</p>
   <p>申請を取り下げるときは、編集の画面の<b class="ui">その他 ▾</b>から<b class="ui">取り下げ</b>を押します。取り下げると下書きは消え、公開中の版はそのまま残ります。</p>
   <p>却下されたときは、詳細に<b>却下の理由</b>が出ます。理由を読んで直し、もう一度<b class="ui">承認を申請</b>を押します。</p>
 </section>
 
 <section id="approve" class="help-admin">
   <h2><span class="help-num">8</span>承認する<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
   <ol class="help-steps">
     <li>見出しの<b class="ui">承認待ち</b>を押し、申請の一覧から1つ選びます。</li>
     <li>変わった項目だけが、左に公開中の版、右に下書きで並びます。違う文字には色が付きます。変わっていない項目は<b class="ui">変わっていない項目も見る</b>で開きます。</li>
@@ -186,12 +189,14 @@
 
 <section id="deprecate" class="help-admin">
   <h2><span class="help-num">9</span>廃止と版の戻し<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
   <p>使わなくなったデータは、詳細の<b class="ui">廃止</b>で廃止します。廃止しても、すでにそのデータを使っている所の参照は残ります。<b class="ui">廃止を取り消す</b>で元に戻せます。</p>
   <p>前の版に戻すときは、詳細の<b class="ui">履歴</b>を開き、戻したい版の<b class="ui">この版に戻す</b>を押します。その版の内容で、新しい版として公開し直します。</p>
 </section>
 
 <section id="answer" class="help-admin">
   <h2><span class="help-num">10</span>リクエストに答える<span class="help-role">管理者</span></h2>
+  <p class="help-pre"><span>前提</span>この章の操作には、「アプリ管理者」ロールが必要です。</p>
   <ol class="help-steps">
     <li>見出しの<b class="ui">リクエスト</b>を押し、一覧から1つ選びます。</li>
     <li>詳細の下の<b>管理者の操作</b>で状態を選び、管理者のメモを書いて<b class="ui">状態とメモを保存</b>を押します。<b>実装済み</b>にするときは、使う効果タイプをメモに書きます。</li>
