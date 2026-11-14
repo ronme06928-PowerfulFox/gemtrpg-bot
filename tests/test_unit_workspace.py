@@ -71,6 +71,14 @@ const collections = [{kind:'unit_collection',entry_id:'SC-01',payload:{name:'長
 const basic = UnitForms.render('basic',{...context,records:collections});
 assert.match(basic, /長い分類名・シナリオの続き/);
 assert.match(basic, /data-source="collection"/);
+unit.payload.tags = ['既存タグ'];
+const tagged = UnitForms.render('basic',{...context,records:collections});
+assert.match(tagged, /cat-chip[\s\S]*既存タグ/);
+assert.match(tagged, /data-unit-tag-form/);
+assert.match(tagged, /data-path="tags" data-index="0"/);
+assert.doesNotMatch(UnitForms.render('basic',{...context,records:collections,edit:false}), /data-unit-tag-form|remove-row/);
+const status = UnitForms.render('status',context);
+assert.match(status, /unit-vitals[\s\S]*data-path="hp"[\s\S]*data-path="mp"[\s\S]*data-path="initial_hp"[\s\S]*data-path="initial_mp"/);
 assert.match(basic, /type="radio" data-path="visibility"/);
 assert.deepEqual(UnitViews.candidates('collection',collections,{},unit),collections);
 assert.match(UnitViews.candidateList(collections,'続き','collection'), /選択/);

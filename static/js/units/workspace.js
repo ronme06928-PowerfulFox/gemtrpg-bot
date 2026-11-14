@@ -37,7 +37,7 @@
     const masters = Object.fromEntries(views.master.map(kind => [kind,[]]));
     const state = {author:false, busy:false, kind:'unit', records:[], selected:null, draft:null, section:'basic',
       search:'', collection:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
-      rawConstraints:null, conflict:false};
+      rawConstraints:null, conflict:false, wideConfirm:false};
     let checkTimer, checkToken = 0, dialogFocus;
     const canEdit = () => state.author;
     const current = () => state.records.find(row => row.entry_id === state.selected && row.kind === state.kind);
@@ -119,12 +119,14 @@
         : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.records});
       detail.innerHTML = `<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
-        <div class="unit-editor">
+        <div class="unit-editor${state.wideConfirm ? ' is-confirm-wide' : ''}">
           <nav aria-label="目次" class="unit-toc">${sections[state.kind].map(([id,label]) =>
             button(Array.isArray(label) ? label.map(part => `<span>${part}</span>`).join('') : label,'section',`data-section="${id}" aria-current="${id === state.section ? 'true' : 'false'}"`)).join('')}</nav>
           <section class="unit-section"><h3>${currentSection}</h3>
             <fieldset ${disabled(!canEdit() && state.section !== 'history')}>${sectionBody}</fieldset></section>
-          <aside class="unit-confirm"><h3>確認</h3><div class="unit-preview"></div>
+          <aside class="unit-confirm"><div class="unit-confirm-heading"><h3>確認</h3>
+            ${button(state.wideConfirm ? '標準幅' : '拡張','toggle-confirm',`aria-pressed="${state.wideConfirm}"`)}</div>
+            <div class="unit-preview"></div>
             ${canEdit() ? forms.card('保存前チェック','<div class="unit-check" aria-live="polite"></div>') : ''}
             ${forms.card('使用中','<div class="unit-references"></div>')}</aside>
         </div>
@@ -320,8 +322,19 @@
     const confirm = (title, message, confirmText) =>
       window.showAppConfirm(message,{title,confirmText,cancelText:'キャンセル'});
 
+    function addTag() {
+      const input = get('[data-unit-tag-input]');
+      const value = input?.value.trim();
+      if (!value) return false;
+      input.value = '';
+      if (payload().tags?.includes(value)) return false;
+      addRow('tags',value);
+      return true;
+    }
+
     async function save() {
       if (state.conflict || state.rawConstraints !== null) return;
+      if (addTag()) update(true);
       const {entry,warnings} = await api.save(state.kind,state.selected,submitBody());
       state.dirty = false;
       if (entry.deprecated) state.deprecated = true;
@@ -394,7 +407,7 @@
     async function onAction(control) {
       if (!control) return;
       const {unitAction:action,id,kind,section,path,index,revision} = control.dataset;
-      const readActions = ['close','close-dialog','reload','tab','record','section'];
+      const readActions = ['close','close-dialog','reload','tab','record','section','toggle-confirm'];
       if (!canEdit() && !readActions.includes(action)) return;
       if (action === 'close') { if (await canLeave()) close(); }
       if (action === 'close-dialog') closeDialog();
@@ -412,6 +425,12 @@
         renderDetail();
         if (section === 'behavior' && state.rawConstraints !== null) get('[data-path="behavior.constraints"]').value = state.rawConstraints;
         get(`[data-section="${section}"]`)?.focus();
+      }
+      if (action === 'toggle-confirm') {
+        state.wideConfirm = !state.wideConfirm;
+        get('.unit-editor').classList.toggle('is-confirm-wide',state.wideConfirm);
+        control.textContent = state.wideConfirm ? '標準幅' : '拡張';
+        control.setAttribute('aria-pressed',String(state.wideConfirm));
       }
       if (action === 'new') {
         if (state.kind === 'stage') { if (await canLeave()) startNew('stage'); return; }
@@ -450,8 +469,14 @@
       if (action === 'clear-reference') { setPath(path,null); update(true); }
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
+        const pendingTag = path === 'tags' ? get('[data-unit-tag-input]').value : '';
         rows.splice(Number(index),1);
         update(true);
+        if (path === 'tags') {
+          const input = get('[data-unit-tag-input]');
+          input.value = pendingTag;
+          input.focus();
+        }
       }
       if (action === 'add-rule') {
         if (!payload().field_effect_profile) setPath('field_effect_profile',{version:1,rules:[]});
@@ -563,7 +588,6 @@
       const path = input.dataset.path;
       if (!path || !canEdit() || !state.draft || state.busy) return;
       let value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value || 0) : input.value;
-      if (path === 'tags') value = input.value.split(/[,、\n]/).map(part => part.trim()).filter(Boolean);
       if (path === 'other_lines') value = input.value.split(/\r?\n/).filter(line => line.trim());
       if (input.validity.badInput) return;
       if (path === 'behavior.constraints') {
@@ -586,6 +610,14 @@
     });
     panel.addEventListener('submit', event => {
       const form = event.target;
+      if (form.matches('[data-unit-tag-form]')) {
+        event.preventDefault();
+        if (canEdit()) run(() => {
+          if (addTag()) update(true);
+          get('[data-unit-tag-input]').focus();
+        });
+        return;
+      }
       if (!form.matches('[data-skill-name-form]')) return;
       event.preventDefault();
       if (!canEdit()) return;

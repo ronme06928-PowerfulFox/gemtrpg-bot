@@ -82,7 +82,13 @@
     }).join('') + picker(label,key,path,edit);
     const resource = id => records.find(item => item.entry_id === id)?.payload.name || id || '未設定';
     const num = (label, path, value = 0, attrs = '') => field(label,path,value,'number',attrs);
-    const tags = () => field('タグ','tags', (p.tags || []).join('、'));
+    const tags = () => card('タグ', `<div class="cat-chips">${(p.tags || []).map((tag,i) =>
+      `<span class="cat-chip">${h(tag)}${edit ? `<button type="button" class="cat-chip-remove"
+        data-unit-action="remove-row" data-path="tags" data-index="${i}" aria-label="${h(tag)}を削除">×</button>` : ''}</span>`
+    ).join('') || '<span class="cat-caption">タグなし</span>'}</div>
+    ${edit ? `<form class="unit-tag-form" data-unit-tag-form>
+      <label class="cat-field">タグを入力<input type="text" data-unit-tag-input placeholder="Enterで追加"></label>
+      <button type="submit" class="cat-button">追加</button></form>` : ''}`);
     if (section === 'basic') {
       const collection = records.find(r => r.kind === 'unit_collection' && r.entry_id === p.collection_id);
       const common = `<div class="unit-classification">
@@ -102,8 +108,9 @@
       return field('名前','name',p.name) + field('コンセプト','concept',p.concept) + field('説明','description',p.description,'area') + tags() + common;
     }
     if (section === 'status') {
-      const vitals = grid(num('最大HP','hp',p.hp,'min="0"'), num('最大MP','mp',p.mp,'min="0"'),
-        num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"'), num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"'));
+      const vitals = `<div class="unit-param-grid unit-vitals">${num('最大HP','hp',p.hp,'min="0"')}
+        ${num('最大MP','mp',p.mp,'min="0"')}${num('初期HP','initial_hp',p.initial_hp ?? p.hp,'min="0"')}
+        ${num('初期MP','initial_mp',p.initial_mp ?? p.mp,'min="0"')}</div>`;
       const groups = {'能力値': /^(筋力|生命力|体格|精神力|敏捷|直感|経験|シナリオ経験)$/,
         '補正': /補正|行動回数|速度/, '技能': /技能|判定|^(五感|採取|本能|鑑定|対話|尋問|諜報|窃取|隠密|運動|制作|回避)$/};
       const categorise = label => Object.keys(groups).find(key => groups[key].test(label || '')) || 'その他';
