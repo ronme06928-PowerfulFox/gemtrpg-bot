@@ -6,8 +6,8 @@
   const app = document.getElementById('app');
   const h = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const STATES = ['FP', '出血', '破裂', '亀裂', '戦慄', '荊棘'];
-  const TARGETS = { target_enemy_random: '敵をランダム', target_enemy_fastest: '敵の最速', target_enemy_slowest: '敵の最遅', target_ally_random: '味方をランダム', target_self: '自分' };
-  const SECTIONS = [['basic', '基本'], ['status', 'ステータス'], ['params', 'パラメータ'], ['skills', 'スキル'], ['gear', 'パッシブ・輝化・アイテム'], ['behavior', '行動の設定'], ['patterns', '行動パターン']];
+  const TARGETS = { target_enemy_random: '敵ランダム', target_enemy_fastest: '敵最速', target_enemy_slowest: '敵最遅', target_ally_random: '味方ランダム', target_self: '自身' };
+  const SECTIONS = [['basic', '基本情報'], ['status', 'ステータス'], ['params', 'パラメータ'], ['skills', 'スキル'], ['gear', 'パッシブ・輝化スキル・アイテム'], ['behavior', '行動設定'], ['patterns', '行動パターン']];
   const USED = new Set(['name', 'image', 'status', 'params', 'states', 'commands', 'SPassive', 'inventory', 'radiance_skills', 'hidden_skills', 'special_buffs', 'tag_ids', 'disabled_tag_ids', 'flags', 'hp', 'maxHp', 'mp', 'maxMp', 'characterType', 'isNPC', 'gmOnly']);
   const SKILL_RE = /【\s*([A-Za-z]+-\d+)\s*([^】]*)】/;
 
@@ -53,8 +53,8 @@
   const characters = DATA.presets.map(row => ({ id: row.id, allow_ally: row.allow_ally, allow_enemy: row.allow_enemy, ...readCharacter(row.json).fields }));
   const mantis = characters.find(row => row.id === 'TEST_3');
   if (mantis) mantis.patterns = [
-    { id: 'BP-1', name: '通常', note: '坑道の入口で出るとき', default: true, steps: [['E-26'], ['E-28'], ['E-27'], ['E-28'], ['E-30']].map(actions => ({ actions, target: 'target_enemy_random' })) },
-    { id: 'BP-2', name: 'ボス戦・HP半分から本気', note: '最深部。HPが50%を切ると「本気」のループへ移る', default: false, steps: [{ actions: ['E-29'], target: 'target_enemy_fastest' }, { actions: ['E-23', 'E-30'], target: 'target_enemy_random' }, { actions: ['E-26'], target: 'target_enemy_slowest' }] },
+    { id: 'BP-1', name: '通常', note: '坑道入口の通常戦闘', default: true, steps: [['E-26'], ['E-28'], ['E-27'], ['E-28'], ['E-30']].map(actions => ({ actions, target: 'target_enemy_random' })) },
+    { id: 'BP-2', name: 'ボス戦', note: '最深部。HP50%未満で「本気」ループへ移行', default: false, steps: [{ actions: ['E-29'], target: 'target_enemy_fastest' }, { actions: ['E-23', 'E-30'], target: 'target_enemy_random' }, { actions: ['E-26'], target: 'target_enemy_slowest' }] },
   ];
   const formations = [
     { id: 'EF-坑道', name: '坑道の番人', members: [{ char: 'TEST_3', count: 1, pattern: '' }, { char: 'TEST_2', count: 2, pattern: '' }] },
@@ -72,7 +72,7 @@
 
   const state = { selected: mantis ? mantis.id : characters[0].id, section: 'skills', imported: null, importText: sample };
   const current = () => characters.find(row => row.id === state.selected);
-  const skillName = id => DATA.skills[id]?.name || '（マスターに無い）';
+  const skillName = id => DATA.skills[id]?.name || '（マスター未登録）';
   const usedBy = (char, patternId) => formations.filter(f => f.members.some(m => m.char === char.id && (patternId === undefined || (m.pattern || defaultPattern(char)?.id) === patternId)));
   const defaultPattern = char => char.patterns.find(p => p.default) || null;
 
@@ -80,12 +80,12 @@
   function problems(char) {
     const out = [];
     const own = new Set(char.skills.map(row => row.id));
-    for (const row of char.skills) if (!DATA.skills[row.id]) out.push(['error', `スキル ${row.id} はマスターに無い`]);
-    for (const id of char.passives) if (!DATA.passives[id]) out.push(['error', `パッシブ ${id} はマスターに無い`]);
+    for (const row of char.skills) if (!DATA.skills[row.id]) out.push(['error', `スキル ${row.id}：マスター未登録`]);
+    for (const id of char.passives) if (!DATA.passives[id]) out.push(['error', `パッシブ ${id}：マスター未登録`]);
     for (const pattern of char.patterns) pattern.steps.forEach((step, index) => step.actions.forEach(id => {
-      if (!own.has(id)) out.push(['error', `パターン「${pattern.name}」の${index + 1}手目の ${id} を、このキャラが持っていない`]);
+      if (!own.has(id)) out.push(['error', `パターン「${pattern.name}」ステップ${index + 1}：未所持スキル ${id}`]);
     }));
-    if (char.allow_enemy && !char.patterns.length && char.skills.length) out.push(['note', '行動パターンが無いので、敵のときは使えるスキルから自動で選ぶ']);
+    if (char.allow_enemy && !char.patterns.length && char.skills.length) out.push(['note', '行動パターン未設定：使用可能スキルから自動選択']);
     return out;
   }
   const paletteLine = row => {
@@ -96,84 +96,84 @@
 
   // ---- 描く ----
   const button = (label, action, extra = '', attrs = '') => `<button type="button" class="btn ${extra}" data-action="${action}" ${attrs}>${label}</button>`;
-  const chips = (ids, table, kind) => `<div class="chips">${ids.map((id, index) => `<span class="chip"><code>${h(id)}</code>${h(table[id]?.name || '（マスターに無い）')}<button type="button" aria-label="${h(id)} を外す" data-action="remove-${kind}" data-index="${index}">×</button></span>`).join('') || '<span class="muted">なし</span>'}
-    <label class="adder"><input list="list-${kind}" placeholder="ID か名前で足す" data-add="${kind}"><datalist id="list-${kind}">${Object.entries(table).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}</option>`).join('')}</datalist></label></div>`;
+  const chips = (ids, table, kind) => `<div class="chips">${ids.map((id, index) => `<span class="chip"><code>${h(id)}</code>${h(table[id]?.name || '（マスター未登録）')}<button type="button" aria-label="${h(id)} を削除" data-action="remove-${kind}" data-index="${index}">×</button></span>`).join('') || '<span class="muted">なし</span>'}
+    <label class="adder"><input list="list-${kind}" placeholder="追加（ID・名称で検索）" data-add="${kind}"><datalist id="list-${kind}">${Object.entries(table).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}</option>`).join('')}</datalist></label></div>`;
 
   function sectionBody(key, char) {
     if (key === 'basic') return `<div class="grid2">
-      <label class="field">名前<input value="${h(char.name)}" data-field="name"></label>
-      <label class="field">画像の URL<input value="${h(char.image)}" placeholder="https://…" data-field="image"></label></div>
-      <fieldset class="field"><legend>使い道</legend><label class="check"><input type="checkbox" ${char.allow_ally ? 'checked' : ''} data-field="allow_ally">味方に使う</label><label class="check"><input type="checkbox" ${char.allow_enemy ? 'checked' : ''} data-field="allow_enemy">敵に使う</label></fieldset>
-      <label class="check"><input type="checkbox" ${char.scenario ? 'checked' : ''} data-field="scenario">シナリオのキャラ（輝化スキルの予算とタグの決まりを当てない）</label>
-      <label class="check"><input type="checkbox" ${char.gm_only ? 'checked' : ''} data-field="gm_only">GM だけに見せる</label>
-      <div class="field"><span>タグ</span><div class="chips">${char.tags.map(t => `<span class="chip">${h(t)}</span>`).join('') || '<span class="muted">なし</span>'}<span class="muted">（今のタグの候補から選ぶ）</span></div></div>
-      <p class="muted small">公開範囲・コレクション・区分は、今の詳細の欄のまま。</p>`;
+      <label class="field">キャラクター名<input value="${h(char.name)}" data-field="name"></label>
+      <label class="field">画像URL<input value="${h(char.image)}" placeholder="https://…" data-field="image"></label></div>
+      <fieldset class="field"><legend>キャラ区分</legend><label class="check"><input type="checkbox" ${char.allow_ally ? 'checked' : ''} data-field="allow_ally">味方キャラクター</label><label class="check"><input type="checkbox" ${char.allow_enemy ? 'checked' : ''} data-field="allow_enemy">敵キャラクター</label></fieldset>
+      <label class="check"><input type="checkbox" ${char.scenario ? 'checked' : ''} data-field="scenario">シナリオキャラクター（輝化予算・タグ制限の対象外）</label>
+      <label class="check"><input type="checkbox" ${char.gm_only ? 'checked' : ''} data-field="gm_only">GM限定表示</label>
+      <div class="field"><span>タグ</span><div class="chips">${char.tags.map(t => `<span class="chip">${h(t)}</span>`).join('') || '<span class="muted">なし</span>'}<span class="muted">（既存タグから選択）</span></div></div>
+      <p class="muted small">公開範囲・コレクション・区分は既存の詳細欄で設定。</p>`;
     if (key === 'status') return `<div class="grid2">
-      <label class="field">HP（最大）<input type="number" value="${char.hp}" data-field="hp"></label>
-      <label class="field">MP（最大）<input type="number" value="${char.mp}" data-field="mp"></label></div>
-      <h4>初期の状態</h4><div class="grid6">${STATES.map(label => `<label class="field">${label}<input type="number" value="${char.states[label]}" data-state="${label}"></label>`).join('')}</div>
-      <p class="muted small">戦闘の始めの値。HP・MP は最大の値から始まる。</p>`;
+      <label class="field">最大HP<input type="number" value="${char.hp}" data-field="hp"></label>
+      <label class="field">最大MP<input type="number" value="${char.mp}" data-field="mp"></label></div>
+      <h4>初期状態</h4><div class="grid6">${STATES.map(label => `<label class="field">${label}<input type="number" value="${char.states[label]}" data-state="${label}"></label>`).join('')}</div>
+      <p class="muted small">戦闘開始時の値。HP・MPは最大値で開始。</p>`;
     if (key === 'params') {
-      const groups = [['能力値', row => !/補正$/.test(row.label) && char.params.indexOf(row) < 8], ['補正', row => /補正$/.test(row.label)], ['技能・そのほか', row => !/補正$/.test(row.label) && char.params.indexOf(row) >= 8]];
+      const groups = [['能力値', row => !/補正$/.test(row.label) && char.params.indexOf(row) < 8], ['補正', row => /補正$/.test(row.label)], ['技能・その他', row => !/補正$/.test(row.label) && char.params.indexOf(row) >= 8]];
       return groups.map(([title, test]) => `<h4>${title}</h4><div class="grid6">${char.params.filter(test).map(row => `<label class="field">${h(row.label)}<input type="number" value="${row.value}" data-param="${h(row.label)}"></label>`).join('') || '<span class="muted">なし</span>'}</div>`).join('');
     }
     if (key === 'skills') {
       const list = root.dataset.skills === 'card'
         ? `<div class="skill-cards">${char.skills.map((row, index) => { const m = DATA.skills[row.id]; return `<article class="skill-card ${m ? '' : 'is-bad'}">
-            <header><code>${h(row.id)}</code><strong>${h(m?.name || '（マスターに無い）')}</strong><span class="tag">${h(m?.category || '')}</span>${button('×', 'remove-skill', 'btn-icon', `data-index="${index}" aria-label="${h(row.id)} を外す"`)}</header>
-            <label class="field">このキャラでの名前<input value="${h(row.name)}" placeholder="${h(m?.name || '')}" data-skill-name="${index}"></label>
+            <header><code>${h(row.id)}</code><strong>${h(m?.name || '（マスター未登録）')}</strong><span class="tag">${h(m?.category || '')}</span>${button('×', 'remove-skill', 'btn-icon', `data-index="${index}" aria-label="${h(row.id)} を削除"`)}</header>
+            <label class="field">固有名称<input value="${h(row.name)}" placeholder="${h(m?.name || '')}" data-skill-name="${index}"></label>
             <p class="palette">${h(paletteLine(row))}</p>
             <p class="muted small">${h(m?.cost || '')} ${h((m?.text || '').replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1').slice(0, 60))}</p>
-            <label class="check small"><input type="checkbox" ${row.hidden ? 'checked' : ''} data-skill-hidden="${index}">相手に隠す</label></article>`; }).join('')}</div>`
-        : `<table class="skill-table"><thead><tr><th>ID</th><th>マスターの名前</th><th>このキャラでの名前</th><th>配置したときのパレット</th><th>隠す</th><th></th></tr></thead><tbody>${char.skills.map((row, index) => `<tr class="${DATA.skills[row.id] ? '' : 'is-bad'}">
+            <label class="check small"><input type="checkbox" ${row.hidden ? 'checked' : ''} data-skill-hidden="${index}">非公開</label></article>`; }).join('')}</div>`
+        : `<table class="skill-table"><thead><tr><th>ID</th><th>マスター名称</th><th>固有名称</th><th>チャットパレット（配置時）</th><th>非公開</th><th></th></tr></thead><tbody>${char.skills.map((row, index) => `<tr class="${DATA.skills[row.id] ? '' : 'is-bad'}">
             <td><code>${h(row.id)}</code></td><td>${h(skillName(row.id))}</td>
-            <td><input value="${h(row.name)}" placeholder="（マスターの名前）" data-skill-name="${index}" aria-label="${h(row.id)} のこのキャラでの名前"></td>
+            <td><input value="${h(row.name)}" placeholder="マスター名称" data-skill-name="${index}" aria-label="${h(row.id)} の固有名称"></td>
             <td class="palette">${h(paletteLine(row))}</td>
-            <td><input type="checkbox" ${row.hidden ? 'checked' : ''} data-skill-hidden="${index}" aria-label="${h(row.id)} を相手に隠す"></td>
-            <td>${button('×', 'remove-skill', 'btn-icon', `data-index="${index}" aria-label="${h(row.id)} を外す"`)}</td></tr>`).join('')}</tbody></table>`;
-      return `${list}<label class="adder wide"><input list="list-skill" placeholder="スキルを ID か名前で足す（例：E-29）" data-add="skill"><datalist id="list-skill">${Object.entries(DATA.skills).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}（${h(row.category)}）</option>`).join('')}</datalist></label>
-        <p class="muted small">パレットは保存しない。配置するときに、マスターの「チャットパレット」から作る。名前を空にするとマスターの名前。</p>
-        <h4>スキル以外のパレットの行</h4><textarea rows="3" data-field="other" placeholder="1d100 【幸運の判定】">${h(char.other.join('\n'))}</textarea>`;
+            <td><input type="checkbox" ${row.hidden ? 'checked' : ''} data-skill-hidden="${index}" aria-label="${h(row.id)} を非公開"></td>
+            <td>${button('×', 'remove-skill', 'btn-icon', `data-index="${index}" aria-label="${h(row.id)} を削除"`)}</td></tr>`).join('')}</tbody></table>`;
+      return `${list}<label class="adder wide"><input list="list-skill" placeholder="スキル追加（ID・名称で検索。例：E-29）" data-add="skill"><datalist id="list-skill">${Object.entries(DATA.skills).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}（${h(row.category)}）</option>`).join('')}</datalist></label>
+        <p class="muted small">チャットパレットは保存せず、配置時にマスターから生成。固有名称が空欄ならマスター名称。</p>
+        <h4>その他のパレット行</h4><textarea rows="3" data-field="other" placeholder="1d100 【幸運の判定】">${h(char.other.join('\n'))}</textarea>`;
     }
     if (key === 'gear') return `<h4>パッシブ</h4>${chips(char.passives, DATA.passives, 'passive')}
       <h4>輝化スキル</h4>${chips(char.radiance, DATA.radiance, 'radiance')}
-      <h4>アイテム</h4><div class="chips">${char.items.map((row, index) => `<span class="chip"><code>${h(row.id)}</code>${h(DATA.items[row.id]?.name || '（マスターに無い）')}<input type="number" min="1" value="${row.count}" data-item-count="${index}" aria-label="個数">個<button type="button" aria-label="外す" data-action="remove-item" data-index="${index}">×</button></span>`).join('') || '<span class="muted">なし</span>'}
-        <label class="adder"><input list="list-item" placeholder="ID か名前で足す" data-add="item"><datalist id="list-item">${Object.entries(DATA.items).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}</option>`).join('')}</datalist></label></div>`;
+      <h4>アイテム</h4><div class="chips">${char.items.map((row, index) => `<span class="chip"><code>${h(row.id)}</code>${h(DATA.items[row.id]?.name || '（マスター未登録）')}<input type="number" min="1" value="${row.count}" data-item-count="${index}" aria-label="個数">個<button type="button" aria-label="削除" data-action="remove-item" data-index="${index}">×</button></span>`).join('') || '<span class="muted">なし</span>'}
+        <label class="adder"><input list="list-item" placeholder="追加（ID・名称で検索）" data-add="item"><datalist id="list-item">${Object.entries(DATA.items).map(([id, row]) => `<option value="${h(id)}">${h(id)} ${h(row.name)}</option>`).join('')}</datalist></label></div>`;
     if (key === 'behavior') {
       const b = char.behavior;
-      return `<p class="muted small">敵として動くときの設定。味方のときは使わない。</p>
-        <label class="check"><input type="checkbox" ${b.auto_target ? 'checked' : ''} data-behavior="auto_target">目標を自動で選ぶ</label>
-        <label class="check"><input type="checkbox" ${b.auto_skill ? 'checked' : ''} data-behavior="auto_skill">スキルを自動で選ぶ</label>
-        <label class="check"><input type="checkbox" ${b.show_planned ? 'checked' : ''} data-behavior="show_planned">次に使うスキルを相手に見せる</label>
-        <fieldset class="field"><legend>行動スロット</legend><label class="check"><input type="radio" name="slot" ${b.slot_mode === 'normal' ? 'checked' : ''} data-slot="normal">ふつうに行動する</label><label class="check"><input type="radio" name="slot" ${b.slot_mode === 'none' ? 'checked' : ''} data-slot="none">行動しない（瓦礫などの置物）</label></fieldset>
-        <div class="field"><span>スキルの制約</span><div class="muted small">${b.constraints.length ? `${b.constraints.length}件` : 'なし'}　<em>（形は PR の詳細で決める）</em></div></div>`;
+      return `<p class="muted small">敵キャラクター時のみ有効。</p>
+        <label class="check"><input type="checkbox" ${b.auto_target ? 'checked' : ''} data-behavior="auto_target">対象の自動選択</label>
+        <label class="check"><input type="checkbox" ${b.auto_skill ? 'checked' : ''} data-behavior="auto_skill">スキルの自動選択</label>
+        <label class="check"><input type="checkbox" ${b.show_planned ? 'checked' : ''} data-behavior="show_planned">予定スキルの公開</label>
+        <fieldset class="field"><legend>行動スロット</legend><label class="check"><input type="radio" name="slot" ${b.slot_mode === 'normal' ? 'checked' : ''} data-slot="normal">通常</label><label class="check"><input type="radio" name="slot" ${b.slot_mode === 'none' ? 'checked' : ''} data-slot="none">行動なし（瓦礫などの設置物）</label></fieldset>
+        <div class="field"><span>スキルの制約</span><div class="muted small">${b.constraints.length ? `${b.constraints.length}件` : 'なし'}　<em>（仕様はPR詳細で決定）</em></div></div>`;
     }
     if (key === 'patterns') return patternsBody(char);
     return '';
   }
 
   function patternsBody(char) {
-    if (!char.allow_enemy) return '<p class="muted">「敵に使う」に印を入れると、行動パターンを作れる。</p>';
+    if (!char.allow_enemy) return '<p class="muted">キャラ区分で「敵キャラクター」を選択すると作成可能。</p>';
     const own = new Set(char.skills.map(row => row.id));
     const cards = char.patterns.map((p, index) => `<article class="pattern ${p.default ? 'is-default' : ''}">
       <header><strong>${h(p.name)}</strong>${p.default ? '<span class="badge">既定</span>' : ''}<span class="muted small">${h(p.id)}</span></header>
       <p class="muted small">${h(p.note || '')}</p>
       <ol class="steps">${p.steps.map(step => `<li>${step.actions.map(id => `<span class="step-skill ${own.has(id) ? '' : 'is-bad'}"><code>${h(id)}</code>${h(skillName(id))}</span>`).join('<span class="plus">＋</span>')}<span class="muted small">→ ${h(TARGETS[step.target] || step.target)}</span></li>`).join('')}</ol>
-      <p class="small">使っている編成：${usedBy(char, p.id).map(f => h(f.name)).join('・') || '<span class="muted">なし</span>'}</p>
-      <footer>${button('チャートを開く', 'open-chart')}${button('複製', 'copy-pattern', '', `data-index="${index}"`)}${p.default ? '' : button('既定にする', 'make-default', '', `data-index="${index}"`)}${button('別のキャラへ複製…', 'copy-other')}${button('消す', 'delete-pattern', 'btn-danger', `data-index="${index}" ${p.default && char.patterns.length > 1 ? 'disabled title="別のパターンを既定にしてから消す"' : ''}`)}</footer>
+      <p class="small">使用中の編成：${usedBy(char, p.id).map(f => h(f.name)).join('・') || '<span class="muted">なし</span>'}</p>
+      <footer>${button('チャート編集', 'open-chart')}${button('複製', 'copy-pattern', '', `data-index="${index}"`)}${p.default ? '' : button('既定に設定', 'make-default', '', `data-index="${index}"`)}${button('他キャラへ複製…', 'copy-other')}${button('削除', 'delete-pattern', 'btn-danger', `data-index="${index}" ${p.default && char.patterns.length > 1 ? 'disabled title="他のパターンを既定に設定してから削除"' : ''}`)}</footer>
     </article>`).join('');
-    return `${cards || '<p class="muted">パターンはまだ無い。無いあいだは、使えるスキルから自動で選んで動く。</p>'}
-      ${button('＋ 新しいパターン', 'new-pattern', 'btn-primary')}
-      <p class="muted small">最初に作ったパターンが既定になる。既定は、編成でパターンを選ばなかったときに使う。</p>`;
+    return `${cards || '<p class="muted">パターン未作成。使用可能スキルから自動選択で行動。</p>'}
+      ${button('＋ パターン追加', 'new-pattern', 'btn-primary')}
+      <p class="muted small">最初のパターンが既定。編成で未指定の場合に使用。</p>`;
   }
 
   function preview(char) {
     const list = problems(char);
-    return `<h3>確かめる</h3>
-      <section><h4>配置したときのチャットパレット</h4><pre class="palette-box">${h([...char.skills.map(paletteLine), ...char.other].join('\n') || '（なし）')}</pre></section>
-      <section><h4>保存の前の検査</h4>${list.length ? `<ul class="problems">${list.map(([kind, text]) => `<li class="is-${kind}">${h(text)}</li>`).join('')}</ul>` : '<p class="ok">問題なし</p>'}</section>
-      <section><h4>使っている編成</h4>${usedBy(char).map(f => `<p class="small">${h(f.name)}：${f.members.filter(m => m.char === char.id).map(m => h((char.patterns.find(p => p.id === m.pattern) || defaultPattern(char))?.name || '自動')).join('、')}</p>`).join('') || '<p class="muted small">なし</p>'}</section>
-      <details><summary>保存される形（試作の参考）</summary><pre class="json">${h(JSON.stringify({ ...char, patterns: char.patterns.map(p => ({ id: p.id, name: p.name, default: p.default })) }, null, 2))}</pre></details>`;
+    return `<h3>確認</h3>
+      <section><h4>チャットパレット（配置時）</h4><pre class="palette-box">${h([...char.skills.map(paletteLine), ...char.other].join('\n') || '（なし）')}</pre></section>
+      <section><h4>保存前チェック</h4>${list.length ? `<ul class="problems">${list.map(([kind, text]) => `<li class="is-${kind}">${h(text)}</li>`).join('')}</ul>` : '<p class="ok">問題なし</p>'}</section>
+      <section><h4>使用中の編成</h4>${usedBy(char).map(f => `<p class="small">${h(f.name)}：${f.members.filter(m => m.char === char.id).map(m => h((char.patterns.find(p => p.id === m.pattern) || defaultPattern(char))?.name || '自動選択')).join('、')}</p>`).join('') || '<p class="muted small">なし</p>'}</section>
+      <details><summary>保存データ（参考）</summary><pre class="json">${h(JSON.stringify({ ...char, patterns: char.patterns.map(p => ({ id: p.id, name: p.name, default: p.default })) }, null, 2))}</pre></details>`;
   }
 
   function editScene() {
@@ -181,54 +181,54 @@
     const layout = root.dataset.layout;
     const nav = `<nav class="toc" aria-label="節">${SECTIONS.map(([key, label]) => {
       const bad = key === 'skills' && char.skills.some(row => !DATA.skills[row.id]) || key === 'patterns' && problems(char).some(([k, t]) => k === 'error' && t.startsWith('パターン'));
-      return `<button type="button" data-section="${key}" aria-current="${layout === 'toc' && state.section === key}">${label}${key === 'patterns' && char.allow_enemy ? ` <small>${char.patterns.length}</small>` : ''}${bad ? ' <span class="dot" title="問題あり">●</span>' : ''}</button>`;
-    }).join('')}<hr><button type="button" data-action="go-import">JSON から取り込む</button></nav>`;
+      return `<button type="button" data-section="${key}" aria-current="${layout === 'toc' && state.section === key}">${label}${key === 'patterns' && char.allow_enemy ? ` <small>${char.patterns.length}</small>` : ''}${bad ? ' <span class="dot" title="エラーあり">●</span>' : ''}</button>`;
+    }).join('')}<hr><button type="button" data-action="go-import">JSONインポート</button></nav>`;
     const body = layout === 'toc'
       ? `<section class="sec"><h3>${SECTIONS.find(([key]) => key === state.section)[1]}</h3>${sectionBody(state.section, char)}</section>`
       : SECTIONS.map(([key, label]) => `<section class="sec" id="sec-${key}"><h3>${label}</h3>${sectionBody(key, char)}</section>`).join('');
     return `<div class="editor"><div class="editbar">${button('← 一覧', 'noop')}<strong><code>${h(char.id)}</code> ${h(char.name)}</strong>${char.allow_ally ? '<span class="tag">味方</span>' : ''}${char.allow_enemy ? '<span class="tag tag-enemy">敵</span>' : ''}</div>
       <div class="edit-grid">${nav}<div class="edit-input">${body}</div><aside class="edit-preview">${preview(char)}</aside></div>
-      <footer class="editfoot"><small class="muted">保存は持ち主がそのまま行う（承認は無い）</small>${button('保存', 'noop', 'btn-primary')}</footer></div>`;
+      <footer class="editfoot"><small class="muted">所有者が直接保存（承認不要）</small>${button('保存', 'noop', 'btn-primary')}</footer></div>`;
   }
 
   function importScene() {
     const result = state.imported;
-    return `<div class="editor"><div class="editbar">${button('← 編集へ', 'go-edit')}<strong>JSON から取り込む</strong></div>
-      <div class="import-grid"><section class="sec"><h3>貼り付け</h3><p class="muted small">CharaCreator の出力、今のプリセットの書き出しを貼る。新しく作るときも、今のキャラを移すときも、この口だけ。</p>
-        <textarea rows="20" class="mono" data-field="import">${h(state.importText)}</textarea>${button('読み取る', 'read-import', 'btn-primary')}</section>
-      <section class="sec">${result ? `<h3>読み取った結果</h3>
+    return `<div class="editor"><div class="editbar">${button('← 編集', 'go-edit')}<strong>JSONインポート</strong></div>
+      <div class="import-grid"><section class="sec"><h3>JSON入力</h3><p class="muted small">CharaCreator出力・既存プリセットの書き出しに対応。新規作成・移行共通の入口。</p>
+        <textarea rows="20" class="mono" data-field="import">${h(state.importText)}</textarea>${button('解析', 'read-import', 'btn-primary')}</section>
+      <section class="sec">${result ? `<h3>解析結果</h3>
         <table class="result"><tbody>
-        <tr><th>名前</th><td>${h(result.fields.name)}</td></tr>
+        <tr><th>キャラクター名</th><td>${h(result.fields.name)}</td></tr>
         <tr><th>HP・MP</th><td>${result.fields.hp}・${result.fields.mp}</td></tr>
         <tr><th>スキル</th><td>${result.fields.skills.length}件：${result.fields.skills.map(row => `<code>${h(row.id)}</code>${row.name ? `（${h(row.name)}）` : ''}`).join('、')}</td></tr>
-        <tr><th>スキル以外の行</th><td>${result.fields.other.map(line => `<code>${h(line)}</code>`).join('<br>') || 'なし'}</td></tr>
+        <tr><th>その他のパレット行</th><td>${result.fields.other.map(line => `<code>${h(line)}</code>`).join('<br>') || 'なし'}</td></tr>
         <tr><th>パッシブ</th><td>${result.fields.passives.map(id => `<code>${h(id)}</code>${h(DATA.passives[id]?.name || '')}`).join('、') || 'なし'}</td></tr>
-        <tr><th>行動パターン</th><td>${result.profile ? `あり（${stepsOf(result.profile).length}手）→「取り込んだパターン」として既定にする` : 'なし'}</td></tr>
-        <tr class="is-drop"><th>捨てる項目</th><td>${result.discarded.map(key => `<code>${h(key)}</code>`).join('、') || 'なし'}<div class="muted small">配置のときに読まれていないので持たない</div></td></tr>
+        <tr><th>行動パターン</th><td>${result.profile ? `あり（${stepsOf(result.profile).length}ステップ）：既定パターンとして登録` : 'なし'}</td></tr>
+        <tr class="is-drop"><th>破棄する項目</th><td>${result.discarded.map(key => `<code>${h(key)}</code>`).join('、') || 'なし'}<div class="muted small">配置時に未使用のため破棄</div></td></tr>
         </tbody></table>
-        <div class="row">${button('この内容で新しく作る', 'create-import', 'btn-primary')}${button('選んでいるキャラを置き換える', 'noop')}</div>` : '<p class="muted">「読み取る」を押すと、ここに何がどの項目に入るかが出る。</p>'}</section></div></div>`;
+        <div class="row">${button('新規作成', 'create-import', 'btn-primary')}${button('選択中のキャラクターを上書き', 'noop')}</div>` : '<p class="muted">「解析」で各項目への割り当てを表示。</p>'}</section></div></div>`;
   }
 
   function formationScene() {
-    return `<div class="editor"><div class="editbar"><strong>編成</strong><span class="muted small">メンバーごとに、行動パターンを一覧から選ぶ（写しは持たない）</span></div>
+    return `<div class="editor"><div class="editbar"><strong>敵編成</strong><span class="muted small">メンバーごとに行動パターンを選択（コピーは保持しない）</span></div>
       <div class="formations">${formations.map((f, fi) => `<section class="sec"><h3>${h(f.name)} <span class="muted small">${h(f.id)}</span></h3>
-        <table class="members"><thead><tr><th>キャラ</th><th>数</th><th>行動パターン</th><th></th></tr></thead><tbody>${f.members.map((m, mi) => {
+        <table class="members"><thead><tr><th>キャラクター</th><th>数</th><th>行動パターン</th><th></th></tr></thead><tbody>${f.members.map((m, mi) => {
           const char = characters.find(row => row.id === m.char);
           const options = char.patterns.length
             ? `<option value="" ${m.pattern ? '' : 'selected'}>既定（${h(defaultPattern(char).name)}）</option>${char.patterns.map(p => `<option value="${p.id}" ${m.pattern === p.id ? 'selected' : ''}>${h(p.name)}</option>`).join('')}`
-            : '<option>パターンなし（自動で選ぶ）</option>';
+            : '<option>パターンなし（自動選択）</option>';
           return `<tr><td><code>${h(char.id)}</code> ${h(char.name)}</td><td>${m.count}</td>
             <td><select data-member="${fi}:${mi}" ${char.patterns.length ? '' : 'disabled'}>${options}</select></td>
-            <td>${char.patterns.length ? button('このパターンを複製して編集', 'member-copy', '', `data-member="${fi}:${mi}"`) : button('パターンを作る', 'member-new', '', `data-member="${fi}:${mi}"`)}</td></tr>`;
+            <td>${char.patterns.length ? button('複製して編集', 'member-copy', '', `data-member="${fi}:${mi}"`) : button('パターン作成', 'member-new', '', `data-member="${fi}:${mi}"`)}</td></tr>`;
         }).join('')}</tbody></table></section>`).join('')}</div>
-      <p class="muted small pad">パターンの中身を直すと、そのパターンを選んでいる編成すべてに効く。編成だけで少し変えたいときは「複製して編集」で同じキャラの別のパターンにする。</p></div>`;
+      <p class="muted small pad">パターンの変更は、使用中のすべての編成に反映。編成固有の調整は「複製して編集」で別パターンとして作成。</p></div>`;
   }
 
   function render() {
     const scene = root.dataset.scene;
-    app.innerHTML = `<div class="ws"><header class="ws-head"><div><h2>プリセット管理</h2><p class="muted small">計画61の試作：キャラの中身を項目のフォームにし、行動パターンをキャラから切り離す</p></div></header>
+    app.innerHTML = `<div class="ws"><header class="ws-head"><div><h2>プリセット管理</h2><p class="muted small">計画61 試作：キャラクター編集フォーム・行動パターン管理</p></div></header>
       <nav class="ws-tabs">${[['edit', 'キャラクター'], ['formation', '編成'], ['stage', 'ステージ']].map(([key, label]) => `<button type="button" data-scene="${key}" aria-selected="${scene === key || (key === 'edit' && scene === 'import')}" ${key === 'stage' ? 'disabled' : ''}>${label}</button>`).join('')}</nav>
-      <div class="ws-body">${scene === 'formation' ? '' : `<aside class="ws-list">${characters.map(row => `<button type="button" class="rec" data-select="${row.id}" aria-current="${row.id === state.selected}"><code>${h(row.id)}</code><strong>${h(row.name)}</strong><span>${row.allow_ally ? '<span class="tag">味方</span>' : ''}${row.allow_enemy ? '<span class="tag tag-enemy">敵</span>' : ''}${row.allow_enemy ? `<span class="muted small">パターン${row.patterns.length}</span>` : ''}</span></button>`).join('')}</aside>`}
+      <div class="ws-body">${scene === 'formation' ? '' : `<aside class="ws-list">${characters.map(row => `<button type="button" class="rec" data-select="${row.id}" aria-current="${row.id === state.selected}"><code>${h(row.id)}</code><strong>${h(row.name)}</strong><span>${row.allow_ally ? '<span class="tag">味方</span>' : ''}${row.allow_enemy ? '<span class="tag tag-enemy">敵</span>' : ''}${row.allow_enemy ? `<span class="muted small">パターン ${row.patterns.length}</span>` : ''}</span></button>`).join('')}</aside>`}
       <main class="ws-main">${scene === 'import' ? importScene() : scene === 'formation' ? formationScene() : editScene()}</main></div></div>`;
   }
 
@@ -253,22 +253,22 @@
       'remove-item': () => update(c => c.items.splice(index, 1)),
       'make-default': () => update(c => c.patterns.forEach((p, i) => { p.default = i === index; })),
       'delete-pattern': () => update(c => { const [gone] = c.patterns.splice(index, 1); if (gone.default && c.patterns[0]) c.patterns[0].default = true; }),
-      'copy-pattern': () => update(c => c.patterns.push({ ...JSON.parse(JSON.stringify(c.patterns[index])), id: `BP-${Date.now() % 1000}`, name: `${c.patterns[index].name}の複製`, default: false })),
+      'copy-pattern': () => update(c => c.patterns.push({ ...JSON.parse(JSON.stringify(c.patterns[index])), id: `BP-${Date.now() % 1000}`, name: `${c.patterns[index].name}（コピー）`, default: false })),
       'new-pattern': () => update(c => c.patterns.push({ id: `BP-${Date.now() % 1000}`, name: `パターン${c.patterns.length + 1}`, note: '', default: !c.patterns.length, steps: c.skills.slice(0, 2).map(row => ({ actions: [row.id], target: 'target_enemy_random' })) })),
-      'open-chart': () => alert('今の行動チャートのエディター（behavior_flow_editor_modal.js）を、このパターンの中身で開く。'),
-      'copy-other': () => alert('複製先のキャラを選ぶ。複製先に無いスキルがあれば、その場で一覧にして、別のスキルに替えるか外すかを選ばせる。'),
+      'open-chart': () => alert('既存の行動チャートエディター（behavior_flow_editor_modal.js）でこのパターンを編集。'),
+      'copy-other': () => alert('複製先キャラクターを選択。未所持スキルがあれば一覧表示し、置換か削除を選択。'),
       'go-import': () => { root.dataset.scene = 'import'; render(); },
       'go-edit': () => { root.dataset.scene = 'edit'; render(); },
-      'read-import': () => { try { state.imported = readCharacter(JSON.parse(state.importText)); } catch (error) { alert(`JSON として読めない：${error.message}`); } render(); },
+      'read-import': () => { try { state.imported = readCharacter(JSON.parse(state.importText)); } catch (error) { alert(`JSON解析エラー：${error.message}`); } render(); },
       'create-import': () => {
         const { fields, profile } = state.imported;
         const id = `NEW_${characters.length + 1}`;
-        if (profile) fields.patterns = [{ id: 'BP-取込', name: '取り込んだパターン', note: '', default: true, steps: stepsOf(profile) }];
+        if (profile) fields.patterns = [{ id: 'BP-取込', name: 'インポートしたパターン', note: '', default: true, steps: stepsOf(profile) }];
         characters.push({ id, allow_ally: false, allow_enemy: true, ...fields });
         state.selected = id; state.imported = null; root.dataset.scene = 'edit'; state.section = 'skills'; render();
       },
-      'member-copy': () => { const [fi, mi] = target.dataset.member.split(':').map(Number); const m = formations[fi].members[mi]; const c = characters.find(row => row.id === m.char); const src = c.patterns.find(p => p.id === m.pattern) || defaultPattern(c); const copy = { ...JSON.parse(JSON.stringify(src)), id: `BP-${Date.now() % 1000}`, name: `${src.name}（${formations[fi].name}用）`, default: false }; c.patterns.push(copy); m.pattern = copy.id; render(); alert(`「${copy.name}」を${c.name}のパターンとして作り、この枠で選んだ。続けてチャートのエディターが開く。`); },
-      'member-new': () => alert('キャラの画面の「行動パターン」の節を開く。'),
+      'member-copy': () => { const [fi, mi] = target.dataset.member.split(':').map(Number); const m = formations[fi].members[mi]; const c = characters.find(row => row.id === m.char); const src = c.patterns.find(p => p.id === m.pattern) || defaultPattern(c); const copy = { ...JSON.parse(JSON.stringify(src)), id: `BP-${Date.now() % 1000}`, name: `${src.name}（${formations[fi].name}）`, default: false }; c.patterns.push(copy); m.pattern = copy.id; render(); alert(`「${copy.name}」を${c.name}のパターンとして作成し、この枠に設定。続けてチャートエディターを表示。`); },
+      'member-new': () => alert('キャラクター編集の「行動パターン」を表示。'),
     };
     actions[action]?.();
   });
@@ -277,7 +277,7 @@
     if (d.add) {
       const id = el.value.trim().split(/\s/)[0];
       const table = { skill: DATA.skills, passive: DATA.passives, radiance: DATA.radiance, item: DATA.items }[d.add];
-      if (!table[id]) { el.setCustomValidity('マスターに無い ID です'); el.reportValidity(); return; }
+      if (!table[id]) { el.setCustomValidity('マスター未登録のIDです'); el.reportValidity(); return; }
       update(c => {
         if (d.add === 'skill') { if (!c.skills.some(row => row.id === id)) c.skills.push({ id, name: '', hidden: false }); }
         else if (d.add === 'item') c.items.push({ id, count: 1 });
@@ -302,9 +302,9 @@
   // ---- 見比べの切り替え ----
   const panel = document.createElement('aside');
   panel.className = 'proto-panel';
-  panel.innerHTML = `<details open><summary>試作の切り替え</summary><div>
-    <label>節の並べ方<select data-proto="layout"><option value="toc">左の目次で1節ずつ（管理画面と同じ）</option><option value="long">全部を縦に並べる</option></select></label>
-    <label>スキルの見せ方<select data-proto="skills"><option value="table">表（1行に1スキル）</option><option value="card">カード（威力と説明つき）</option></select></label></div></details>`;
+  panel.innerHTML = `<details open><summary>試作の切替</summary><div>
+    <label>レイアウト<select data-proto="layout"><option value="toc">目次＋1セクション（管理画面と同様）</option><option value="long">全セクションを縦に表示</option></select></label>
+    <label>スキル表示<select data-proto="skills"><option value="table">表形式</option><option value="card">カード形式（コスト・効果つき）</option></select></label></div></details>`;
   document.body.appendChild(panel);
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('plan61-proto') || '{}'); } catch (e) { /* 覚えなくてよい */ }
