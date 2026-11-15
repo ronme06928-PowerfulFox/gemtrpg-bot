@@ -1,0 +1,276 @@
+/* ルームに入るまでの画面の紙と金（計画62 PR62-3、E02 Part 18 §4）。
+   ログイン・ルーム一覧・ユーザー管理・マイキャラクター・ユーザー設定の窓。色は common_ui.css のトークンだけを使う。 */
+
+/* --- 画面の地と紙の面 --- */
+:is(#entry-portal, #room-portal, #user-management-portal)[data-theme="paper"] {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 0 16px 32px;
+  color: var(--ui-text);
+  background-color: var(--ui-page);
+  background-image: var(--ui-page-tex);
+  font-family: "Noto Sans JP", "Yu Gothic UI", "Hiragino Sans", Meiryo, sans-serif;
+}
+#entry-portal[data-theme="paper"] { padding-top: clamp(24px, 8vh, 80px); }
+
+.paper-panel {
+  width: min(100%, 1100px);
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: clamp(16px, 3vh, 30px) clamp(14px, 3vw, 36px);
+  border: 1px solid var(--ui-gold);
+  border-radius: 10px;
+  background-color: var(--ui-bg);
+  background-image: var(--ui-tex);
+  box-shadow: var(--ui-shadow-panel);
+}
+.paper-panel h1,
+.paper-panel h2,
+.paper-dialog :is(h2, h3) { font-family: var(--ui-head-font); letter-spacing: .03em; color: var(--ui-text); }
+.paper-panel h1 { margin: 0 0 16px; padding-bottom: 10px; font-size: 1.9rem; border-bottom: 1px solid var(--ui-gold); }
+.paper-panel h2 { margin: 18px 0 8px; font-size: 1.15rem; }
+.screen-error { color: var(--ui-danger); }
+
+/* --- ボタンと入力欄（紙の面の中だけ） --- */
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content, .screen-back-bar) button {
+  font: inherit;
+  font-weight: 600;
+  padding: 7px 14px;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-control);
+  border-radius: 8px;
+  background-color: var(--ui-bg);
+  background-image: var(--ui-gloss);
+  box-shadow: var(--ui-inset), var(--ui-shadow-button);
+  cursor: pointer;
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content, .screen-back-bar) button:hover:not(:disabled) {
+  background-color: var(--ui-primary-soft);
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content) button:disabled {
+  cursor: not-allowed;
+  color: var(--ui-sub);
+  border-style: dashed;
+  background-image: none;
+  box-shadow: none;
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content) :is(button.is-primary, .auth-pane > button:first-of-type, .room-join-btn:not(:disabled), #owned-chars-new-btn, #owned-chars-empty-new-btn) {
+  color: var(--ui-on-primary);
+  border-color: var(--ui-gold-strong);
+  background-color: var(--ui-primary);
+  background-image: var(--ui-primary-gloss);
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content) :is(button.is-primary, .auth-pane > button:first-of-type, .room-join-btn, #owned-chars-new-btn, #owned-chars-empty-new-btn):hover:not(:disabled) {
+  background-color: var(--ui-primary);
+  filter: brightness(1.08);
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog) :is(.is-danger, .room-delete-btn) { color: var(--ui-danger); }
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content) :is(input, textarea, select) {
+  font: inherit;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-control);
+  border-radius: 6px;
+  background: var(--ui-input-bg);
+  box-shadow: var(--ui-shadow-input);
+}
+:where([data-theme="paper"]) :where(.paper-panel, .paper-dialog, .owned-chars-modal-content) :is(input, textarea, select):disabled { color: var(--ui-sub); background: var(--ui-soft); }
+:where([data-theme="paper"]) :is(button, input, textarea, select, a, [role="button"]):focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+/* --- ログイン（ユーザー設定の窓も同じ入力欄の並びを使う） --- */
+.entry-panel { width: min(100%, 380px); }
+.login-header { text-align: center; margin-bottom: 20px; }
+.login-header h2 { margin: 0; font-family: var(--ui-head-font); font-size: 1.7rem; letter-spacing: .04em; color: var(--ui-gold-strong); }
+.auth-form { display: flex; flex-direction: column; gap: 14px; }
+.auth-tabs { display: flex; gap: 4px; }
+.auth-pane { display: flex; flex-direction: column; gap: 8px; }
+.auth-form label { font-weight: 600; font-size: .9em; color: var(--ui-sub); }
+.auth-form :is(input[type="text"], input[type="password"]) { display: block; width: 100%; box-sizing: border-box; padding: 11px 14px; font-size: 16px; }
+.auth-form .auth-pane > button { padding: 11px 16px; }
+#entry-portal .auth-tab {
+  flex: 1;
+  padding: 7px 6px;
+  font-size: 14px;
+  background-image: none;
+  box-shadow: none;
+}
+#entry-portal .auth-tab.active {
+  color: var(--ui-text);
+  border-color: var(--ui-gold-strong);
+  border-bottom: 3px solid var(--ui-gold-strong);
+  background: var(--ui-primary-soft);
+}
+.auth-note { margin: 4px 0 0; font-size: .9em; color: var(--ui-sub); }
+.auth-message:empty { display: none; }
+.auth-message { padding: 8px 10px; border-radius: 6px; font-size: .9em; font-weight: 600; text-align: center; }
+.auth-message.success { color: var(--ui-add); background: var(--ui-add-soft); }
+.auth-message.error { color: var(--ui-danger); background: var(--ui-danger-soft); }
+
+/* --- ルーム一覧 --- */
+#room-portal .screen-back-bar,
+#user-management-portal .screen-back-bar { width: min(100%, 1100px); margin: 0 auto; padding: 14px 0; }
+.room-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+#room-search-input { flex: 1 1 220px; padding: 9px 12px; font-size: 16px; }
+.room-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ui-line); }
+.room-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 6px;
+  border-bottom: 1px solid var(--ui-line);
+}
+.room-list-item:hover { background: var(--ui-soft); }
+.room-list-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.room-list-name { font-size: 1.1rem; font-weight: 700; }
+.room-list-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.room-list-desc { font-size: .9em; color: var(--ui-sub); }
+.room-mode-badge,
+.room-role-badge,
+.room-recruit-badge,
+.user-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.room-mode-badge.normal { color: var(--ui-sub); background: var(--ui-soft); }
+.room-mode-badge.battle-only { color: var(--ui-enemy); background: var(--ui-enemy-soft); }
+.room-role-badge { color: var(--ui-ally); background: var(--ui-ally-soft); }
+.room-recruit-badge { color: var(--ui-add); background: var(--ui-add-soft); }
+.room-list-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+#room-list-empty { padding: 16px; text-align: center; color: var(--ui-sub); }
+
+/* --- ユーザー管理 --- */
+.user-table { width: 100%; border-collapse: collapse; }
+.user-table :is(th, td) { padding: 9px 8px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--ui-line); }
+.user-table th { font-size: .9em; color: var(--ui-sub); background: var(--ui-soft); }
+.user-name-link { color: var(--ui-primary); text-decoration: underline; cursor: pointer; }
+.user-name-link.is-me { font-weight: 700; }
+.user-badge[data-gem="amethyst"] { color: var(--gem-amethyst); }
+.user-badge[data-gem="emerald"] { color: var(--ui-add); }
+.user-id { font-family: ui-monospace, Consolas, monospace; font-size: .85em; color: var(--ui-sub); word-break: break-all; }
+.user-login { font-size: .9em; }
+.user-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* --- 紙の窓（ユーザー設定・ユーザーの詳細） --- */
+.paper-dialog {
+  width: min(520px, calc(100vw - 28px));
+  padding: 0;
+  overflow: hidden;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-gold);
+  border-radius: 12px;
+  background-color: var(--ui-bg);
+  background-image: var(--ui-tex);
+  box-shadow: var(--ui-shadow-float);
+}
+.paper-dialog .modal-close-btn { float: right; margin: 10px 12px 0 0; padding: 2px 10px; }
+.user-settings-panel-header { padding: 18px 24px 12px; border-bottom: 1px solid var(--ui-gold); }
+.user-settings-panel-title { margin: 0; font-size: 1.25rem; }
+.user-settings-panel-body { padding: 18px 24px 22px; }
+.user-settings-admin-card { margin-top: 6px; padding: 14px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-soft); }
+.user-settings-admin-card h3 { margin: 0 0 6px; font-size: 1rem; }
+.user-settings-admin-card p { margin: 0 0 12px; color: var(--ui-sub); font-size: .9rem; line-height: 1.55; }
+.user-settings-admin-card.is-admin { border-color: var(--ui-add); background: var(--ui-add-soft); }
+.user-detail { padding: 20px; }
+.user-detail h3 { margin-top: 0; }
+.user-detail h4 { margin: 14px 0 6px; }
+.user-detail ul { max-height: 150px; overflow-y: auto; margin: 0; padding: 10px 20px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-input-bg); }
+.user-detail-none,
+.user-detail-room { color: var(--ui-sub); font-size: .9em; }
+.paper-dialog__actions { margin-top: 18px; text-align: right; }
+
+/* --- マイキャラクター --- */
+.owned-chars-modal-content { width: min(1040px, calc(100vw - 32px)); padding: 0; overflow: hidden; color: var(--ui-text); }
+.owned-chars-modal { padding: 0 0 24px; overflow-y: auto; scrollbar-gutter: stable; }
+.owned-chars-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 26px 14px;
+  border-bottom: 1px solid var(--ui-gold);
+}
+.owned-chars-banner h3 { margin: 0; font-family: var(--ui-head-font); font-size: 1.5rem; letter-spacing: .03em; }
+.owned-chars-banner-sub { margin-top: 2px; font-size: .88rem; color: var(--ui-sub); }
+.owned-chars-body { padding: 18px 26px 0; }
+.owned-chars-layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 18px; align-items: start; }
+.owned-chars-list { max-height: min(60vh, 560px); overflow-y: auto; padding-right: 4px; }
+.owned-chars-sidebar { display: flex; flex-direction: column; gap: 14px; }
+.owned-chars-section { padding: 14px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-soft); }
+.owned-chars-section textarea { width: 100%; box-sizing: border-box; }
+.owned-chars-section--tips { font-size: .85rem; line-height: 1.6; color: var(--ui-sub); }
+.owned-chars-section-title { margin-bottom: 8px; font-weight: 700; }
+.owned-chars-card {
+  margin-bottom: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-line);
+  border-left: 6px solid var(--ui-gold);
+  border-radius: 10px;
+  background: var(--ui-bg);
+  box-shadow: var(--ui-shadow-button);
+}
+.owned-chars-card:hover { border-color: var(--ui-gold-strong); }
+.owned-chars-avatar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--ui-on-primary);
+  font-weight: 700;
+  font-size: 1.05rem;
+  box-shadow: var(--ui-shadow-button);
+}
+.owned-chars-meta { font-size: .82em; color: var(--ui-sub); }
+.owned-chars-exp { color: var(--ui-add); }
+.owned-chars-pass { color: var(--gem-amethyst); }
+.owned-chars-muted,
+.owned-chars-flavor { color: var(--ui-sub); }
+.owned-chars-flavor { font-style: italic; }
+#menu-portal .owned-chars-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  font-size: .95rem;
+  border-color: var(--ui-control);
+  background-color: color-mix(in srgb, var(--ui-gem, var(--ui-gold)) 16%, var(--ui-bg));
+}
+.owned-chars-icon-btn--growth { --ui-gem: var(--gem-emerald); }
+.owned-chars-icon-btn--edit { --ui-gem: var(--gem-sapphire); }
+.owned-chars-icon-btn--export { --ui-gem: var(--gem-amethyst); }
+#menu-portal .owned-chars-icon-btn--delete { color: var(--ui-danger); background-color: var(--ui-danger-soft); }
+.owned-chars-empty { padding: 36px 16px; text-align: center; color: var(--ui-sub); border: 1px dashed var(--ui-control); border-radius: 10px; background: var(--ui-soft); }
+.owned-chars-growth-panel { margin-top: 10px; padding: 12px; border: 1px solid var(--ui-add); border-radius: 8px; background: var(--ui-add-soft); }
+.owned-chars-growth-lead,
+.owned-chars-growth-budget { margin-bottom: 8px; font-size: .82em; color: var(--ui-add); }
+.owned-chars-growth-preview { margin-bottom: 8px; padding: 8px; font-size: .82em; line-height: 1.6; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-bg); }
+.owned-chars-growth-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 2px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: .85em;
+  color: var(--ui-gem);
+  background: color-mix(in srgb, var(--ui-gem) 14%, var(--ui-bg));
+}
+.owned-chars-growth-chip[data-gem="sapphire"] { --ui-gem: var(--gem-sapphire); }
+.owned-chars-growth-chip[data-gem="amethyst"] { --ui-gem: var(--gem-amethyst); }
+#menu-portal .owned-chars-growth-chip-remove { padding: 0 2px; color: inherit; font-weight: 700; border: 0; background: none; box-shadow: none; }
+[data-tone="error"] { color: var(--ui-danger); }
+[data-tone="ok"] { color: var(--ui-add); }
+
+@media (max-width: 720px) {
+  .owned-chars-layout { grid-template-columns: minmax(0, 1fr); }
+}

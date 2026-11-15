@@ -92,7 +92,7 @@
                 <div class="owned-chars-body">
                     <div class="owned-chars-layout">
                         <div id="owned-chars-list" class="owned-chars-list">
-                            <div style="color:#666;">読み込み中...</div>
+                            <div class="owned-chars-muted">読み込み中…</div>
                         </div>
                         <div class="owned-chars-sidebar">
                             <div class="owned-chars-section owned-chars-section--import">
@@ -123,14 +123,14 @@
         panel.querySelector('#owned-chars-new-btn')?.addEventListener('click', () => openCharaCreator());
 
         async function loadList() {
-            listEl.innerHTML = '<div style="color:#666;">読み込み中...</div>';
+            listEl.innerHTML = '<div class="owned-chars-muted">読み込み中…</div>';
             try {
                 const resp = await fetchJson('/api/owned_characters');
                 if (!resp.ok) throw new Error('一覧の取得に失敗しました。');
                 const body = await resp.json();
                 renderList(Array.isArray(body.characters) ? body.characters : []);
             } catch (err) {
-                listEl.innerHTML = `<div style="color:#b91c1c;">${escapeHtml(err.message || String(err))}</div>`;
+                listEl.innerHTML = `<div class="screen-error">${escapeHtml(err.message || String(err))}</div>`;
             }
         }
 
@@ -159,7 +159,7 @@
                                 <div class="owned-chars-avatar" style="background:${avatarColor};">${initial}</div>
                                 <div style="min-width:0;">
                                     <div style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.name)}</div>
-                                    <div style="font-size:0.8em; color:#666;">残り経験値 <strong style="color:#166534;">${escapeHtml(remaining)}</strong> ・ 残り通過点 <strong style="color:#7c3aed;">${escapeHtml(radianceRemaining)}</strong> ・ 更新 ${escapeHtml(updated)}</div>
+                                    <div class="owned-chars-meta">残り経験値 <strong class="owned-chars-exp">${escapeHtml(remaining)}</strong> ・ 残り通過点 <strong class="owned-chars-pass">${escapeHtml(radianceRemaining)}</strong> ・ 更新 ${escapeHtml(updated)}</div>
                                 </div>
                             </div>
                             <div style="flex:0 0 auto; display:flex; gap:6px;">
@@ -169,8 +169,8 @@
                                 <button class="owned-chars-icon-btn owned-chars-icon-btn--delete owned-chars-delete-btn" data-id="${escapeHtml(c.id)}" title="削除">🗑️</button>
                             </div>
                         </div>
-                        <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" data-remaining-exp="${remaining}" data-remaining-radiance="${radianceRemaining}" style="display:none; margin-top:10px; padding:12px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0;">
-                            <div style="font-size:0.8em; color:#166534; margin-bottom:8px;">
+                        <div class="owned-chars-growth-panel" data-id="${escapeHtml(c.id)}" data-remaining-exp="${remaining}" data-remaining-radiance="${radianceRemaining}" hidden>
+                            <div class="owned-chars-growth-lead">
                                 通過点・シナリオ経験を使って、輝化スキルや新たな戦闘スキルを習得できます。
                             </div>
                             <div style="display:flex; gap:6px; margin-bottom:8px; flex-wrap:wrap;">
@@ -184,13 +184,13 @@
                                 </select>
                                 <button type="button" class="bo-btn bo-btn--xs owned-chars-growth-add-pending-btn">＋ 予定に追加</button>
                             </div>
-                            <div class="owned-chars-growth-preview" style="background:#fff; border:1px solid #d1fae5; border-radius:6px; padding:8px; margin-bottom:8px; font-size:0.82em; line-height:1.6; color:#333;">
+                            <div class="owned-chars-growth-preview">
                                 スキルを選択すると、ここに効果とコストが表示されます。
                             </div>
                             <div class="owned-chars-growth-pending" style="margin-bottom:8px; font-size:0.82em;">
-                                <span style="color:#666;">習得予定のスキルはまだありません。</span>
+                                <span class="owned-chars-muted">習得予定のスキルはまだありません。</span>
                             </div>
-                            <div class="owned-chars-growth-budget" style="font-size:0.82em; color:#166534; margin-bottom:8px;">
+                            <div class="owned-chars-growth-budget">
                                 消費予定 経験値: 0 / 残り ${remaining} ・ 消費予定 通過点: 0 / 残り ${radianceRemaining}
                             </div>
                             <button class="bo-btn bo-btn--sm owned-chars-growth-apply-btn" data-id="${escapeHtml(c.id)}">成長を適用</button>
@@ -205,8 +205,8 @@
                     const id = btn.getAttribute('data-id');
                     const panelEl = listEl.querySelector(`.owned-chars-growth-panel[data-id="${CSS.escape(id)}"]`);
                     if (!panelEl) return;
-                    const willOpen = panelEl.style.display === 'none';
-                    panelEl.style.display = willOpen ? 'block' : 'none';
+                    const willOpen = panelEl.hidden;
+                    panelEl.hidden = !willOpen;
                     if (willOpen && !panelEl.dataset.initialized) {
                         panelEl.dataset.initialized = '1';
                         initGrowthPicker(panelEl);
@@ -268,7 +268,7 @@
                         <div style="font-weight:700; margin-bottom:4px;">✨ ${escapeHtml(s.name)}（ID: ${escapeHtml(s.id)}）</div>
                         <div>コスト（通過点）: ${escapeHtml(s.cost ?? 0)}</div>
                         <div>効果: ${escapeHtml(s.description || '(記載なし)')}</div>
-                        ${s.flavor ? `<div style="color:#666; font-style:italic;">${escapeHtml(s.flavor)}</div>` : ''}
+                        ${s.flavor ? `<div class="owned-chars-flavor">${escapeHtml(s.flavor)}</div>` : ''}
                     `;
                 } else {
                     const s = (global.allSkillData || {})[skillId];
@@ -300,16 +300,16 @@
                 const chips = [];
                 pending.skills.forEach((id) => {
                     const name = (skillData[id] || {})['デフォルト名称'] || id;
-                    chips.push(`<span class="owned-chars-growth-chip" data-kind="skill" data-id="${escapeHtml(id)}" style="display:inline-flex; align-items:center; gap:4px; background:#dbeafe; color:#1e40af; border-radius:12px; padding:3px 8px; margin:2px; font-size:0.85em;">⚔️ ${escapeHtml(name)}<button type="button" data-kind="skill" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" style="border:none; background:none; cursor:pointer; color:inherit; font-weight:700;">×</button></span>`);
+                    chips.push(`<span class="owned-chars-growth-chip" data-kind="skill" data-gem="sapphire" data-id="${escapeHtml(id)}">⚔️ ${escapeHtml(name)}<button type="button" data-kind="skill" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" aria-label="外す">×</button></span>`);
                 });
                 pending.radiance.forEach((id) => {
                     const name = (radianceData[id] || {}).name || id;
-                    chips.push(`<span class="owned-chars-growth-chip" data-kind="radiance" data-id="${escapeHtml(id)}" style="display:inline-flex; align-items:center; gap:4px; background:#ede9fe; color:#5b21b6; border-radius:12px; padding:3px 8px; margin:2px; font-size:0.85em;">✨ ${escapeHtml(name)}<button type="button" data-kind="radiance" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" style="border:none; background:none; cursor:pointer; color:inherit; font-weight:700;">×</button></span>`);
+                    chips.push(`<span class="owned-chars-growth-chip" data-kind="radiance" data-gem="amethyst" data-id="${escapeHtml(id)}">✨ ${escapeHtml(name)}<button type="button" data-kind="radiance" data-id="${escapeHtml(id)}" class="owned-chars-growth-chip-remove" aria-label="外す">×</button></span>`);
                 });
 
                 pendingEl.innerHTML = chips.length
                     ? chips.join('')
-                    : '<span style="color:#666;">習得予定のスキルはまだありません。</span>';
+                    : '<span class="owned-chars-muted">習得予定のスキルはまだありません。</span>';
 
                 pendingEl.querySelectorAll('.owned-chars-growth-chip-remove').forEach((btn) => {
                     btn.addEventListener('click', () => {
@@ -325,9 +325,8 @@
                     });
                 });
 
-                const expColor = skillCost > remainingExp ? '#b91c1c' : '#166534';
-                const radianceColor = radianceCost > remainingRadiance ? '#b91c1c' : '#166534';
-                budgetEl.innerHTML = `消費予定 経験値: <strong style="color:${expColor};">${skillCost}</strong> / 残り ${remainingExp} ・ 消費予定 通過点: <strong style="color:${radianceColor};">${radianceCost}</strong> / 残り ${remainingRadiance}`;
+                const tone = over => over ? 'error' : 'ok';
+                budgetEl.innerHTML = `消費予定 経験値: <strong data-tone="${tone(skillCost > remainingExp)}">${skillCost}</strong> / 残り ${remainingExp} ・ 消費予定 通過点: <strong data-tone="${tone(radianceCost > remainingRadiance)}">${radianceCost}</strong> / 残り ${remainingRadiance}`;
             }
 
             async function initGrowthPicker(panelEl) {
@@ -363,7 +362,7 @@
 
                     if (!pending.skills.length && !pending.radiance.length) {
                         msgEl.textContent = '習得するスキルを1つ以上選んで「＋ 予定に追加」してください。';
-                        msgEl.style.color = '#b91c1c';
+                        msgEl.dataset.tone = 'error';
                         return;
                     }
 
@@ -376,11 +375,11 @@
                         const body = await resp.json().catch(() => ({}));
                         if (!resp.ok) throw new Error(body.error || '成長に失敗しました。');
                         msgEl.textContent = '成長を適用しました。';
-                        msgEl.style.color = '#15803d';
+                        msgEl.dataset.tone = 'ok';
                         await loadList();
                     } catch (err) {
                         msgEl.textContent = err.message || String(err);
-                        msgEl.style.color = '#b91c1c';
+                        msgEl.dataset.tone = 'error';
                     }
                 });
             });
@@ -435,7 +434,7 @@
             const text = importText.value.trim();
             if (!text) {
                 importMsg.textContent = 'JSONを貼り付けてください。';
-                importMsg.style.color = '#b91c1c';
+                importMsg.dataset.tone = 'error';
                 return;
             }
             let payload;
@@ -443,7 +442,7 @@
                 payload = JSON.parse(text);
             } catch (err) {
                 importMsg.textContent = `JSONの形式が正しくありません: ${err.message}`;
-                importMsg.style.color = '#b91c1c';
+                importMsg.dataset.tone = 'error';
                 return;
             }
             try {
@@ -455,12 +454,12 @@
                 const body = await resp.json().catch(() => ({}));
                 if (!resp.ok) throw new Error(body.error || '保存に失敗しました。');
                 importMsg.textContent = '保存しました。';
-                importMsg.style.color = '#15803d';
+                importMsg.dataset.tone = 'ok';
                 importText.value = '';
                 await loadList();
             } catch (err) {
                 importMsg.textContent = err.message || String(err);
-                importMsg.style.color = '#b91c1c';
+                importMsg.dataset.tone = 'error';
             }
         });
 

@@ -375,7 +375,7 @@ create_user_notification(
   - 接続時のユーザー専用Socket room参加を追加する。
 - `static/js/notifications.js`
   - ロビー通知UI、API、Socket購読、未読件数同期を担当する。
-- `static/css/modules/portal.css`
+- `static/css/modules/paper_screens.css`（ルームに入るまでの画面。計画62 で portal.css から移した）
   - 通知ボタン、バッジ、一覧、狭幅表示を追加する。
 
 新規クラシックJSを追加する場合は`scripts/build_frontend.mjs`の`CLASSIC_SCRIPTS`へ依存順を登録し、`npm run build`で`static/dist`を更新する。

@@ -8,7 +8,7 @@ import pytest
 CSS = Path(__file__).resolve().parents[1] / "static" / "css" / "modules"
 
 
-@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css"])
+@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css", "paper_screens.css"])
 def test_workspace_colors_use_tokens(filename):
     source = re.sub(r"/\*.*?\*/", "", (CSS / filename).read_text(encoding="utf-8"), flags=re.S)
     values = re.findall(r"(?:[;{])\s*[\w-]+\s*:\s*([^;}]+)", source)

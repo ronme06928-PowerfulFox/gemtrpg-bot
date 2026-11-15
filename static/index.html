@@ -10,18 +10,19 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@900&amp;family=Zen+Antique&amp;display=swap">
-    <link rel="stylesheet" href="dist/app.bundle.css?v=26736a2ac672">
+    <link rel="stylesheet" href="dist/app.bundle.css?v=e1dc687d19cd">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 
 <body>
 
-    <div id="entry-portal">
+    <div id="entry-portal" data-theme="paper">
+      <section class="paper-panel entry-panel">
         <div class="login-header">
             <h2>ジェムリアTRPG<br>ダイスボット</h2>
         </div>
         <div class="auth-form">
-            <div class="auth-tabs" style="display:flex; gap:4px; margin-bottom:14px;">
+            <div class="auth-tabs">
                 <button id="auth-tab-login" class="auth-tab" type="button">ログイン</button>
                 <button id="auth-tab-register" class="auth-tab" type="button">新規登録</button>
                 <button id="auth-tab-recover" class="auth-tab" type="button">復旧</button>
@@ -49,34 +50,34 @@
 
             <!-- 復旧（既存ユーザー移行/パスワード忘れ） -->
             <div id="auth-pane-recover" class="auth-pane" style="display:none;">
-                <p style="margin-top:0; font-size:0.9em; color:#666;">復旧コード（GEM-XXXX-XXXX）でログインし、ログインID・パスワードを設定できます。</p>
+                <p class="auth-note">復旧コード（GEM-XXXX-XXXX）でログインし、ログインID・パスワードを設定できます。</p>
                 <label for="recover-name">名前</label>
                 <input type="text" id="recover-name" placeholder="登録時の名前">
                 <button id="recover-code-btn" type="button">復旧コードでログイン</button>
-                <p style="margin:12px 0 4px; font-size:0.9em; color:#666;">管理者発行のワンタイムコードをお持ちの方：</p>
+                <p class="auth-note">管理者発行のワンタイムコードをお持ちの方：</p>
                 <button id="redeem-code-btn" type="button">ワンタイムコードで再設定</button>
             </div>
 
             <div id="entry-message" class="auth-message"></div>
         </div>
+      </section>
     </div>
 
     <div id="menu-portal" data-theme="paper" style="display: none;"></div>
 
-    <div id="room-portal" style="display: none;">
+    <div id="room-portal" data-theme="paper" style="display: none;">
     </div>
 
-    <div id="user-management-portal"
-        style="display: none; max-width: 800px; margin: 40px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
-        <div
-            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
-            <h2 style="margin: 0; color: #6f42c1;">ユーザー管理 (GM専用)</h2>
-            <button id="back-to-menu-btn" type="button" data-screen-back="menu" style="padding: 8px 16px;">メインメニューに戻る</button>
+    <div id="user-management-portal" data-theme="paper" style="display: none;">
+        <div class="screen-back-bar">
+            <button id="back-to-menu-btn" type="button" class="screen-back" data-screen-back="menu">← メインメニュー</button>
         </div>
-
-        <div id="user-list-container">
-            <p>ユーザー情報を読み込み中...</p>
-        </div>
+        <section class="paper-panel">
+            <h1>ユーザー管理</h1>
+            <div id="user-list-container">
+                <p>ユーザー情報を読み込み中...</p>
+            </div>
+        </section>
     </div>
     <div id="main-app-container" style="display: none;">
 
@@ -106,7 +107,7 @@
     <!-- JavaScript: esbuild でバンドル済み (ソースは static/js/、ビルドは `npm run build`) -->
     <!-- app.bundle.js = クラシックスクリプト連結 / battle.bundle.js = battle/index.js のモジュールツリー -->
     <!-- ?v= はビルド時にコンテンツハッシュへ自動置換される -->
-    <script defer src="dist/app.bundle.js?v=75b30a0919b3"></script>
+    <script defer src="dist/app.bundle.js?v=cb9ee8eb2581"></script>
     <script type="module" src="dist/battle.bundle.js?v=acc863390779"></script>
 </body>
 

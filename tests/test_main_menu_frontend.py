@@ -61,7 +61,7 @@ def test_screens_are_wired():
     assert build.index("'js/main.js'") < build.index("'js/app_screens.js'")
     assert "@import 'css/modules/main_menu.css';" in _read("static/styles.css")
     assert re.search(r'id="menu-portal"[^>]*data-theme="paper"', _read("static/index.html"))
-    assert "メインメニューに戻る" in _read("static/index.html")
+    assert 'id="back-to-menu-btn" type="button" class="screen-back" data-screen-back="menu"' in _read("static/index.html")
 
 
 def test_workspaces_open_as_screens():
@@ -78,3 +78,26 @@ def test_workspaces_open_as_screens():
     # 全幅の画面には閉じる操作を置かない。
     assert "button('閉じる','close')" not in sources["static/js/units/workspace.js"]
     assert "owned-chars-close-btn" not in sources["static/js/modals/owned_characters_modal.js"]
+
+
+HEX = re.compile(r"#[0-9a-fA-F]{3,8}")
+
+
+def test_screens_before_room_use_paper_theme():
+    index = _read("static/index.html")
+    for portal in ("entry-portal", "room-portal", "user-management-portal"):
+        assert re.search(rf'id="{portal}"[^>]*data-theme="paper"', index), portal
+    assert not (ROOT / "static/css/modules/portal.css").exists()
+    assert "@import 'css/modules/paper_screens.css';" in _read("static/styles.css")
+    assert "user-settings-modal-backdrop\" data-theme=\"paper\"" in _read("static/js/modals.js")
+    # 画面の JS に色の値を直接書かない（アバターの色だけは名前から決める見分けの色として残す）。
+    owned = _read("static/js/modals/owned_characters_modal.js")
+    palette = owned[owned.index("const AVATAR_PALETTE"):owned.index("];", owned.index("const AVATAR_PALETTE"))]
+    assert not HEX.findall(owned.replace(palette, ""))
+    assert not HEX.findall(_read("static/js/user_management.js"))
+    main = _read("static/js/main.js")
+    portal = main[main.index("function renderRoomPortal"):main.index("searchInput.addEventListener('input'")]
+    assert not HEX.findall(portal) and "style=\"opacity" not in portal
+    settings = _read("static/js/modals.js")
+    settings = settings[settings.index("function openUserSettingsModal"):settings.index("document.body.insertAdjacentHTML", settings.index("function openUserSettingsModal"))]
+    assert not HEX.findall(settings) and "<style>" not in settings

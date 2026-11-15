@@ -445,7 +445,7 @@ async function showRoomPortal() {
     mainAppContainer.style.display = 'none';
     hideMenuScreens();
     roomPortal.style.display = 'block';
-    roomPortal.innerHTML = '<h2>ルーム一覧を読み込み中...</h2>';
+    roomPortal.innerHTML = '<section class="paper-panel"><p>ルーム一覧を読み込み中…</p></section>';
 
     try {
         const shouldClearRoomRole = !!currentRoomName || currentUserAttribute === 'GM';
@@ -474,7 +474,8 @@ async function showRoomPortal() {
     } catch (error) {
         console.error('Error fetching room list:', error);
         if (error.message !== '認証が必要です。') {
-            roomPortal.innerHTML = `<h2 style="color: red;">エラー</h2><p>${error.message}</p>`;
+            roomPortal.innerHTML = '<section class="paper-panel"><h1>エラー</h1><p class="screen-error"></p></section>';
+            roomPortal.querySelector('.screen-error').textContent = error.message;
         }
     }
 }
@@ -511,21 +512,20 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
         <div class="screen-back-bar">
             <button type="button" class="screen-back" data-screen-back="menu">← メインメニュー</button>
         </div>
-        <div class="room-portal-header">
-            <h2>⚔️ ジェムリアTRPGダイスボット</h2>
-            <p>参加するルームを選択するか、新しいルームを作成してください。</p>
-        </div>
-        <div class="room-controls">
-            <input type="text" id="room-search-input" placeholder="ルームを検索...">
-            <button id="refresh-room-list-btn" title="ルーム一覧を更新">更新</button>
-            <button id="create-room-btn">＋ 新規ルーム作成</button>
-            <button id="create-battle-only-room-btn">戦闘専用ルーム作成</button>
-        </div>
-        <div id="room-list-container">
-            <h3>既存のルーム</h3>
-            <ul id="room-list" class="room-list"></ul>
-            <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
-        </div>
+        <section class="paper-panel" data-gem="sapphire">
+            <h1>セッション</h1>
+            <div class="room-controls">
+                <input type="text" id="room-search-input" placeholder="ルームを検索">
+                <button id="refresh-room-list-btn" type="button" title="ルーム一覧を更新">更新</button>
+                <button id="create-room-btn" type="button" class="is-primary">＋ 新規ルーム作成</button>
+                <button id="create-battle-only-room-btn" type="button">戦闘専用ルーム作成</button>
+            </div>
+            <div id="room-list-container">
+                <h2>ルーム一覧</h2>
+                <ul id="room-list" class="room-list"></ul>
+                <p id="room-list-empty" hidden>該当するルームはありません。</p>
+            </div>
+        </section>
     `;
 
     const roomList = document.getElementById('room-list');
@@ -589,7 +589,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             } else if (roomInfo.joinable) {
                 joinHtml = '<button class="room-join-btn" data-action="join">参加</button>';
             } else {
-                joinHtml = '<button class="room-join-btn" data-action="enter" disabled style="opacity:.5; cursor:not-allowed;">参加不可</button>';
+                joinHtml = '<button class="room-join-btn" data-action="enter" disabled>参加不可</button>';
             }
             const deleteBtn = (adminAccess || role === 'owner') ? '<button class="room-delete-btn">削除</button>' : '';
             const canManage = adminAccess || role === 'owner' || role === 'gm';
@@ -621,7 +621,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             roomList.appendChild(li);
             count++;
         });
-        emptyMsg.style.display = (count === 0) ? 'block' : 'none';
+        emptyMsg.hidden = count !== 0;
     }
     populateList('');
 

@@ -32,59 +32,12 @@ function openUserSettingsModal(allowAttributeChange = false) {
     let attributeHtml = `
         <label>あなたの属性:</label>
         <input type="text" value="${escapeUserSettingsText(oldAttr)}" readonly disabled
-               style="background: #eee; color: #777; cursor: not-allowed;"
                title="GM/プレイヤーの切り替えはルーム入室時に行ってください">
     `;
     const modalHtml = `
-        <div class="modal-backdrop" id="user-settings-modal-backdrop">
-            <div class="modal-content" style="width:min(520px, calc(100vw - 28px)); padding:0; overflow:hidden; border-radius:14px;">
-                <style>
-                    .user-settings-panel-header {
-                        padding: 20px 24px 16px;
-                        background: linear-gradient(180deg, #fffaf0 0%, #f2eee5 100%);
-                        border-bottom: 1px solid rgba(60, 48, 32, 0.12);
-                    }
-                    .user-settings-panel-title {
-                        margin: 0;
-                        color: #263238;
-                        font-size: 1.25rem;
-                    }
-                    .user-settings-panel-body {
-                        padding: 20px 24px 24px;
-                    }
-                    .user-settings-admin-card {
-                        margin-top: 16px;
-                        padding: 14px;
-                        border: 1px solid #d4c8b7;
-                        border-radius: 10px;
-                        background: #fffaf1;
-                    }
-                    .user-settings-admin-card h3 {
-                        margin: 0 0 6px;
-                        font-size: 1rem;
-                        color: #4f3f2c;
-                    }
-                    .user-settings-admin-card p {
-                        margin: 0 0 12px;
-                        color: #665c50;
-                        font-size: 0.9rem;
-                        line-height: 1.55;
-                    }
-                    .user-settings-admin-card button {
-                        background: #7a542e;
-                    }
-                    .user-settings-admin-card.is-admin {
-                        background: #eef8f2;
-                        border-color: #b9d9c5;
-                    }
-                    .user-settings-admin-card.is-admin h3 {
-                        color: #21533a;
-                    }
-                    .user-settings-admin-card.is-admin button {
-                        background: #6f7d72;
-                    }
-                </style>
-                <button class="modal-close-btn" style="float: right;">×</button>
+        <div class="modal-backdrop" id="user-settings-modal-backdrop" data-theme="paper">
+            <div class="modal-content paper-dialog user-settings-modal">
+                <button class="modal-close-btn" type="button" aria-label="閉じる">×</button>
                 <div class="user-settings-panel-header">
                     <h2 class="user-settings-panel-title">ユーザー情報変更</h2>
                 </div>
