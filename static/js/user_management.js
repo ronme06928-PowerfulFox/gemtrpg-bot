@@ -122,6 +122,7 @@ async function requestMasterKey(reason) {
         placeholder: '8桁マスターキー',
         confirmText: '認証',
         required: true,
+        validate: value => /^\d{8}$/.test(value) ? '' : 'マスターキーは8桁の数字で入力してください。',
     });
 }
 
@@ -167,7 +168,7 @@ async function showUserDetails(userId, userName) {
         document.getElementById('close-user-details').onclick = () => overlay.remove();
 
     } catch (e) {
-        alert(e.message);
+        showAppAlert(e.message, { title: 'エラー' });
     }
 }
 // ▲▲▲ 追加ここまで ▲▲▲
@@ -182,10 +183,7 @@ async function deleteUser(userId) {
     let masterKey = '';
     if (!currentUserCanManageUsers) {
         masterKey = await requestMasterKey('ユーザー削除にはマスターキーが必要です。');
-        if (!/^\d{8}$/.test(String(masterKey || '').trim())) {
-            alert('マスターキーは8桁の数字で入力してください。');
-            return;
-        }
+        if (masterKey === null) return;  // キャンセル
     }
 
     try {
@@ -200,7 +198,7 @@ async function deleteUser(userId) {
         }
         loadUserList();
     } catch(e) {
-        alert('削除失敗: ' + e.message);
+        showAppAlert('削除失敗: ' + e.message, { title: 'エラー' });
     }
 }
 
@@ -222,10 +220,7 @@ async function openTransferModal(fromId, fromName) {
     let masterKey = '';
     if (!currentUserCanManageUsers) {
         masterKey = await requestMasterKey('所有権譲渡にはマスターキーが必要です。');
-        if (!/^\d{8}$/.test(String(masterKey || '').trim())) {
-            alert('マスターキーは8桁の数字で入力してください。');
-            return;
-        }
+        if (masterKey === null) return;  // キャンセル
     }
 
     fetchWithSession('/api/admin/transfer', {
@@ -235,10 +230,10 @@ async function openTransferModal(fromId, fromName) {
     }).then(res => res.json())
       .then(data => {
           if (data.error) throw new Error(data.error);
-          alert(data.message);
+          showAppAlert(data.message, { title: '所有権移動' });
           loadUserList();
       })
-      .catch(e => alert('譲渡失敗: ' + e.message));
+      .catch(e => showAppAlert('譲渡失敗: ' + e.message, { title: 'エラー' }));
 }
 
 async function toggleUserManagementAdmin(userId, enabled) {
@@ -246,10 +241,7 @@ async function toggleUserManagementAdmin(userId, enabled) {
         ? 'このユーザーへユーザー管理権限を付与します。マスターキーを入力してください。'
         : 'このユーザーのユーザー管理権限を解除します。マスターキーを入力してください。'
     );
-    if (!/^\d{8}$/.test(String(masterKey || '').trim())) {
-        alert('マスターキーは8桁の数字で入力してください。');
-        return;
-    }
+    if (masterKey === null) return;  // キャンセル
 
     try {
         const res = await fetchWithSession('/api/admin/set_user_management_admin', {
@@ -265,7 +257,7 @@ async function toggleUserManagementAdmin(userId, enabled) {
         if (!res.ok) throw new Error(data.error || '更新に失敗しました');
         loadUserList();
     } catch (e) {
-        alert('管理権限の更新失敗: ' + e.message);
+        showAppAlert('管理権限の更新失敗: ' + e.message, { title: 'エラー' });
     }
 }
 
@@ -282,6 +274,6 @@ async function toggleCatalogAuthor(userId, enabled) {
     if (!response.ok) throw new Error(data.error || '更新に失敗しました');
     await loadUserList();
   } catch (error) {
-    alert('制作者の更新失敗: ' + error.message);
+    showAppAlert('制作者の更新失敗: ' + error.message, { title: 'エラー' });
   }
 }

@@ -396,17 +396,14 @@
                 btn.addEventListener('click', async () => {
                     const id = btn.getAttribute('data-id');
                     if (!id) return;
-                    const confirmFn = (typeof global.showAppConfirm === 'function')
-                        ? global.showAppConfirm
-                        : async (msg) => window.confirm(msg);
-                    const ok = await confirmFn('この持ちキャラを削除しますか？', {defaultFocus: 'cancel'});
+                    const ok = await global.showAppConfirm('この持ちキャラを削除しますか？', {defaultFocus: 'cancel', title: '持ちキャラの削除', confirmText: '削除'});
                     if (!ok) return;
                     try {
                         const resp = await fetchJson(`/api/owned_characters/${encodeURIComponent(id)}`, { method: 'DELETE' });
                         if (!resp.ok) throw new Error('削除に失敗しました。');
                         await loadList();
                     } catch (err) {
-                        alert(err.message || String(err));
+                        global.showAppAlert(err.message || String(err), { title: 'エラー' });
                     }
                 });
             });

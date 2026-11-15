@@ -166,7 +166,7 @@
     const leaveResult = await leaveCurrentSocketRoom();
     if (!leaveResult?.ok) {
       console.warn('Socket room leave acknowledgement timed out.', leaveResult);
-      alert('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。');
+      showAppAlert('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。', { title: 'エラー' });
       return false;
     }
     exitRoomTo(name);
@@ -216,9 +216,8 @@
       });
     } catch (_e) { /* 失効はベストエフォート */ }
     clearSavedRecoveryToken();
-    clearScreenHash();
+    showEntryPortal();  // 先にログインの画面へ移し、切断の知らせを出さない（main.js の disconnect）。
     try { if (socket && socket.connected) socket.disconnect(); } catch (_e) {}
-    showEntryPortal();
   }
 
   function setAccountOpen(open) {

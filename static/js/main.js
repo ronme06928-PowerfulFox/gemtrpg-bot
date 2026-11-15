@@ -67,7 +67,9 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
-        if (opener?.closest?.('.cat-workspace')) overlay.dataset.theme = 'paper';
+        // ルームの外と、紙と金の画面の中から開いた窓は紙と金にする（E02 Part 16）。
+        const inRoom = document.getElementById('main-app-container')?.style.display === 'block';
+        if (!inRoom || opener?.closest?.('[data-theme="paper"], .cat-workspace')) overlay.dataset.theme = 'paper';
         overlay.className = 'modal-backdrop app-dialog-backdrop';
         overlay.innerHTML = `
             <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
@@ -152,7 +154,7 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
                 ${mode === 'prompt' ? `<input id="app-dialog-input" class="app-dialog-input" value="${escapeDialogText(defaultValue)}" placeholder="${escapeDialogText(placeholder)}">` : ''}
                 <div id="app-dialog-error" class="app-dialog-error"></div>
                 <div class="app-dialog-actions">
-                    <button id="app-dialog-cancel" class="app-dialog-cancel" type="button">${escapeDialogText(cancelText)}</button>
+                    ${mode === 'alert' ? '' : `<button id="app-dialog-cancel" class="app-dialog-cancel" type="button">${escapeDialogText(cancelText)}</button>`}
                     <button id="app-dialog-confirm" class="app-dialog-confirm" type="button">${escapeDialogText(confirmText)}</button>
                 </div>
             </div>
@@ -163,7 +165,7 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
         const cancelButton = overlay.querySelector('#app-dialog-cancel');
         const confirmButton = overlay.querySelector('#app-dialog-confirm');
         const controls = [input,cancelButton,confirmButton].filter(Boolean);
-        const cancelValue = mode === 'prompt' ? null : false;
+        const cancelValue = mode === 'prompt' ? null : mode === 'alert' ? true : false;
         const cleanup = (value) => {
             document.removeEventListener('keydown', onKeyDown, true);
             dismissAppDialog = null;
@@ -193,7 +195,7 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
                 event.preventDefault();
                 event.stopPropagation();
                 if (event.repeat) return;
-                if (event.key === 'Escape' || focused === cancelButton) cleanup(cancelValue);
+                if (event.key === 'Escape' || (cancelButton && focused === cancelButton)) cleanup(cancelValue);
                 else if (focused === confirmButton || (input && focused === input)) submit();
             }
             if (event.key === 'Tab') {
@@ -206,14 +208,14 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
         }
 
         dismissAppDialog = () => cleanup(cancelValue);
-        cancelButton.addEventListener('click', dismissAppDialog);
+        cancelButton?.addEventListener('click', dismissAppDialog);
         confirmButton.addEventListener('click', submit);
         overlay.addEventListener('click', (event) => {
             if (event.target === overlay) cleanup(cancelValue);
         });
         document.addEventListener('keydown', onKeyDown, true);
         document.body.appendChild(overlay);
-        const initialFocus = defaultFocus === 'cancel' ? cancelButton : defaultFocus === 'confirm' ? confirmButton : input || confirmButton;
+        const initialFocus = (defaultFocus === 'cancel' && cancelButton) || (defaultFocus === 'confirm' ? confirmButton : input || confirmButton);
         initialFocus.focus();
     });
 }
@@ -226,6 +228,15 @@ function showAppConfirm(message, options = {}) {
         defaultFocus: options.defaultFocus,
         confirmText: options.confirmText || '実行',
         cancelText: options.cancelText || 'キャンセル',
+    });
+}
+
+function showAppAlert(message, options = {}) {
+    return openAppDialog({
+        title: options.title || 'お知らせ',
+        message,
+        mode: 'alert',
+        confirmText: options.confirmText || 'OK',
     });
 }
 
@@ -245,6 +256,7 @@ function showAppPrompt(message, options = {}) {
 }
 
 window.showAppConfirm = showAppConfirm;
+window.showAppAlert = showAppAlert;
 window.showAppPrompt = showAppPrompt;
 
 function getLogDedupeKey(logData) {
@@ -680,15 +692,15 @@ function openInRoomSettingsChooser() {
 
 // 現在入室中のルームのルーム設定モーダルを開く（ロビーへは戻らない）。
 async function openCurrentRoomSettings() {
-    if (!currentRoomName) { alert('ルーム情報を取得できませんでした。'); return; }
+    if (!currentRoomName) { showAppAlert('ルーム情報を取得できませんでした。', { title: 'エラー' }); return; }
     try {
         const response = await fetchWithSession('/list_rooms');
         const data = await response.json();
         const info = (data.rooms || []).find(r => r.name === currentRoomName);
-        if (!info) { alert('ルーム情報が見つかりませんでした。'); return; }
+        if (!info) { showAppAlert('ルーム情報が見つかりませんでした。', { title: 'エラー' }); return; }
         openRoomSettingsModal(info, { refreshLobby: false });
     } catch (error) {
-        alert(error.message);
+        showAppAlert(error.message, { title: 'エラー' });
     }
 }
 
@@ -810,12 +822,12 @@ async function joinRoomWithCode(roomName, requiresCode) {
         });
         const data = await response.json();
         if (!response.ok) {
-            alert(data.error || 'ルーム参加に失敗しました');
+            showAppAlert(data.error || 'ルーム参加に失敗しました', { title: 'エラー' });
             return;
         }
         joinRoom(roomName, null, null, data.role || 'player');
     } catch (error) {
-        alert(error.message);
+        showAppAlert(error.message, { title: 'エラー' });
     }
 }
 
@@ -871,13 +883,13 @@ async function createRoomByMode(playMode) {
             window.currentUserAttribute = currentUserAttribute;
             joinRoom(payload.room_name, result.state, { role: 'GM', gmPin: payload.gm_pin });
         } else if (response.status === 409) {
-            alert(`エラー: ルーム名「${payload.room_name}」は既に使用されています。`);
+            showAppAlert(`ルーム名「${payload.room_name}」は既に使用されています。`, { title: 'エラー' });
         } else {
             throw new Error(result.error || 'ルームの作成に失敗しました');
         }
     } catch (error) {
         console.error('Error creating room:', error);
-        alert(`ルーム作成に失敗しました: ${error.message}`);
+        showAppAlert(`ルーム作成に失敗しました: ${error.message}`, { title: 'エラー' });
     }
 }
 
@@ -909,11 +921,11 @@ async function deleteRoom(roomName) {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || '不明なエラー');
-        alert(`ルーム「${roomName}」を削除しました。`);
+        showAppAlert(`ルーム「${roomName}」を削除しました。`, { title: 'ルーム削除' });
         showRoomPortal();
     } catch (error) {
         console.error('Error deleting room:', error);
-        alert(`ルームの削除に失敗しました: ${error.message}`);
+        showAppAlert(`ルームの削除に失敗しました: ${error.message}`, { title: 'エラー' });
     }
 }
 
@@ -1000,7 +1012,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
 
     } catch (error) {
         console.error('Error joining room:', error);
-        alert(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`);
+        showAppAlert(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`, { title: 'エラー' });
         showRoomPortal();
     }
 }
@@ -1100,8 +1112,10 @@ function initializeSocketIO() {
     socket.on('disconnect', () => {
         socketInitInFlight = false;
         console.warn('WebSocket サーバーから切断されました。');
-        alert('サーバーとの接続が切れました。ページをリロードします。');
-        location.reload();
+        // ログアウトで切ったときは知らせずに読み込み直す。
+        if (entryPortal.style.display === 'block') { location.reload(); return; }
+        showAppAlert('サーバーとの接続が切れました。ページを読み込み直します。', { title: '接続切れ' })
+            .then(() => location.reload());
     });
     // match_error is handled in tab_visual_battle.js
     registerAppSocketHandler('state_updated', (newState) => {
