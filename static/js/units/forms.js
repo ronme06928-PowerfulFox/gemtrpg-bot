@@ -23,8 +23,14 @@
   const grid = (...fields) => `<div class="unit-fields">${fields.join('')}</div>`;
   const card = (title, body) => `<section class="bo-workspace__card unit-card"><h4>${h(title)}</h4>${body}</section>`;
   const remove = (path, index, label = '外す') =>
-    button(label,'remove-row', `data-path="${path}" data-index="${index}"`, 'cat-danger unit-remove');
+    button(label,'remove-row', `data-path="${path}" data-index="${index}"`, (label === '削除' ? 'cat-danger ' : '') + 'unit-remove');
   const picker = (label, source, path, edit) => edit ? button(label,'picker',`data-source="${source}" data-path="${path}"`) : '';
+  function sectionAction(section, payload, edit) {
+    if (section === 'skills') return picker('＋ スキルを追加','skill','skills',edit);
+    if (section === 'members') return picker('＋ メンバーを追加',payload.type + '-unit','members',edit);
+    if (section === 'field' && edit) return button('＋ 効果ルールを追加','add-rule');
+    return '';
+  }
   const badge = (label, style = '') => `<span class="cat-badge ${style}">${label}</span>`;
   const badges = row => {
     const p = row.payload;
@@ -73,18 +79,18 @@
   function render(section, ctx) {
     const {kind, row, edit, masters, records} = ctx;
     const p = row.payload;
-    const items = (key, path, label) => (p[path] || []).map((item, i) => {
+    const items = (key, path) => (p[path] || []).map((item, i) => {
       const id = typeof item === 'string' ? item : item.id;
       const master = masters[key].find(r => r.entry_id === id);
       return `<div class="unit-item-row"><code class="cat-id">${h(id)}</code><strong>${h(nameOf(master?.payload))}</strong>
         ${path === 'items' ? field('個数',`items.${i}.count`,item.count,'number','min="0"') : ''}
         ${edit ? remove(path,i) : ''}</div>`;
-    }).join('') + picker(label,key,path,edit);
+    }).join('');
     const resource = id => records.find(item => item.entry_id === id)?.payload.name || id || '未設定';
     const num = (label, path, value = 0, attrs = '') => field(label,path,value,'number',attrs);
     const tags = () => card('タグ', `<div class="cat-chips">${(p.tags || []).map((tag,i) =>
       `<span class="cat-chip">${h(tag)}${edit ? `<button type="button" class="cat-chip-remove"
-        data-unit-action="remove-row" data-path="tags" data-index="${i}" aria-label="${h(tag)}を削除">×</button>` : ''}</span>`
+        data-unit-action="remove-row" data-path="tags" data-index="${i}" aria-label="${h(tag)}を外す">×</button>` : ''}</span>`
     ).join('') || '<span class="cat-caption">タグなし</span>'}</div>
     ${edit ? `<form class="unit-tag-form" data-unit-tag-form>
       <label class="cat-field">タグを入力<input type="text" data-unit-tag-input placeholder="Enterで追加"></label>
@@ -100,12 +106,13 @@
             <input type="radio" data-path="visibility" name="unit-visibility" value="${value}" ${row.visibility === value ? 'checked' : ''}> ${label}</label>`).join('')}
         </div></fieldset></div>`;
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
-        card('画像',image(p.image) + (edit ? button('画像を選択','image') + (p.image ? button('画像を解除','clear-image') : '') : '')),
+        card('画像',image(p.image) + '<div class="unit-row-actions">' + (edit ? button('画像を選択','image') + (p.image ? button('解除','clear-image') : '') : '') + '</div>'),
         card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy,'checkbox')),
         field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GM限定表示','gm_only',p.gm_only,'checkbox')) + common + tags();
       if (kind === 'formation') return field('編成名','name',p.name) +
         grid(`<p>種類 <strong>${h(sides[p.type])}</strong></p>`,num('推奨人数','recommended_ally_count',p.recommended_ally_count,'min="0"')) + common;
-      return field('名前','name',p.name) + field('コンセプト','concept',p.concept) + field('説明','description',p.description,'area') + tags() + common;
+      return field('名前','name',p.name) + `<div class="unit-stage-description">${field('コンセプト','concept',p.concept)}
+        ${field('説明','description',p.description,'area')}</div>` + tags() + common;
     }
     if (section === 'status') {
       const vitals = `<div class="unit-param-grid unit-vitals">${num('最大HP','hp',p.hp,'min="0"')}
@@ -133,19 +140,21 @@
           <div class="unit-skill-heading">
             <code class="cat-id">${h(skill.id)}</code><strong>${h(skill.name || nameOf(master) || skill.id)}</strong>
             <span class="unit-skill-category">${h(master.分類 || '—')}</span>
-            ${edit ? button('名称変更','rename-skill',`data-index="${i}" aria-label="${h(skill.name || nameOf(master) || skill.id)}の名称変更"`) : ''}
           </div>
           <div class="unit-skill-actions">
+            ${edit ? button('名称変更','rename-skill',`data-index="${i}" aria-label="${h(skill.name || nameOf(master) || skill.id)}の名称変更"`) : ''}
             ${field('非公開',`skills.${i}.hidden`,skill.hidden,'checkbox')}
             ${edit ? remove('skills',i) : ''}
           </div>
           <details class="unit-skill-effect"><summary><span>${h(summary)}</span></summary>
             <dl><dt>コスト</dt><dd>${h(cost || '—')}</dd><dt>効果</dt><dd>${h(effect || '—')}</dd></dl>
           </details></div>`;
-      }).join('') + '</div>' + picker('＋ スキルを追加','skill','skills',edit) + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
-    if (section === 'gear') return card('パッシブ',items('passive','passives','＋ パッシブを追加')) +
-      card('輝化スキル',items('radiance','radiance','＋ 輝化スキルを追加')) +
-      card('アイテム',items('item','items','＋ アイテムを追加'));
+      }).join('') + '</div>' + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
+    if (section === 'gear') return [
+      ['パッシブ','passive','passives'],['輝化スキル','radiance','radiance'],['アイテム','item','items'],
+    ].map(([label,source,path]) => `<section class="unit-gear-group">
+      <div class="unit-subheading"><h4>${label}</h4>${picker('＋ ' + label + 'を追加',source,path,edit)}</div>
+      ${items(source,path) || '<p class="cat-caption">登録なし</p>'}</section>`).join('');
     if (section === 'behavior') return grid(
       field('対象の自動選択','behavior.auto_target',p.behavior?.auto_target,'checkbox'),
       field('スキルの自動選択','behavior.auto_skill',p.behavior?.auto_skill,'checkbox'),
@@ -155,12 +164,12 @@
     if (section === 'members') return `<table class="unit-members"><thead><tr><th>ユニット</th><th>数</th><th></th></tr></thead><tbody>${
       (p.members || []).map((member,i) => `<tr><td><code>${h(member.unit_id)}</code> ${h(resource(member.unit_id))}</td>
         <td><input type="number" min="1" data-path="members.${i}.count" value="${h(member.count)}" aria-label="${h(resource(member.unit_id))}の数"></td>
-        <td>${edit ? button('外す','remove-row',`data-path="members" data-index="${i}" aria-label="${h(resource(member.unit_id))}を編成から外す"`,'cat-danger unit-remove') : ''}</td></tr>`).join('')
-      || '<tr><td colspan="3" class="cat-caption">メンバーなし</td></tr>'}</tbody></table>` + picker('＋ メンバーを追加',p.type + '-unit','members',edit);
+        <td>${edit ? button('外す','remove-row',`data-path="members" data-index="${i}" aria-label="${h(resource(member.unit_id))}を編成から外す"`,'unit-remove') : ''}</td></tr>`).join('')
+      || '<tr><td colspan="3" class="cat-caption">メンバーなし</td></tr>'}</tbody></table>`;
     if (section === 'battle') return ['enemy','ally'].map(side => {
       const path = side + '_formation_id';
-      return card(sides[side], `<p>${h(resource(p[path]))}</p>` + picker('編成を選択',side + '-formation',path,edit)
-        + (edit && p[path] ? button('選択を解除','clear-reference',`data-path="${path}"`) : ''));
+      return card(sides[side], `<p>${h(resource(p[path]))}</p><div class="unit-row-actions">` + picker('編成を選択',side + '-formation',path,edit)
+        + (edit && p[path] ? button('解除','clear-reference',`data-path="${path}"`) : '') + '</div>');
     }).join('') + num('必要人数','required_ally_count',p.required_ally_count,'min="0"');
     if (section === 'field') return (p.field_effect_profile?.rules || []).map((rule,i) => {
       const path = `field_effect_profile.rules.${i}`;
@@ -173,13 +182,14 @@
         field('条件パラメータ',path+'.condition.param',rule.condition?.param),
         select('条件演算子',path+'.condition.operator',operators,rule.condition?.operator || 'GTE'),
         field('条件値',path+'.condition.value',rule.condition?.value,'number'))
-        + (edit ? button('条件を解除','clear-reference',`data-path="${path}.condition"`) + remove('field_effect_profile.rules',i,'削除') : ''));
-    }).join('') + (edit ? button('＋ 効果ルールを追加','add-rule') : '');
+        + (edit ? '<div class="unit-row-actions">' + button('条件を解除','clear-reference',`data-path="${path}.condition"`) +
+          remove('field_effect_profile.rules',i,'削除') + '</div>' : ''));
+    }).join('');
     if (section === 'avatar') return field('ステージアバターを表示','stage_avatar.enabled',p.stage_avatar?.enabled,'checkbox') +
       field('名前','stage_avatar.name',p.stage_avatar?.name) + field('説明','stage_avatar.description',p.stage_avatar?.description,'area') +
       field('アイコン','stage_avatar.icon',p.stage_avatar?.icon);
     return '';
   }
 
-  window.UnitForms = {sections, sides, button, options, field, card, badges, defaults, overwriteUnit, palette, render, nameOf, image, plain};
+  window.UnitForms = {sections, sides, button, options, field, card, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain};
 })();

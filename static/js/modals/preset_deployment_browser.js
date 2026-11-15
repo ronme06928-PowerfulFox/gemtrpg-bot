@@ -44,6 +44,7 @@
   async function confirmClose() {
     if (typeof global.showAppConfirm === 'function') {
       return global.showAppConfirm('選択中の配置内容を破棄して閉じますか？', {
+        defaultFocus: 'cancel',
         title: '配置内容を破棄', confirmText: '破棄して閉じる', cancelText: '戻る',
       });
     }

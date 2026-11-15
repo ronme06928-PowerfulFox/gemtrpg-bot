@@ -1827,6 +1827,7 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
     deleteBtn.style.color = '#dc3545';
     deleteBtn.onclick = async () => {
         if (await window.showAppConfirm(`本当に「${char.name}」を削除しますか？`, {
+            defaultFocus: 'cancel',
             title: 'キャラクター削除',
             confirmText: '削除',
         })) {
@@ -1985,6 +1986,7 @@ window.openTransferOwnershipModal = function (charId, mode) {
 
                 userItem.onclick = async () => {
                     if (await window.showAppConfirm(`「${char.name}」の所有権を「${userName}」に譲渡しますか？`, {
+                        defaultFocus: 'cancel',
                         title: '所有権譲渡',
                         confirmText: '譲渡',
                     })) {

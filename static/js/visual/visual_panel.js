@@ -119,6 +119,7 @@ window.renderMatchPanelFromState = function (matchData) {
             btn.onclick = async function (e) {
                 e.stopPropagation();
                 if (await window.showAppConfirm('【GM権限】マッチを強制終了しますか？\n現在行われているマッチ、または意図せず開いているマッチ画面を閉じます。\nこの操作は元に戻せません。', {
+                    defaultFocus: 'cancel',
                     title: 'マッチ強制終了',
                     confirmText: '強制終了',
                 })) {

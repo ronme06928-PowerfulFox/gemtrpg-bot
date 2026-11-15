@@ -39,10 +39,16 @@ assert.match(UnitViews.candidateList(candidates,'visible'), /data-unit-action="c
 assert.doesNotMatch(UnitViews.candidateList(candidates,'visible'), /<datalist|<select/);
 assert.doesNotMatch(UnitForms.render('basic',{kind:'formation',row:draft,records,edit:true}), /data-path="type"/);
 assert.match(UnitViews.importReport([{kind:'unit',entry_id:'U-001',operation:'overwrite',base_revision:2,errors:{},warnings:{ref:'廃止済み'}}]), /上書き（版 2）/);
+assert.equal(UnitForms.sectionAction('skills',draft.payload,true).includes('＋ スキルを追加'),true);
+assert.equal(UnitForms.sectionAction('skills',draft.payload,false),'');
+assert.match(UnitViews.deleteReason('unit',{references:[{kind:'formation'}],room_reference_count:0}), /編成で使用中/);
+assert.equal(UnitViews.deleteReason('unit',{references:[],room_reference_count:0}),'');
 const skillRows = [
   {entry_id:'Ps-01',payload:{デフォルト名称:'Sword',分類:'物理',コスト:'MP 2',発動時効果:'Bleed',特記:'Note',チャットパレット:'1d6 Sword'}},
   {entry_id:'Pb-01',payload:{デフォルト名称:'Mace',分類:'物理',発動時効果:'Bleed'}},
 ];
+assert.match(UnitViews.candidateList(skillRows,'','skill','',{skills:[{id:'Ps-01'}]}), /追加済み/);
+assert.match(UnitViews.candidateList(candidates,'','ally-unit','',{members:[{unit_id:'U-001',count:5},{unit_id:'U-001',count:1}]}), /編成内 2 枠/);
 const tabs = UnitViews.skillTabs('Ps');
 assert.deepEqual([...tabs.matchAll(/data-category="([^"]*)"/g)].map(match => match[1]),
   ['', 'Ps','Pb','Pp','Ms','Mb','Mp','B','C','D','E']);
@@ -113,3 +119,89 @@ def test_unit_workspace_replaces_management_only():
         assert filename not in build
     assert "preset_deployment_browser.js" in build
     assert "battle_only_draft_modal.js" in build
+
+
+def test_unit_workspace_actions_are_in_their_regions():
+    workspace = (ROOT / "static/js/units/workspace.js").read_text(encoding="utf-8")
+    header, footer = workspace.split('<footer class="unit-footer">', 1)
+    assert "button('再読み込み','reload')" in header
+    assert "get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new')" in header
+    assert 'forms.sectionAction(state.section,payload(),canEdit())' in header
+    footer = footer.split("</footer>", 1)[0]
+    assert "その他 ▾" in footer and "unit-delete-reason" in footer
+    assert 'class="unit-dirty" role="status"' in footer
+    assert "button('変更を破棄','discard',disabled(!state.dirty))" in footer
+    assert "button('保存','save',disabled(state.conflict),'cat-primary')" in footer
+    assert "await selectRow(current(),state.section)" in workspace
+    assert "renderCandidates({preservePosition:true})" in workspace
+    assert 'data-transfer-panel="export"' in workspace
+    assert 'data-transfer-panel="import" hidden' in workspace
+
+
+def test_shared_confirm_keyboard_and_initial_focus():
+    script = r"""
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const source = readFileSync('static/js/main.js','utf8');
+const listeners = new Map();
+function control() {
+  return {focus() {document.activeElement = this;}, addEventListener(type, cb) {this[type] = cb;}};
+}
+const opener = control();
+let overlay;
+globalThis.window = globalThis;
+globalThis.document = {
+  activeElement: opener,
+  createElement() {
+    const controls = Object.fromEntries(['cancel','confirm','input','error'].map(key => ['#app-dialog-' + key,control()]));
+    overlay = {...control(),
+      querySelector(key) {return key.endsWith('-input') && !this.innerHTML.includes('id="app-dialog-input"') ? null : controls[key];},
+      remove() {this.closed = true;}};
+    return overlay;
+  },
+  body: {appendChild() {}},
+  addEventListener(type,cb,options) {assert.equal(options,true); listeners.set(type,cb);},
+  removeEventListener(type,cb,options) {
+    assert.equal(options,true); assert.equal(listeners.get(type),cb); listeners.delete(type);
+  },
+};
+function key(name, extra = {}) {
+  listeners.get('keydown')({key:name, preventDefault(){},stopPropagation(){},...extra});
+}
+const start = source.indexOf('function escapeDialogText(');
+const end = source.indexOf('window.showAppPrompt = showAppPrompt;') + 'window.showAppPrompt = showAppPrompt;'.length;
+new Function(source.slice(start,end))();
+let result = showAppConfirm('danger',{defaultFocus:'cancel'});
+assert.equal(document.activeElement,overlay.querySelector('#app-dialog-cancel'));
+key('Enter');
+assert.equal(await result,false);
+assert.equal(document.activeElement,opener);
+result = showAppConfirm('normal');
+assert.equal(document.activeElement,overlay.querySelector('#app-dialog-confirm'));
+opener.focus();
+key('Enter');
+assert.ok(!overlay.closed);
+overlay.querySelector('#app-dialog-confirm').focus();
+key('Enter',{isComposing:true});
+assert.ok(!overlay.closed);
+key('Enter');
+assert.equal(await result,true);
+result = showAppPrompt('prompt',{required:true});
+const input = overlay.querySelector('#app-dialog-input');
+assert.equal(document.activeElement,input);
+key('Enter');
+assert.ok(!overlay.closed);
+input.value = '  text ';
+key('Enter');
+assert.equal(await result,'text');
+result = showAppConfirm('escape');
+key('Escape');
+assert.equal(await result,false);
+result = showAppConfirm('backdrop');
+overlay.click({target:overlay});
+assert.equal(await result,false);
+assert.equal(listeners.size,0);
+"""
+    result = subprocess.run(["node", "--input-type=module", "-e", script],
+                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+    assert result.returncode == 0, result.stderr

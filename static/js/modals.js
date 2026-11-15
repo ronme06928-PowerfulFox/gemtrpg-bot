@@ -1717,6 +1717,7 @@ function openBehaviorFlowEditorModal(char) {
     const closeModal = async (force = false) => {
         if (!force && isDirty) {
             const ok = await window.showAppConfirm('未保存の変更があります。保存せずに閉じますか？', {
+                defaultFocus: 'cancel',
                 title: '未保存の変更',
                 confirmText: '閉じる',
             });
@@ -2276,6 +2277,7 @@ function openBehaviorFlowEditorModal(char) {
                 return;
             }
             if (!await window.showAppConfirm(`ループ「${selectedLoopId}」を削除しますか？`, {
+                defaultFocus: 'cancel',
                 title: 'ループ削除',
                 confirmText: '削除',
             })) return;
@@ -2596,6 +2598,7 @@ function openBehaviorFlowEditorModal(char) {
     });
     resetProfileBtn?.addEventListener('click', async () => {
         const ok = await window.showAppConfirm('このキャラの行動チャートを初期化します。よろしいですか？', {
+            defaultFocus: 'cancel',
             title: '行動チャート初期化',
             confirmText: '初期化',
         });
@@ -2800,6 +2803,7 @@ function createSettingsContextMenu(triggerEl, char) {
         const newOwnerName = select.options[select.selectedIndex].text;
         if (!newOwnerId) return;
         if (await window.showAppConfirm(`所有権を「${newOwnerName}」に譲渡しますか？`, {
+            defaultFocus: 'cancel',
             title: '所有権譲渡',
             confirmText: '譲渡',
         })) {
@@ -2910,6 +2914,7 @@ function createSettingsContextMenu(triggerEl, char) {
     const delBtn = menu.querySelector('#ctx-delete-btn');
     delBtn.addEventListener('click', async () => {
         if (await window.showAppConfirm('完全に削除しますか？', {
+            defaultFocus: 'cancel',
             title: 'キャラクター削除',
             confirmText: '削除',
         })) {
@@ -3376,6 +3381,7 @@ function openPresetManagerModal() {
             loadBtn.style.padding = '4px 10px';
             loadBtn.onclick = async () => {
                 if (await window.showAppConfirm(`現在の敵を消去し、プリセット「${name}」を展開しますか？`, {
+                    defaultFocus: 'cancel',
                     title: 'プリセット読込',
                     confirmText: '読込',
                 })) {
@@ -3393,6 +3399,7 @@ function openPresetManagerModal() {
             delBtn.style.border = 'none';
             delBtn.onclick = async () => {
                 if (await window.showAppConfirm(`プリセット「${name}」を削除しますか？`, {
+                    defaultFocus: 'cancel',
                     title: 'プリセット削除',
                     confirmText: '削除',
                 })) {
@@ -3446,6 +3453,7 @@ function openPresetManagerModal() {
     registerPresetSocketHandler('preset_save_error', async (data) => {
         if (data.error === 'duplicate') {
             if (await window.showAppConfirm(data.message, {
+                defaultFocus: 'cancel',
                 title: 'プリセット上書き',
                 confirmText: '上書き',
             })) {
@@ -3487,6 +3495,7 @@ function openPresetManagerModal() {
     registerPresetSocketHandler('preset_import_error', async (data) => {
         if (data?.error === 'duplicate') {
             if (await window.showAppConfirm(data.message || '同名プリセットがあります。上書きしますか？', {
+                defaultFocus: 'cancel',
                 title: 'プリセット上書き',
                 confirmText: '上書き',
             })) {
@@ -3612,6 +3621,7 @@ function openResetTypeModal(callback) {
         };
 
         if (await window.showAppConfirm('選択した内容でステータスをリセットしますか？', {
+            defaultFocus: 'cancel',
             title: 'ステータスリセット',
             confirmText: 'リセット',
         })) {
@@ -3623,6 +3633,7 @@ function openResetTypeModal(callback) {
     // ログのみリセット実行
     document.getElementById('reset-logs-exec-btn').onclick = async () => {
         if (await window.showAppConfirm('ログだけを削除しますか？', {
+            defaultFocus: 'cancel',
             title: 'ログ削除',
             confirmText: '削除',
         })) {
@@ -3634,6 +3645,7 @@ function openResetTypeModal(callback) {
     // 完全リセット実行
     document.getElementById('reset-full-exec-btn').onclick = async () => {
         if (await window.showAppConfirm('本当にキャラクターを全員削除し、戦闘を初期化しますか？\nこの操作は取り消せません。', {
+            defaultFocus: 'cancel',
             title: '完全リセット',
             confirmText: '完全リセット',
         })) {

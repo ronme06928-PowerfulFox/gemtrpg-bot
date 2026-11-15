@@ -20,6 +20,7 @@
       <nav class="unit-tabs" aria-label="資源の種類"></nav>
       <div class="unit-layout">
         <aside class="unit-list-pane">
+          <div class="unit-list-heading"><h3>一覧</h3><div class="unit-list-actions"></div></div>
           <div class="unit-filters"></div><div class="unit-records"></div>
         </aside>
         <main class="unit-detail"><p class="cat-empty">読み込み中…</p></main>
@@ -66,7 +67,8 @@
     function showDialog(title, content) {
       dialogFocus = panel.contains(document.activeElement) && !dialog.contains(document.activeElement) ? document.activeElement : dialogFocus;
       dialog.setAttribute('aria-label',title);
-      dialog.innerHTML = `<article><header><h3>${h(title)}</h3>${button('閉じる','close-dialog')}</header>${content}<p class="unit-dialog-error" role="alert" hidden></p></article>`;
+      dialog.innerHTML = `<article><header><h3>${h(title)}</h3>${button('閉じる','close-dialog')}</header>${content}<p class="unit-dialog-error" role="alert" hidden></p>
+        <p class="unit-dialog-status cat-visually-hidden" role="status"></p></article>`;
       dialog.hidden = false;
       get('.unit-layout').inert = true;
       get('.bo-workspace__header').inert = true;
@@ -96,14 +98,14 @@
 
     function renderFrame() {
       get('.bo-workspace__header-actions').innerHTML = (canEdit() ? button('書き出し・取り込み','transfer') : '') +
-        button('更新','reload') + button('閉じる','close');
+        button('再読み込み','reload') + button('閉じる','close');
       get('.unit-tabs').innerHTML = Object.entries(labels).map(([kind,label]) =>
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
-          `data-kind="${kind}" aria-pressed="${state.kind === kind}"`,state.kind === kind ? 'cat-primary' : '')).join('');
-      get('.unit-filters').innerHTML = (canEdit() ? button('＋ 新規作成','new','','cat-primary') : '') +
-        `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名前・タグで検索" value="${h(state.search)}"></label>
-        <label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection)}</select></label>
-        <label class="unit-inline"><input type="checkbox" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済みも表示</label>`;
+          `data-kind="${kind}" aria-pressed="${state.kind === kind}"`)).join('');
+      get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
+      get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
+        <label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>
+        <label class="unit-inline"><input type="checkbox" aria-label="廃止済みも表示" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済み</label>`;
       renderList();
     }
 
@@ -113,7 +115,8 @@
       const sectionLabel = sections[state.kind].find(([id]) => id === state.section)[1];
       const currentSection = Array.isArray(sectionLabel) ? sectionLabel.join('') : sectionLabel;
       const persisted = !!state.selected;
-      const inUse = !state.refs || state.refs.references.length > 0 || state.refs.room_reference_count > 0;
+      const scroll = get('.unit-editor');
+      const position = scroll ? [scroll.scrollTop,get('.unit-section').scrollTop,get('.unit-confirm').scrollTop] : null;
       const sectionBody = state.section === 'history'
         ? (persisted ? history(state.history, {revision:row.revision, restore:canEdit(), button}) : '<p class="cat-caption">保存すると履歴が表示されます。</p>')
         : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.records});
@@ -122,18 +125,30 @@
         <div class="unit-editor${state.wideConfirm ? ' is-confirm-wide' : ''}">
           <nav aria-label="目次" class="unit-toc">${sections[state.kind].map(([id,label]) =>
             button(Array.isArray(label) ? label.map(part => `<span>${part}</span>`).join('') : label,'section',`data-section="${id}" aria-current="${id === state.section ? 'true' : 'false'}"`)).join('')}</nav>
-          <section class="unit-section"><h3>${currentSection}</h3>
+          <section class="unit-section" tabindex="-1" aria-label="${h(currentSection)}">
+            <div class="unit-section-heading"><h3>${currentSection}</h3><div class="unit-heading-actions">
+              ${button('確認へ ↓','jump-confirm','','unit-jump')}
+              ${forms.sectionAction(state.section,payload(),canEdit())}</div></div>
             <fieldset ${disabled(!canEdit() && state.section !== 'history')}>${sectionBody}</fieldset></section>
-          <aside class="unit-confirm"><div class="unit-confirm-heading"><h3>確認</h3>
-            ${button(state.wideConfirm ? '標準幅' : '拡張','toggle-confirm',`aria-pressed="${state.wideConfirm}"`)}</div>
+          <aside class="unit-confirm" tabindex="-1" aria-label="確認"><div class="unit-confirm-heading"><h3>確認</h3>
+            ${button(state.wideConfirm ? '元の幅に戻す' : '確認欄を広げる','toggle-confirm',`aria-pressed="${state.wideConfirm}"`)}
+            ${button('編集へ ↑','jump-edit','','unit-jump')}</div>
             <div class="unit-preview"></div>
             ${canEdit() ? forms.card('保存前チェック','<div class="unit-check" aria-live="polite"></div>') : ''}
             ${forms.card('使用中','<div class="unit-references"></div>')}</aside>
         </div>
-        <footer class="unit-footer"><div>${canEdit() && persisted ? button(row.deprecated ? '廃止を取り消す' : '廃止','deprecate')
-          + button('削除','delete',disabled(inUse), 'cat-danger') : ''}</div>
-          <div><span data-unit-revision>${persisted ? '版 ' + h(row.revision) : '未保存'}</span>
-          ${canEdit() ? button('保存','save',disabled(state.conflict),'cat-primary') : ''}</div></footer>`;
+        <footer class="unit-footer"><div>${canEdit() && persisted ? `<details class="unit-more">
+          <summary>その他 ▾</summary>
+          <div class="unit-more-actions">${button(row.deprecated ? '廃止を取り消す' : '廃止','deprecate')}
+            <div class="unit-delete-action">${button('削除','delete','aria-describedby="unit-delete-reason"','cat-danger')}
+            <span id="unit-delete-reason"></span></div></div></details>` : ''}</div>
+          <div><span data-unit-revision>${persisted ? '版 ' + h(row.revision) : '新規'}</span>
+          <span class="unit-dirty" role="status"></span>
+          ${canEdit() ? button('変更を破棄','discard',disabled(!state.dirty)) +
+            button('保存','save',disabled(state.conflict),'cat-primary') : ''}</div></footer>`;
+      if (position) ['.unit-editor','.unit-section','.unit-confirm'].forEach((selector,i) => {
+        get(selector).scrollTop = position[i];
+      });
       updatePreview();
     }
 
@@ -150,7 +165,17 @@
           .map(ref => `<p><code>${h(ref.entry_id)}</code> ${h(ref.display_name)}</p>`).join('') +
          (refs.room_reference_count ? `<p>ルーム ${h(refs.room_reference_count)}件</p>` : '') || '<p>使用中の資源はありません。</p>');
       const save = get('[data-unit-action="save"]');
-      if (save) save.disabled = state.conflict || !!Object.keys(state.check?.errors || {}).length;
+      if (save) {
+        save.disabled = state.conflict || !!Object.keys(state.check?.errors || {}).length;
+        get('[data-unit-action="discard"]').disabled = !state.dirty;
+        get('.unit-dirty').textContent = state.dirty ? '未保存' : '';
+      }
+      const remove = get('[data-unit-action="delete"]');
+      if (remove) {
+        const reason = views.deleteReason(state.kind,refs);
+        remove.disabled = !!reason;
+        get('#unit-delete-reason').textContent = reason;
+      }
     }
 
     function scheduleCheck() {
@@ -190,8 +215,6 @@
       if (state.draft !== draft || !panel.isConnected) return;
       state.refs = refs;
       state.history = versions.history;
-      const remove = get('[data-unit-action="delete"]');
-      if (remove) remove.disabled = !!(refs.references.length || refs.room_reference_count);
       if (state.section === 'history') {
         get('.unit-section fieldset').innerHTML = history(state.history, {
           revision:draft.revision, restore:canEdit(), button
@@ -257,12 +280,14 @@
       setPath(path,[...rows,value]);
     }
 
-    function renderCandidates() {
+    function renderCandidates({preservePosition = false} = {}) {
       const {source, category} = state.picker;
       const list = get('.unit-candidates');
-      list.innerHTML = views.candidateList(views.candidates(source,state.records,masters,state.draft),
-        get('[data-candidate-search]').value,source,category);
-      get('.unit-candidate-scroll').scrollTop = 0;
+      const scroll = get('.unit-candidate-scroll');
+      const position = preservePosition ? scroll.scrollTop : 0;
+      list.innerHTML = views.candidateList(views.candidates(source,state.records,masters),
+        get('[data-candidate-search]').value,source,category,payload());
+      scroll.scrollTop = position;
     }
 
     function openPicker(control) {
@@ -282,7 +307,8 @@
       get('[data-candidate-search]').focus();
     }
 
-    function pick(id) {
+    function pick(control) {
+      const {id} = control.dataset;
       const {source,path} = state.picker;
       if (source === 'collection') setPath(path,id || null);
       else if (source.endsWith('-formation')) setPath(path,id);
@@ -290,9 +316,21 @@
       else if (source === 'skill') addRow(path,{id,name:'',hidden:false});
       else if (source === 'item') addRow(path,{id,count:1});
       else addRow(path,id);
-      closeDialog();
+      const selecting = source === 'collection' || source.endsWith('-formation');
       update(true);
-      if (source === 'collection') get('[data-source="collection"]')?.focus();
+      dialogFocus = [...panel.querySelectorAll('.unit-section [data-source]')].find(button => button.dataset.source === source);
+      if (selecting) {
+        closeDialog();
+        return;
+      }
+      get('.unit-dialog-status').textContent = control.closest('header').querySelector('strong').textContent + 'を追加しました。';
+      const oldButtons = [...dialog.querySelectorAll('.unit-candidate-add')];
+      const index = oldButtons.indexOf(control);
+      renderCandidates({preservePosition:true});
+      const buttons = [...dialog.querySelectorAll('.unit-candidate-add')];
+      const focus = buttons.find(button => button.dataset.id === id) || buttons[index] ||
+        buttons.at(-1) || get('[data-candidate-search]');
+      focus.focus({preventScroll:true});
     }
 
     function renameSkill(index) {
@@ -319,8 +357,8 @@
       } else closeDialog();
     }
 
-    const confirm = (title, message, confirmText) =>
-      window.showAppConfirm(message,{title,confirmText,cancelText:'キャンセル'});
+    const confirm = (title, message, confirmText, defaultFocus) =>
+      window.showAppConfirm(message,{title,confirmText,defaultFocus});
 
     function addTag() {
       const input = get('[data-unit-tag-input]');
@@ -345,16 +383,23 @@
     function characterDialog() {
       showDialog('JSONインポート',`<label class="cat-field">JSONを貼り付け<textarea rows="7" data-character-json></textarea></label>
         <label class="cat-field">JSONファイル<input type="file" accept=".json,application/json" data-unit-file="character"></label>
-        ${button('解析','analyse','','cat-primary')}<div class="unit-import-result"></div>`);
+        <div class="unit-import-result"></div><div class="unit-dialog-actions">${button('解析','analyse','','cat-primary')}</div>`);
     }
 
     function transferDialog() {
-      showDialog('書き出し・取り込み',`<h4>書き出し</h4>
+      state.report = null;
+      showDialog('書き出し・取り込み',`<nav class="unit-transfer-tabs" aria-label="転送方式">
+        ${button('書き出し','transfer-tab','data-id="export" aria-pressed="true"')}
+        ${button('取り込み','transfer-tab','data-id="import" aria-pressed="false"')}</nav>
+        <section data-transfer-panel="export">
         <label class="cat-field">範囲<select data-export-collection>${views.collectionOptions(state.records,'','全件')}</select></label>
         <label class="unit-inline"><input type="checkbox" data-export-deprecated> 廃止済みも含める</label>
-        ${button('JSONを書き出す','export','','cat-primary')}
-        <h4>取り込み</h4><label class="cat-field">JSONファイル<input type="file" accept=".json,application/json" data-unit-file="package"></label>
-        <div class="unit-import-result"></div>`);
+        <div class="unit-dialog-actions">${button('JSONを書き出す','export','','cat-primary')}</div></section>
+        <section data-transfer-panel="import" hidden>
+          <input type="file" accept=".json,application/json" data-unit-file="package" hidden>
+          <div class="unit-import-result"></div>
+          <div class="unit-dialog-actions">${button('JSONファイルを選択','import-file','','cat-primary')}
+            <span class="unit-import-action"></span></div></section>`);
     }
 
     function download(data, name) {
@@ -369,13 +414,15 @@
     function previewImportResult(data) {
       state.characterImport = data;
       const overwrite = current()?.kind === 'unit' && state.draft;
-      get('.unit-import-result').innerHTML = views.importSummary(data,masters) +
-        button('新規作成','accept-character-new','','cat-primary') +
-        (overwrite ? button('選択中のユニットを上書き','accept-character-overwrite') : '');
+      get('.unit-import-result').innerHTML = views.importSummary(data,masters) + '<div class="unit-dialog-actions">' +
+        (overwrite ? button('選択中のユニットを上書き','accept-character-overwrite') : '') +
+        button('新規作成','accept-character-new','','cat-primary') + '</div>';
+      get('[data-unit-action="analyse"]').classList.remove('cat-primary');
     }
 
     async function analyseCharacter() {
       get('.unit-import-result').innerHTML = '';
+      get('[data-unit-action="analyse"]').classList.add('cat-primary');
       const input = get('[data-character-json]').value;
       if (!input.trim()) throw new Error('JSONを入力してください。');
       previewImportResult(await api.readCharacter(parse(input.replace(/^\uFEFF/,''))));
@@ -388,26 +435,35 @@
         get('[data-character-json]').value = raw;
         await analyseCharacter();
       } else {
-        state.report = null;
-        get('.unit-import-result').innerHTML = '';
+        input.value = '';
+        resetPackagePreview();
         state.package = parse(raw);
         await previewPackage();
       }
     }
 
-    async function previewPackage() {
+    function resetPackagePreview() {
       state.report = null;
       get('.unit-import-result').innerHTML = '';
+      get('.unit-import-action').innerHTML = '';
+      get('[data-unit-action="import-file"]').classList.add('cat-primary');
+    }
+
+    async function previewPackage() {
+      resetPackagePreview();
       const {entries} = await api.preview(state.package);
       state.report = entries;
-      get('.unit-import-result').innerHTML = views.importReport(entries) +
-        button('取り込みを確定','confirm-package',disabled(!entries.length || entries.some(item => Object.keys(item.errors).length)),'cat-primary');
+      get('.unit-import-result').innerHTML = views.importReport(entries);
+      if (entries.length && entries.every(item => !Object.keys(item.errors).length)) {
+        get('[data-unit-action="import-file"]').classList.remove('cat-primary');
+        get('.unit-import-action').innerHTML = button('取り込みを確定','confirm-package','','cat-primary');
+      }
     }
 
     async function onAction(control) {
       if (!control) return;
       const {unitAction:action,id,kind,section,path,index,revision} = control.dataset;
-      const readActions = ['close','close-dialog','reload','tab','record','section','toggle-confirm'];
+      const readActions = ['close','close-dialog','reload','tab','record','section','toggle-confirm','jump-confirm','jump-edit'];
       if (!canEdit() && !readActions.includes(action)) return;
       if (action === 'close') { if (await canLeave()) close(); }
       if (action === 'close-dialog') closeDialog();
@@ -423,14 +479,25 @@
       if (action === 'section') {
         state.section = section;
         renderDetail();
+        get('.unit-section').scrollTop = 0;
+        get('.unit-editor').scrollTop = 0;
         if (section === 'behavior' && state.rawConstraints !== null) get('[data-path="behavior.constraints"]').value = state.rawConstraints;
         get(`[data-section="${section}"]`)?.focus();
       }
       if (action === 'toggle-confirm') {
         state.wideConfirm = !state.wideConfirm;
         get('.unit-editor').classList.toggle('is-confirm-wide',state.wideConfirm);
-        control.textContent = state.wideConfirm ? '標準幅' : '拡張';
+        control.textContent = state.wideConfirm ? '元の幅に戻す' : '確認欄を広げる';
         control.setAttribute('aria-pressed',String(state.wideConfirm));
+      }
+      if (action === 'jump-confirm' || action === 'jump-edit') {
+        const target = get(action === 'jump-confirm' ? '.unit-confirm' : '.unit-section');
+        target.scrollIntoView({block:'start'});
+        target.focus({preventScroll:true});
+      }
+      if (action === 'discard' && state.dirty && await canLeave()) {
+        await selectRow(current(),state.section);
+        (get('[data-section][aria-current="true"]') || get('[data-unit-action="new"]'))?.focus();
       }
       if (action === 'new') {
         if (state.kind === 'stage') { if (await canLeave()) startNew('stage'); return; }
@@ -465,7 +532,7 @@
         dialog.querySelectorAll('[data-category]').forEach(tab => tab.setAttribute('aria-pressed',String(tab === control)));
         renderCandidates();
       }
-      if (action === 'candidate') pick(id);
+      if (action === 'candidate') pick(control);
       if (action === 'clear-reference') { setPath(path,null); update(true); }
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
@@ -488,7 +555,8 @@
       if (['deprecate','delete','restore'].includes(action)) {
         if (!await canLeave()) return;
         const label = control.textContent;
-        if (!await confirm(label,`${current().payload.name} を「${label}」しますか？`,label)) return;
+        if (!await confirm(label,`${current().payload.name} を「${label}」しますか？`,label,
+          action === 'delete' ? 'cancel' : 'confirm')) return;
         const base_revision = state.draft.revision;
         if (action === 'deprecate') {
           await api.deprecate(state.kind,state.selected,{base_revision,deprecated:!state.draft.deprecated});
@@ -501,11 +569,20 @@
         notify(action === 'delete' ? '削除しました。' : '変更を保存しました。');
       }
       if (action === 'transfer') transferDialog();
+      if (action === 'transfer-tab') {
+        dialog.querySelectorAll('[data-unit-action="transfer-tab"]').forEach(tab => {
+          tab.setAttribute('aria-pressed',String(tab === control));
+        });
+        dialog.querySelectorAll('[data-transfer-panel]').forEach(section => {
+          section.hidden = section.dataset.transferPanel !== id;
+        });
+      }
       if (action === 'export') {
         const collection = get('[data-export-collection]').value;
         const data = await api.exportPackage(collection,get('[data-export-deprecated]').checked);
         download(data,`units-${collection || 'all'}.json`);
       }
+      if (action === 'import-file') get('[data-unit-file="package"]').click();
       if (action === 'preview-package') await previewPackage();
       if (action === 'confirm-package' && await canLeave()) {
         const bases = Object.fromEntries(state.report.map(item => [item.kind+':'+item.entry_id,item.base_revision]));
@@ -528,14 +605,16 @@
         const conflict = error.status === 409;
         const detail = Object.values(error.errors || {}).flatMap(reason => typeof reason === 'object' ? Object.values(reason) : reason).join(' / ');
         const message = conflict ? (operation === 'confirm-package' ? '版が変わりました。取り込み内容を再確認してください。'
-          : operation === 'delete' ? detail || '削除できません。更新して使用状況を確認してください。'
-          : '版が変わりました。「更新」で読み直してください。') : detail || error.message;
+          : operation === 'delete' ? detail || '削除できません。「再読み込み」で使用状況を確認してください。'
+          : '版が変わりました。「再読み込み」で最新の版を確認してください。') : detail || error.message;
         if (conflict && ['save','deprecate','restore'].includes(operation)) {
           state.conflict = true;
           updatePreview();
         }
         if (conflict && operation === 'confirm-package') {
-          get('.unit-import-result').innerHTML = button('再確認','preview-package');
+          resetPackagePreview();
+          get('[data-unit-action="import-file"]').classList.remove('cat-primary');
+          get('.unit-import-action').innerHTML = button('再確認','preview-package','','cat-primary');
         }
         const alert = get('.unit-dialog-error');
         if (alert) { alert.textContent = message; alert.hidden = false; }
@@ -550,7 +629,11 @@
       if (event.defaultPrevented || document.getElementById('app-dialog-backdrop') || [...document.querySelectorAll('.modal-backdrop')].at(-1) !== overlay) return;
       if (event.key === 'Escape') {
         event.preventDefault();
-        run(() => dialog.hidden ? onAction(get('[data-unit-action="close"]')) : closeDialog());
+        const more = get('.unit-more[open]');
+        if (dialog.hidden && more) {
+          more.open = false;
+          more.querySelector('summary').focus();
+        } else run(() => dialog.hidden ? onAction(get('[data-unit-action="close"]')) : closeDialog());
       }
       if (event.key === 'Tab') {
         const controls = [...(dialog.hidden ? panel : dialog).querySelectorAll('button,input,select,textarea,summary')]
@@ -564,6 +647,8 @@
     }
 
     panel.addEventListener('click', event => {
+      const more = get('.unit-more[open]');
+      if (more && !more.contains(event.target)) more.open = false;
       const control = event.target.closest('[data-unit-action]');
       if (control && !control.disabled) run(() => onAction(control),control.dataset.unitAction);
     });
@@ -576,6 +661,7 @@
       if (input.matches('[data-character-json]')) {
         state.characterImport = null;
         get('.unit-import-result').innerHTML = '';
+        get('[data-unit-action="analyse"]').classList.add('cat-primary');
         return;
       }
       const key = input.dataset.filter;

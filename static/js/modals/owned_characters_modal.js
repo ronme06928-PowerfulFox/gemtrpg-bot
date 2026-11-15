@@ -410,7 +410,7 @@
                     const confirmFn = (typeof global.showAppConfirm === 'function')
                         ? global.showAppConfirm
                         : async (msg) => window.confirm(msg);
-                    const ok = await confirmFn('この持ちキャラを削除しますか？');
+                    const ok = await confirmFn('この持ちキャラを削除しますか？', {defaultFocus: 'cancel'});
                     if (!ok) return;
                     try {
                         const resp = await fetchJson(`/api/owned_characters/${encodeURIComponent(id)}`, { method: 'DELETE' });

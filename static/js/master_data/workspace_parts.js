@@ -25,8 +25,8 @@
   }
 
   function confirmDiscard() {
-    return window.showAppConfirm('保存していない変更を捨てますか？',{
-      title:'保存していない変更があります', confirmText:'変更を捨てる', cancelText:'編集に戻る',
+    return window.showAppConfirm('未保存の変更を破棄しますか？',{
+      defaultFocus:'cancel', title:'保存していない変更があります', confirmText:'変更を破棄', cancelText:'編集に戻る',
     });
   }
 

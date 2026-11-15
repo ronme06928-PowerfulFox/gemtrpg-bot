@@ -1418,6 +1418,7 @@ window.setupVisualSidebarControls = function () {
                 if (typeof openResetTypeModal === 'function') {
                     openResetTypeModal((type, options) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type, options: options }); });
                 } else if (await window.showAppConfirm("戦闘をリセットしますか？", {
+                    defaultFocus: 'cancel',
                     title: '戦闘リセット',
                     confirmText: 'リセット',
                 })) {

@@ -9,13 +9,16 @@
   const collectionOptions = (records, value, all = 'すべての分類') => options({'':all,
     ...Object.fromEntries(records.filter(r => r.kind === 'unit_collection').map(r => [r.entry_id,r.payload.name]))},value);
 
-  function candidates(source, records, masters, row) {
+  const masterPaths = {skill:'skills',passive:'passives',radiance:'radiance',item:'items'};
+  function deleteReason(kind, refs) {
+    if (!refs) return '参照元を確認中';
+    if (refs.references.length) return {unit:'編成で使用中',formation:'ステージで使用中'}[kind] || '参照元で使用中';
+    return refs.room_reference_count ? 'ルームで使用中' : '';
+  }
+
+  function candidates(source, records, masters) {
     if (source === 'collection') return records.filter(row => row.kind === 'unit_collection');
-    if (master.includes(source)) {
-      const key = {skill:'skills',passive:'passives',radiance:'radiance',item:'items'}[source];
-      const used = (row.payload[key] || []).map(entry => entry.id || entry);
-      return masters[source].filter(item => !item.deprecated && !used.includes(item.entry_id));
-    }
+    if (master.includes(source)) return masters[source].filter(item => !item.deprecated);
     const [side,kind] = source.split('-');
     return records.filter(item => item.kind === kind && !item.deprecated &&
       (kind === 'unit' ? item.payload['allow_' + side] !== false : item.payload.type === side));
@@ -37,7 +40,7 @@
     }).join('');
   }
 
-  function candidateList(rows, query, source = '', category = '') {
+  function candidateList(rows, query, source = '', category = '', draft = {}) {
     const needle = query.trim().toLowerCase();
     const visible = rows.filter(row => {
       if (category && skillPrefix(row.entry_id) !== category) return false;
@@ -46,7 +49,10 @@
         plain(p.発動時効果),plain(p.特記),...(p.tags || [])].join(' ').toLowerCase().includes(needle);
     });
     if (!visible.length) return '<p class="cat-empty">該当候補なし</p>';
-    const action = source === 'collection' ? '選択' : '追加';
+    const action = source === 'collection' || source.endsWith('-formation') ? '選択' : '追加';
+    const used = new Set((draft[masterPaths[source]] || []).map(entry => entry.id || entry));
+    const slots = new Map();
+    for (const {unit_id} of draft.members || []) slots.set(unit_id,(slots.get(unit_id) || 0) + 1);
     return visible.map(row => {
       const p = row.payload;
       const skill = source === 'skill';
@@ -56,7 +62,9 @@
         : [['説明',p.description],['タグ',(p.tags || []).join('、')],['構成',p.members?.map(m => `${m.unit_id} × ${m.count}`).join('、')]];
       return `<article class="unit-candidate"><header><code class="cat-id">${h(row.entry_id)}</code><strong>${h(nameOf(p))}</strong>
         <span>${row.kind === 'unit' ? group : h(group)}</span>
-        ${button(action,'candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を${action}"`,'unit-candidate-add')}</header>
+        <div class="unit-candidate-actions">${used.has(row.entry_id) ? '<span>追加済み</span>' :
+          button(action,'candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を${action}"`,'unit-candidate-add')}
+          ${row.kind === 'unit' ? `<small>編成内 ${slots.get(row.entry_id) || 0} 枠</small>` : ''}</div></header>
         <dl>${detail.filter(([,value]) => skill || value).map(([key,value]) => `<dt>${key}</dt><dd>${h(value || '—')}</dd>`).join('')}</dl></article>`;
     }).join('');
   }
@@ -96,5 +104,5 @@
     </tbody></table>`;
   }
 
-  window.UnitViews = {master, issues, collectionOptions, candidates, candidateList, skillTabs, recordRow, preview, importSummary, importReport};
+  window.UnitViews = {master, deleteReason, issues, collectionOptions, candidates, candidateList, skillTabs, recordRow, preview, importSummary, importReport};
 })();

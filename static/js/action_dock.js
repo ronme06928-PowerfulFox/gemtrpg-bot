@@ -1913,6 +1913,7 @@ function renderStagingOverlayList(container) {
         deleteBtn.style.fontWeight = 'bold';
         deleteBtn.onclick = async () => {
             if (await window.showAppConfirm(`「${char.name}」を削除しますか？`, {
+                defaultFocus: 'cancel',
                 title: 'キャラクター削除',
                 confirmText: '削除',
             })) {

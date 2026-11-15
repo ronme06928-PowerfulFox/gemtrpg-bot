@@ -574,7 +574,7 @@
         notice('依頼文をコピーしました。'); return;
       }
       if (action === 'request-withdraw') {
-        if (!await window.showAppConfirm('このリクエストを取り下げますか？', {title:'リクエストの取り下げ', confirmText:'取り下げる'})) return;
+        if (!await window.showAppConfirm('このリクエストを取り下げますか？', {defaultFocus: 'cancel', title:'リクエストの取り下げ', confirmText:'取り下げる'})) return;
         await request('withdrawEffectRequest',row.id);
         requestView.rows = requestView.rows.filter(item => item.id !== row.id);
       } else if (action === 'request-review') {
@@ -671,7 +671,7 @@
         if (target) { state.selected = target.key; state.filters = { status: target.status, category: '', search: '' }; renderBrowse(); }
       }
       if (action === 'withdraw') {
-        if (!await window.showAppConfirm('この下書きを取り下げますか？', { title: '下書きの取り下げ', confirmText: '取り下げる' })) return;
+        if (!await window.showAppConfirm('この下書きを取り下げますか？', {defaultFocus: 'cancel', title: '下書きの取り下げ', confirmText: '取り下げる' })) return;
         await request('withdraw', row.id); delete requestCache.list; invalidate(state.kind); state.dirty = false; state.scene = 'browse'; state.filters.status = 'published';
         state.selected = `entry:${row.target_id}`; await load(); notice('下書きを取り下げました。');
       }

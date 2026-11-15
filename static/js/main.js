@@ -58,9 +58,12 @@ function escapeDialogText(value) {
         .replaceAll("'", '&#39;');
 }
 
-function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false } = {}) {
+let dismissAppDialog;
+
+function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, defaultFocus } = {}) {
     return new Promise((resolve) => {
-        document.getElementById('app-dialog-backdrop')?.remove();
+        dismissAppDialog?.();
+        const opener = document.activeElement;
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
@@ -113,6 +116,10 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
                         cursor: pointer;
                         font-weight: 700;
                     }
+                    .app-dialog-actions button:focus {
+                        outline: 2px solid #173f36;
+                        outline-offset: 3px;
+                    }
                     .app-dialog-cancel {
                         background: #e6ece9;
                         color: #25352f;
@@ -135,10 +142,15 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
 
         const input = overlay.querySelector('#app-dialog-input');
         const error = overlay.querySelector('#app-dialog-error');
+        const cancelButton = overlay.querySelector('#app-dialog-cancel');
+        const confirmButton = overlay.querySelector('#app-dialog-confirm');
+        const controls = [input,cancelButton,confirmButton].filter(Boolean);
         const cancelValue = mode === 'prompt' ? null : false;
         const cleanup = (value) => {
-            document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('keydown', onKeyDown, true);
+            dismissAppDialog = null;
             overlay.remove();
+            opener?.focus({preventScroll:true});
             resolve(value);
         };
         const submit = () => {
@@ -155,18 +167,34 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
             cleanup(true);
         };
         function onKeyDown(event) {
-            if (event.key === 'Escape') cleanup(cancelValue);
-            if (event.key === 'Enter' && (mode !== 'prompt' || document.activeElement === input)) submit();
+            if (event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
+            const focused = document.activeElement;
+            if (event.key === 'Escape' || event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (event.repeat) return;
+                if (event.key === 'Escape' || focused === cancelButton) cleanup(cancelValue);
+                else if (focused === confirmButton || (input && focused === input)) submit();
+            }
+            if (event.key === 'Tab') {
+                const edge = event.shiftKey ? controls[0] : controls.at(-1);
+                if (focused === edge || !controls.includes(focused)) {
+                    event.preventDefault();
+                    (event.shiftKey ? controls.at(-1) : controls[0]).focus();
+                }
+            }
         }
 
-        overlay.querySelector('#app-dialog-cancel')?.addEventListener('click', () => cleanup(cancelValue));
-        overlay.querySelector('#app-dialog-confirm')?.addEventListener('click', submit);
+        dismissAppDialog = () => cleanup(cancelValue);
+        cancelButton.addEventListener('click', dismissAppDialog);
+        confirmButton.addEventListener('click', submit);
         overlay.addEventListener('click', (event) => {
             if (event.target === overlay) cleanup(cancelValue);
         });
-        document.addEventListener('keydown', onKeyDown);
+        document.addEventListener('keydown', onKeyDown, true);
         document.body.appendChild(overlay);
-        setTimeout(() => (input || overlay.querySelector('#app-dialog-confirm'))?.focus(), 0);
+        const initialFocus = defaultFocus === 'cancel' ? cancelButton : defaultFocus === 'confirm' ? confirmButton : input || confirmButton;
+        initialFocus.focus();
     });
 }
 
@@ -175,6 +203,7 @@ function showAppConfirm(message, options = {}) {
         title: options.title || '確認',
         message,
         mode: 'confirm',
+        defaultFocus: options.defaultFocus,
         confirmText: options.confirmText || '実行',
         cancelText: options.cancelText || 'キャンセル',
     });
@@ -185,6 +214,7 @@ function showAppPrompt(message, options = {}) {
         title: options.title || '入力',
         message,
         mode: 'prompt',
+        defaultFocus: options.defaultFocus,
         defaultValue: options.defaultValue || '',
         placeholder: options.placeholder || '',
         confirmText: options.confirmText || '作成',
@@ -901,6 +931,7 @@ async function createRoomByMode(playMode) {
 
 async function deleteRoom(roomName) {
     const ok = await showAppConfirm(`本当にルーム「${roomName}」を削除しますか？\nこの操作は取り消せません。`, {
+        defaultFocus: 'cancel',
         title: 'ルーム削除',
         confirmText: '削除',
     });
@@ -1349,6 +1380,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (homeBtn) {
         homeBtn.addEventListener('click', async () => {
             const ok = await showAppConfirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）', {
+                defaultFocus: 'cancel',
                 title: 'ルーム一覧へ戻る',
                 confirmText: '戻る',
             });

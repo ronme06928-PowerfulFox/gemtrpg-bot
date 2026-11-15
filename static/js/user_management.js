@@ -174,6 +174,7 @@ async function showUserDetails(userId, userName) {
 
 async function deleteUser(userId) {
     if (!await window.showAppConfirm('このユーザーを削除しますか？\n所有していたルームやキャラの所有権は「空」になります。', {
+        defaultFocus: 'cancel',
         title: 'ユーザー削除',
         confirmText: '削除',
     })) return;
@@ -213,6 +214,7 @@ async function openTransferModal(fromId, fromName) {
     if (!toId) return;
 
     if (!await window.showAppConfirm(`本当に ${fromName} の全データを ID:${toId} に譲渡しますか？\nこの操作は取り消せません。`, {
+        defaultFocus: 'cancel',
         title: '所有権移動の確認',
         confirmText: '譲渡',
     })) return;

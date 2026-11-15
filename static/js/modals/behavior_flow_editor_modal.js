@@ -1022,6 +1022,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const closeModal = async (force = false) => {
         if (!force && isDirty) {
             const ok = await window.showAppConfirm('未保存の変更があります。保存せずに閉じますか？', {
+                defaultFocus: 'cancel',
                 title: '未保存の変更',
                 confirmText: '閉じる',
             });
@@ -1711,6 +1712,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 return;
             }
             if (!await window.showAppConfirm(`ループ「${selectedLoopId}」を削除しますか？`, {
+                defaultFocus: 'cancel',
                 title: 'ループ削除',
                 confirmText: '削除',
             })) return;
@@ -2121,6 +2123,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     });
     resetProfileBtn?.addEventListener('click', async () => {
         const ok = await window.showAppConfirm('このキャラの行動チャートを初期化します。よろしいですか？', {
+            defaultFocus: 'cancel',
             title: '行動チャート初期化',
             confirmText: '初期化',
         });

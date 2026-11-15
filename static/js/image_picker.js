@@ -533,6 +533,7 @@ function createImageCard(imageData, onClickCallback, allowDelete = false) {
         delBtn.onclick = async (e) => {
             e.stopPropagation(); // 選択イベントを阻止
             if (await window.showAppConfirm(`画像「${imageData.name}」を完全に削除しますか？\n(クラウドからも削除されます)`, {
+                defaultFocus: 'cancel',
                 title: '画像削除',
                 confirmText: '削除',
             })) {
