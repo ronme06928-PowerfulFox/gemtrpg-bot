@@ -319,18 +319,18 @@ textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
   <h2><span class="gem g-amethyst"></span>2 宝石の色</h2>
   <p class="lead">分類の印と淡い面に使用。文字は本文色のまま。選択は下線・左線・太字を併用。</p>
   <div class="flow" id="gemrow"></div>
-  <h3>割り当ての例</h3>
+  <h3>割り当て（分類別）</h3>
   <div class="flow">
-    <span class="badge is-kind g-sapphire"><span class="gem"></span>ユニット</span>
-    <span class="badge is-kind g-emerald"><span class="gem"></span>編成</span>
-    <span class="badge is-kind g-topaz"><span class="gem"></span>ステージ</span>
+    <span class="badge is-kind g-emerald"><span class="gem"></span>ユニット</span>
+    <span class="badge is-kind g-sapphire"><span class="gem"></span>編成</span>
+    <span class="badge is-kind g-ruby"><span class="gem"></span>ステージ</span>
     <span class="sub">｜</span>
-    <span class="badge is-kind g-ruby"><span class="gem"></span>スキル</span>
-    <span class="badge is-kind g-amethyst"><span class="gem"></span>バフ</span>
-    <span class="badge is-kind g-citrine"><span class="gem"></span>アイテム</span>
-    <span class="badge is-kind g-quartz"><span class="gem"></span>パッシブ</span>
-    <span class="badge is-kind g-diamond"><span class="gem"></span>輝化スキル</span>
-    <span class="badge is-kind g-onyx"><span class="gem"></span>用語</span>
+    <span class="badge is-kind g-sapphire"><span class="gem"></span>スキル</span>
+    <span class="badge is-kind g-emerald"><span class="gem"></span>バフ</span>
+    <span class="badge is-kind g-topaz"><span class="gem"></span>アイテム</span>
+    <span class="badge is-kind g-amethyst"><span class="gem"></span>パッシブ</span>
+    <span class="badge is-kind g-citrine"><span class="gem"></span>輝化スキル</span>
+    <span class="badge is-kind g-quartz"><span class="gem"></span>用語</span>
   </div>
 </section>
 
@@ -400,9 +400,9 @@ textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
   <h2><span class="gem g-sapphire"></span>7 タブと一覧</h2>
   <p class="lead">1件1行。長文は1行で省略。行の操作は右端、外す・削除は離して配置。</p>
   <div class="tabs" role="tablist">
-    <button class="tab g-sapphire" role="tab" aria-selected="true"><span class="gem"></span>ユニット <span class="count">42</span></button>
-    <button class="tab g-emerald" role="tab" aria-selected="false"><span class="gem"></span>編成 <span class="count">12</span></button>
-    <button class="tab g-topaz" role="tab" aria-selected="false"><span class="gem"></span>ステージ <span class="count">6</span></button>
+    <button class="tab g-emerald" role="tab" aria-selected="true"><span class="gem"></span>ユニット <span class="count">42</span></button>
+    <button class="tab g-sapphire" role="tab" aria-selected="false"><span class="gem"></span>編成 <span class="count">12</span></button>
+    <button class="tab g-ruby" role="tab" aria-selected="false"><span class="gem"></span>ステージ <span class="count">6</span></button>
   </div>
   <div class="bar" style="border-top:0;padding-left:0;padding-right:0"><input class="input w-name" placeholder="名前・ID・タグで検索"><button class="btn is-small">分類 ▾</button><span class="sp"></span><button class="btn is-small">＋ 新規</button></div>
   <div class="ledger" id="ledger">
@@ -452,7 +452,7 @@ textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
       </div></div>
     <div class="frame"><header><button class="btn is-text is-small">← メニュー</button><span class="gem g-emerald"></span>ユニット管理<span class="sp"></span><button class="btn is-small">転送</button></header>
       <div class="admin">
-        <div><div class="tabs"><button class="tab g-sapphire" aria-selected="true"><span class="gem"></span>ユニット</button><button class="tab g-emerald" aria-selected="false">編成</button></div>
+        <div><div class="tabs"><button class="tab g-emerald" aria-selected="true"><span class="gem"></span>ユニット</button><button class="tab g-sapphire" aria-selected="false">編成</button></div>
           <div class="ledger"><div class="row" aria-selected="true" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-012</span><span class="cut">氷晶の魔導士</span></div><div class="row" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-013</span><span class="cut">遺跡の番兵</span></div><div class="row" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-014</span><span class="cut">案内人ミレイユ</span></div></div></div>
         <div><div class="edit"><div class="sec-head"><h4>基本情報</h4><span class="sp"></span><span class="badge is-enemy">敵</span></div>
             <label class="field"><span>名前</span><input class="input w-full" value="氷晶の魔導士"></label>
