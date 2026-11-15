@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import copy
 import logging
-import time
+from threading import RLock
+from uuid import uuid4
 from collections import OrderedDict
 
 from flask import request
@@ -12,7 +13,7 @@ from flask import request
 from extensions import socketio, user_sids
 from events.battle_only.catalog_access_context import catalog_request_context
 from manager.room_access import GM_ROLES
-from manager.units.runtime import MAPS, deployment_store, get_record
+from manager.units.runtime import deployment_store
 from manager.preset_deployment import (
     PresetDeploymentError,
     apply_deployment,
@@ -30,6 +31,7 @@ from manager.room_manager import (
 
 _APPLIED_OPERATION_LIMIT = 64
 _applied_operations = {}
+_mutation_lock = RLock()
 logger = logging.getLogger(__name__)
 
 
@@ -86,6 +88,9 @@ def _require_context(data):
     if not isinstance(sid_info, dict) or str(sid_info.get("room") or "") != room:
         _emit_error("permission_denied", "このルームへ入室してから操作してください。")
         return None
+    if context.get("room_role") not in GM_ROLES:
+        _emit_error("permission_denied", "待機列の操作にはGM権限が必要です。")
+        return None
     state = get_room_state(room)
     if not isinstance(state, dict):
         _emit_error("not_found", "ルーム状態が見つかりません。", refresh_required=True)
@@ -98,32 +103,88 @@ def _require_context(data):
     }
 
 
-def _bookmark_payload(state, catalog):
-    bo = state.get("battle_only") if isinstance(state.get("battle_only"), dict) else {}
-    rows = bo.get("preset_bookmarks") if isinstance(bo.get("preset_bookmarks"), list) else []
-    records = catalog.get("records") if isinstance(catalog.get("records"), dict) else {}
-    collections = catalog.get("catalog_collections") if isinstance(catalog.get("catalog_collections"), dict) else {}
-    result = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        target_type = str(row.get("target_type") or "").strip()
-        target_id = str(row.get("target_id") or "").strip()
-        if target_type == "collection":
-            target = collections.get(target_id)
-        else:
-            target = (records.get(target_type) or {}).get(target_id)
-        item = {
-            "id": str(row.get("id") or f"bookmark:{target_type}:{target_id}"),
-            "target_type": target_type,
-            "target_id": target_id,
-            "available": isinstance(target, dict),
-            "label": str(row.get("label") or ((target or {}).get("name") if isinstance(target, dict) else target_id)),
-            "collection_id": ((target or {}).get("catalog_meta") or {}).get("collection_id") if isinstance(target, dict) else None,
+def _queue(state):
+    return state.get("encounter_queue") or []
+
+
+def _emit_queue(context, *, summary=None):
+    socketio.emit("encounter_queue", {
+        "room": context["room"], "entries": _queue(context["state"]), "summary": summary,
+    }, to=request.sid)
+
+
+def _encounter(context, encounter_id):
+    row = next((row for row in _queue(context["state"]) if row["id"] == encounter_id), None)
+    if row is None:
+        raise PresetDeploymentError("not_found", "遭遇が見つかりません。", refresh_required=True)
+    return row
+
+
+def _deployment_payload(context, src):
+    encounter_id = src.get("encounter_id")
+    if not encounter_id:
+        payload = src.get("deployment") if isinstance(src.get("deployment"), dict) else src
+        return {"target_mode": context["state"].get("play_mode", "normal"), **payload}
+    row = _encounter(context, encounter_id)
+    return {**row["deployment"], "center": src.get("center"),
+            "target_mode": context["state"].get("play_mode", "normal")}
+
+
+@socketio.on("request_encounter_queue")
+def handle_encounter_queue(data):
+    context = _require_context(data)
+    if context is not None:
+        _emit_queue(context)
+
+
+@socketio.on("request_encounter_save")
+def handle_encounter_save(data):
+    context = _require_context(data)
+    if context is None:
+        return
+    name = str(data.get("name") or "").strip()
+    if not name or len(name) > 120:
+        _emit_error("invalid_name", "遭遇名は1〜120文字で指定してください。")
+        return
+    with _mutation_lock:
+        try:
+            payload = _deployment_payload(context, {"deployment": data.get("deployment") or {}})
+            _validate_target_mode(context["state"], payload)
+            deployment = normalize_deployment_request({**payload, "center": None})
+            summary = preview_deployment(context["state"], deployment, deployment_store(), **_manager_context(context))
+            encounter_id = data.get("encounter_id")
+            row = _encounter(context, encounter_id) if encounter_id else None
+        except PresetDeploymentError as ex:
+            _emit_error(ex.code, ex.message, refresh_required=ex.refresh_required)
+            return
+        if data.get("check_only"):
+            socketio.emit("encounter_checked", {"room": context["room"], "summary": summary}, to=request.sid)
+            return
+        updated = {
+            "id": row["id"] if row else uuid4().hex,
+            "name": name,
+            "memo": str(data.get("memo") or "").strip()[:2000],
+            "deployment": deployment,
+            "done": bool(row and row.get("done")),
         }
-        result.append(item)
-    result.sort(key=lambda item: (str(item.get("label") or "").lower(), item["id"]))
-    return result
+        entries = _queue(context["state"])
+        context["state"]["encounter_queue"] = [updated if item is row else item for item in entries] if row else [*entries, updated]
+        save_specific_room_state(context["room"])
+        _emit_queue(context, summary=summary)
+
+
+@socketio.on("request_encounter_delete")
+def handle_encounter_delete(data):
+    context = _require_context(data)
+    if context is None:
+        return
+    with _mutation_lock:
+        entries = _queue(context["state"])
+        remaining = [row for row in entries if row["id"] != data.get("encounter_id")]
+        if len(remaining) != len(entries):
+            context["state"]["encounter_queue"] = remaining
+            save_specific_room_state(context["room"])
+        _emit_queue(context)
 
 
 def _validate_target_mode(state, payload):
@@ -189,8 +250,6 @@ def handle_preset_deployment_catalog(data):
         room_role=context.get("room_role"),
         users=context["users"],
     )
-    if context["room_role"] in GM_ROLES:
-        catalog["bookmarks"] = _bookmark_payload(context["state"], catalog)
     catalog["room"] = context["room"]
     socketio.emit("preset_deployment_catalog", catalog, to=request.sid)
 
@@ -202,8 +261,8 @@ def handle_preset_deployment_preview(data):
         return
     src = data if isinstance(data, dict) else {}
     request_version = src.get("request_version")
-    payload = src.get("deployment") if isinstance(src.get("deployment"), dict) else data
     try:
+        payload = _deployment_payload(context, src)
         _validate_target_mode(context["state"], payload)
         summary = preview_deployment(
             context["state"],
@@ -243,26 +302,29 @@ def handle_preset_deployment_apply(data):
     context = _require_context(data)
     if context is None:
         return
-    src = data if isinstance(data, dict) else {}
+    with _mutation_lock:
+        _apply(context, data)
+
+
+def _apply(context, src):
     operation_id = str(src.get("operation_id") or "").strip()
     if not operation_id or len(operation_id) > 128:
         _emit_error("invalid_operation_id", "配置操作IDが不正です。")
         return
     cached = _cached_operation(context["room"], operation_id, context["state"])
-    if context.get('room_role') not in GM_ROLES:
-        _emit_error('permission_denied', '配置にはルームowner・gm権限が必要です。')
-        return
     if cached is not None:
         cached["duplicate"] = True
         socketio.emit("preset_deployment_applied", cached, to=request.sid)
         return
-    payload = src.get("deployment") if isinstance(src.get("deployment"), dict) else src
     try:
+        payload = _deployment_payload(context, src)
         _validate_target_mode(context["state"], payload)
+        expected_unplaced = src.get("expected_unplaced")
         summary, logs = apply_deployment(
             context["state"],
             payload,
             deployment_store(),
+            expected_unplaced=expected_unplaced if type(expected_unplaced) is int else None,
             **_manager_context(context),
         )
     except PresetDeploymentError as ex:
@@ -273,6 +335,8 @@ def handle_preset_deployment_apply(data):
         _emit_error("apply_failed", "配置を確定できませんでした。")
         return
 
+    if src.get("encounter_id"):
+        _encounter(context, src["encounter_id"])["done"] = True
     response = {
         "room": context["room"],
         "operation_id": operation_id,
@@ -284,49 +348,11 @@ def handle_preset_deployment_apply(data):
     broadcast_state_update(context["room"])
     for message in logs:
         broadcast_log(context["room"], message, "state-change")
-    broadcast_log(
-        context["room"],
-        f"[Preset] 味方{summary['added']['ally']}体・敵{summary['added']['enemy']}体を配置しました。",
-        "info",
-    )
+    if summary["target_mode"] == "normal":
+        broadcast_log(
+            context["room"],
+            f"登場：味方{summary['added']['ally']}体・敵{summary['added']['enemy']}体",
+            "info",
+        )
+    _emit_queue(context)
     socketio.emit("preset_deployment_applied", response, to=request.sid)
-
-def _change_bookmark(data, *, remove=False):
-    context = _require_context(data)
-    if context is None:
-        return
-    if context["room_role"] not in GM_ROLES:
-        _emit_error("permission_denied", "ブックマークの変更にはGM権限が必要です。")
-        return
-    store = deployment_store()
-    state = context["state"]
-    draft = state.setdefault("battle_only", {})
-    bookmarks = draft.get("preset_bookmarks") or []
-    if remove:
-        bookmark_id = data.get("id")
-        bookmarks = [row for row in bookmarks if row.get("id") != bookmark_id]
-    else:
-        kind, entry_id = data.get("target_type"), data.get("target_id")
-        target = (get_record(store, kind, entry_id)
-                  if isinstance(kind, str) and kind in MAPS and isinstance(entry_id, str) else None)
-        if target is None:
-            _emit_error("not_found", "ブックマーク対象を利用できません。")
-            return
-        if not any(row.get("target_type") == kind and row.get("target_id") == entry_id for row in bookmarks):
-            bookmarks = [*bookmarks, {"id": f"bookmark:{kind}:{entry_id}",
-                                      "target_type": kind, "target_id": entry_id}]
-    draft["preset_bookmarks"] = bookmarks
-    save_specific_room_state(context["room"])
-    catalog = build_deployment_catalog(store, room_role=context["room_role"])
-    socketio.emit("bo_bookmark_list", {"room": context["room"], "bookmarks": _bookmark_payload(state, catalog)},
-                  to=request.sid)
-
-
-@socketio.on("request_bo_bookmark_save")
-def handle_bo_bookmark_save(data):
-    _change_bookmark(data)
-
-
-@socketio.on("request_bo_bookmark_delete")
-def handle_bo_bookmark_delete(data):
-    _change_bookmark(data, remove=True)

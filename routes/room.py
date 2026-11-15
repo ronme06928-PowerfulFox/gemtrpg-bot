@@ -120,7 +120,8 @@ def load_room():
     ):
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
-    return jsonify(state)
+    from manager.room_manager import build_participant_state
+    return jsonify(build_participant_state(state))
 
 
 @room_bp.route('/create_room', methods=['POST'])
@@ -226,6 +227,14 @@ def save_room_route():
         app_admin=is_user_management_admin(user_id),
     ):
         return jsonify({"error": "このルームを更新する権限がありません"}), 403
+    if not isinstance(state, dict):
+        return jsonify({"error": "Room state required"}), 400
+    from manager.room_manager import PRIVATE_ROOM_FIELDS
+    current = get_room_state(room_name) or {}
+    for field in PRIVATE_ROOM_FIELDS:
+        state.pop(field, None)
+        if field in current:
+            state[field] = current[field]
     active_room_states[room_name] = state
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})

@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const root = new URL('../../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 const cache = async name => JSON.parse(await read(`data/cache/${name}_cache.json`));
-const [presets, skills, catalogCss, commonCss, template, layoutCss, theme, declaration, deploymentCss, script] = await Promise.all([
+const [presets, skills, catalogCss, commonCss, template, layoutCss, theme, declaration, script] = await Promise.all([
   cache('battle_only_presets'),
   cache('skills'),
   read('static/css/modules/master_data.css'),
@@ -12,7 +12,6 @@ const [presets, skills, catalogCss, commonCss, template, layoutCss, theme, decla
   read('scripts/ui_layout_proto/page.css'),
   read('typst_manual/manual_theme.typ'),
   read('static/js/battle/components/DeclarePanel.js'),
-  read('static/css/modules/preset_deployment.css'),
   read('scripts/ui_layout_proto/page.js'),
 ]);
 
@@ -93,10 +92,10 @@ const gemTokens = gems.map((gem, index) => `--gem-${index}: ${gem.main}; --gem-s
 const badgeBlock = declaration.split('const BADGE_COLORS = {')[1].split('};')[0];
 const skillBadges = Object.fromEntries([...badgeBlock.matchAll(/'([^']+)':\s*\{ bg: '(#[\da-f]+)',\s*color: '(#[\da-f]+)'/g)]
   .map(([, label, bg, color]) => [label, { bg, color }]));
-const sideBadges = Object.fromEntries(['ally', 'enemy'].map(side => {
-  const rule = deploymentCss.match(new RegExp(`\\.preset-deploy__type--${side}_formation\\s*\\{\\s*background:\\s*(#[\\da-f]+);\\s*color:\\s*(#[\\da-f]+)`));
-  return [side, { bg: rule[1], color: rule[2] }];
-}));
+const sideBadges = {
+  ally: {bg: '#e6f2ff', color: '#245f9b'},
+  enemy: {bg: '#ffebea', color: '#9b342f'},
+};
 
 const tokens = [
   commonCss.match(/:root\s*\{([^}]+)\}/)[1],

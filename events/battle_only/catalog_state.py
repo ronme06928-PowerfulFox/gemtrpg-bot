@@ -59,7 +59,6 @@ def _ensure_bo_state(state):
         "active_record_id": None,
         "pending_auto_reset": False,
         "pending_auto_reset_round": None,
-        "preset_bookmarks": [],
         "options": {
             "force_pve": True,
             "show_enemy_target_arrows": True,
@@ -75,8 +74,6 @@ def _ensure_bo_state(state):
         bo['enemy_entries'] = []
     if not isinstance(bo.get('records'), list):
         bo['records'] = []
-    if not isinstance(bo.get('preset_bookmarks'), list):
-        bo['preset_bookmarks'] = []
     if not isinstance(bo.get('options'), dict):
         bo['options'] = {
             "force_pve": True,

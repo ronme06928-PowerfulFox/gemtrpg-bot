@@ -1,5 +1,5 @@
 import os
-import time
+from uuid import uuid4
 
 import pytest
 
@@ -7,121 +7,72 @@ import pytest
 pytestmark = pytest.mark.e2e
 
 
-def _enabled():
-    return os.environ.get("RUN_ROOM_PRESET_E2E") == "1"
+def test_room_encounter_queue_e2e():
+    if os.environ.get("RUN_ROOM_PRESET_E2E") != "1":
+        pytest.skip("Set RUN_ROOM_PRESET_E2E=1 with an isolated app and seeded unit catalog.")
 
+    pytest.importorskip("playwright.sync_api")
+    from playwright.sync_api import expect, sync_playwright
 
-def test_normal_room_preset_apply_flow_e2e():
-    """Browser smoke test for applying battle-only presets in a normal room.
+    base = os.environ.get("ROOM_PRESET_E2E_BASE_URL", "http://127.0.0.1:5000")
+    token = uuid4().hex[:8]
 
-    Prerequisites:
-    - Run the app server separately, e.g. `python app.py`.
-    - Install Selenium/browser driver dependencies.
-    - Set `RUN_ROOM_PRESET_E2E=1`.
+    def post(page, url, **body):
+        response = page.request.post(url, data=body)
+        assert response.ok, response.text()
+        return response.json()
 
-    The test intentionally creates and deletes its own room. It verifies the
-    current UI contract rather than using backend helpers for the main flow.
-    """
-    if not _enabled():
-        pytest.skip("Set RUN_ROOM_PRESET_E2E=1 to run the browser E2E test.")
+    def login(page, label):
+        post(page, "/api/register", login_name=f"Encounter{label}{token}", password=uuid4().hex)
+        page.goto(base)
+        page.wait_for_function("window.socket?.connected")
 
-    selenium = pytest.importorskip("selenium")
-    webdriver_manager = pytest.importorskip("webdriver_manager.chrome")
+    def enter(page, room, role):
+        page.evaluate("([name, role]) => joinRoom(name, null, {role, gmPin: ''})", [room, role])
+        expect(page.locator("#current-room-name")).to_contain_text(room)
 
-    from selenium import webdriver
-    from selenium.webdriver.chrome.options import Options
-    from selenium.webdriver.chrome.service import Service
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.webdriver.support.ui import Select, WebDriverWait
+    def save_stage(page):
+        page.locator("#visual-room-preset-btn").click()
+        dialog = page.locator(".rq-dialog")
+        dialog.get_by_role("button", name="＋ 新規", exact=True).click()
+        dialog.locator(".rq-resource button").first.click()
+        dialog.get_by_role("button", name="保存前チェック").click()
+        dialog.get_by_role("button", name="保存確定").click()
+        expect(dialog.locator(".rq-card")).to_have_count(1)
+        return dialog
 
-    base_url = os.environ.get("ROOM_PRESET_E2E_BASE_URL", "http://127.0.0.1:5000")
-    room_name = f"RoomPresetE2E-{int(time.time())}"
+    with sync_playwright() as playwright:
+        browser = playwright.chromium.launch(channel="chrome")
+        gm = browser.new_page(base_url=base, viewport={"width": 1280, "height": 800})
+        pl = browser.new_page(base_url=base, viewport={"width": 680, "height": 800})
+        login(gm, "GM")
+        login(pl, "PL")
+        room = f"Encounter-{token}"
+        post(gm, "/create_room", room_name=room, gm_pin="5219")
+        post(gm, "/api/room/update_settings", room_name=room, lobby_visibility="listed")
+        post(pl, "/api/join_room_by_code", room_name=room)
+        enter(gm, room, "GM")
+        enter(pl, room, "Player")
+        dialog = save_stage(gm)
+        expect(pl.locator("#visual-room-preset-btn")).to_be_hidden()
+        dialog.get_by_role("button", name="登場", exact=True).click()
+        expect(gm.locator(".rq-board-input")).to_be_visible()
+        expect(pl.locator(".rq-board-input")).to_have_count(0)
+        gm.get_by_role("button", name="自動で置く").click()
+        dialog.get_by_role("button", name="確定", exact=True).click()
+        expect(gm.locator(".rq-placement")).to_contain_text("済")
+        pl.wait_for_function("battleState.characters.length > 0")
+        assert pl.evaluate("!('encounter_queue' in battleState)")
 
-    options = Options()
-    if os.environ.get("ROOM_PRESET_E2E_HEADLESS", "1") != "0":
-        options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1440,1000")
-
-    driver = webdriver.Chrome(
-        service=Service(webdriver_manager.ChromeDriverManager().install()),
-        options=options,
-    )
-    wait = WebDriverWait(driver, 15)
-
-    def click_css(selector):
-        el = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, selector)))
-        el.click()
-        return el
-
-    def click_text(text):
-        el = wait.until(EC.element_to_be_clickable((By.XPATH, f"//*[normalize-space()='{text}']")))
-        el.click()
-        return el
-
-    try:
-        driver.get(base_url)
-
-        wait.until(EC.visibility_of_element_located((By.ID, "entry-username"))).send_keys("RoomPresetE2EGM")
-        Select(driver.find_element(By.ID, "entry-attribute")).select_by_value("GM")
-        click_css("#entry-btn")
-
-        wait.until(EC.element_to_be_clickable((By.ID, "create-room-btn")))
-        click_css("#create-room-btn")
-        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-input"))).send_keys(room_name)
-        click_css("#app-dialog-confirm")
-
-        wait.until(EC.text_to_be_present_in_element((By.ID, "current-room-name"), room_name))
-        click_css("#visual-room-preset-btn")
-        wait.until(EC.visibility_of_element_located((By.ID, "room-preset-apply-backdrop")))
-
-        # Stage tab is the default and must expose the four checkbox options.
-        assert driver.find_element(By.ID, "room-stage-apply-enemy").is_selected()
-        assert driver.find_element(By.ID, "room-stage-apply-bg")
-        assert driver.find_element(By.ID, "room-stage-apply-field")
-        assert driver.find_element(By.ID, "room-stage-apply-avatar")
-
-        wait.until(EC.element_to_be_clickable((By.ID, "room-preset-apply-btn"))).click()
-        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-backdrop")))
-        click_css("#app-dialog-confirm")
-        wait.until(EC.text_to_be_present_in_element((By.ID, "room-preset-status"), "適用しました"))
-
-        body_text = driver.find_element(By.TAG_NAME, "body").text
-        assert "[Preset] stage preset applied" in body_text
-
-        click_css("#room-preset-close")
-
-        # Return to the room list and create a battle-only room.
-        click_text("🏠")
-        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-backdrop")))
-        click_css("#app-dialog-confirm")
-        wait.until(EC.element_to_be_clickable((By.XPATH, "//*[normalize-space()='戦闘専用ルーム作成']")))
-        click_text("戦闘専用ルーム作成")
-        bo_room_name = f"BattleOnlyE2E-{int(time.time())}"
-        wait.until(EC.visibility_of_element_located((By.ID, "app-dialog-input"))).send_keys(bo_room_name)
-        click_css("#app-dialog-confirm")
-        wait.until(EC.text_to_be_present_in_element((By.ID, "current-room-name"), bo_room_name))
-
-        click_css("#visual-bo-btn")
-        wait.until(EC.visibility_of_element_located((By.ID, "bo-draft-backdrop")))
-
-        stage_select = Select(wait.until(EC.visibility_of_element_located((By.ID, "bo-stage-select"))))
-        stage_value = next((opt.get_attribute("value") for opt in stage_select.options if opt.get_attribute("value")), "")
-        assert stage_value, "No stage preset option was available for battle-only E2E."
-        stage_select.select_by_value(stage_value)
-        wait.until(EC.element_to_be_clickable((By.ID, "bo-draft-start-btn")))
-        wait.until(lambda _driver: driver.find_element(By.ID, "bo-draft-start-btn").is_enabled())
-
-        click_css("#bo-draft-start-btn")
-        wait.until(EC.visibility_of_element_located((By.ID, "visual-stage-effect-card")))
-        wait.until(EC.text_to_be_present_in_element((By.ID, "visual-stage-effect-card"), "効果: ON"))
-        wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#visual-stage-effect-card button"))).click()
-        wait.until(EC.visibility_of_element_located((By.ID, "stage-field-effect-modal-backdrop")))
-
-        detail_text = driver.find_element(By.ID, "stage-field-effect-modal-backdrop").text
-        assert "ステージ効果詳細" in detail_text
-        assert "効果ルール" in detail_text
-    finally:
-        driver.quit()
+        battle_room = f"EncounterDraft-{token}"
+        post(gm, "/create_room", room_name=battle_room, gm_pin="5219", play_mode="battle_only")
+        gm.get_by_role("button", name="待機列に戻る").click()
+        dialog.get_by_role("button", name="閉じる").click()
+        enter(gm, battle_room, "GM")
+        dialog = save_stage(gm)
+        dialog.get_by_role("button", name="下書きへ反映").click()
+        dialog.get_by_role("button", name="確定", exact=True).click()
+        expect(dialog.get_by_text("下書きに反映しました")).to_be_visible()
+        dialog.get_by_role("button", name="詳細調整").click()
+        expect(gm.locator("#bo-draft-backdrop")).to_be_visible()
+        browser.close()

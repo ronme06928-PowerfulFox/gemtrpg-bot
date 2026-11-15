@@ -112,7 +112,7 @@ def test_normal_stage_and_single_character_apply_atomically():
     state = _normal_state()
     request_data = {
         "target_mode": "normal",
-        "stage": {"record_id": "st_1", "apply": {}},
+        "stage": {"record_id": "st_1", "apply": {"ally_formation": True}},
         "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 1}],
     }
 
@@ -261,3 +261,34 @@ def test_battle_only_preview_reports_assignment_and_required_count_issues():
     assert summary["can_apply"] is True
     assert any("担当ユーザー" in issue for issue in summary["issues"])
     assert any("味方人数が不一致" in issue for issue in summary["issues"])
+
+
+def test_center_rechecks_occupied_cells_and_reports_overflow():
+    state = _normal_state()
+    state["map_data"] = {"width": 2, "height": 2}
+    state["characters"][0].update(x=0, y=0)
+    state["characters"][1].update(x=1, y=0)
+    deploy = {"center": {"x": 0, "y": 0},
+              "characters": [{"id": "c_enemy", "count": 2}]}
+    preview = preview_deployment(state, deploy, _store(), **_context())
+    assert preview["placement"]["unplaced"] == 0
+    assert preview["maintained_names"] == ["既存味方", "既存敵"]
+    state["characters"].append({"id": "block", "x": 0, "y": 1})
+    summary, _ = apply_deployment(state, deploy, _store(), **_context())
+    assert summary["placement"]["unplaced"] == 1
+    assert [(c["x"], c["y"]) for c in state["characters"][-2:]] == [(1, 1), (-1, -1)]
+
+
+def test_stage_defaults_keep_party_and_revalidate_used_references():
+    state = _normal_state()
+    store = _store()
+    store["ally_formations"]["af_1"]["deprecated"] = True
+    deploy = {"stage": {"id": "st_1"}}
+    summary = preview_deployment(state, deploy, store, **_context())
+    assert summary["added"] == {"ally": 0, "enemy": 2}
+    assert summary["removed_names"] == ["既存敵"]
+    assert summary["stage_changes"]["field_effects"]["mode"] == "replace"
+    store["character_presets"]["c_enemy"]["deprecated"] = True
+    with pytest.raises(PresetDeploymentError, match="廃止"):
+        apply_deployment(state, deploy, store, **_context())
+    assert len(state["characters"]) == 2

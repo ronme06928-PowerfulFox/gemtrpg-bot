@@ -273,7 +273,9 @@ def test_catalog_units_build_normal_battle_draft_and_simulator(unit_app):
     store = deployment_store()
     for mode in ("normal", "battle_only"):
         state = {"play_mode": mode, "characters": [], "character_owners": {}}
-        summary, _ = apply_deployment(state, {"target_mode": mode, "stage": {"record_id": "ST-001"}},
+        summary, _ = apply_deployment(state, {"target_mode": mode, "stage": {
+            "record_id": "ST-001", "apply": {"ally_formation": True},
+        }},
                                       store, room_role="gm", gm_user={"user_id": "gm", "username": "GM"},
                                       active_users={"gm": "GM"})
         assert summary["added"] == {"ally": 1, "enemy": 1}

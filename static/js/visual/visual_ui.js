@@ -1005,7 +1005,6 @@ window.setupVisualSidebarControls = function () {
     }
 
     const saveBtn = document.getElementById('visual-save-btn');
-    const presetBtn = document.getElementById('visual-preset-btn');
     const roomPresetBtn = document.getElementById('visual-room-preset-btn');
     const boBtn = document.getElementById('visual-bo-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
@@ -1019,7 +1018,7 @@ window.setupVisualSidebarControls = function () {
     // 追加ボタンを表示できるよう、ルーム操作エリアのレイアウトを拡張
     const actionContainer = document.getElementById('visual-room-actions');
     if (roomPresetBtn) {
-        roomPresetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-flex';
+        roomPresetBtn.style.display = isGM ? 'inline-flex' : 'none';
     }
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
         // 2カラム固定から折り返し可能なflexレイアウトに変更
@@ -1111,8 +1110,8 @@ window.setupVisualSidebarControls = function () {
             openBattleOnlyQuickStartModal();
             return;
         }
-        if (typeof openBattleOnlyDraftModal === 'function') {
-            openBattleOnlyDraftModal();
+        if (typeof window.openRoomEncounterQueue === 'function') {
+            window.openRoomEncounterQueue();
             return;
         }
         statusMsg.textContent = "戦闘専用モーダルを読み込めませんでした。";
@@ -1378,33 +1377,16 @@ window.setupVisualSidebarControls = function () {
                 } catch (e) { statusMsg.textContent = "保存に失敗しました。"; }
             };
         }
-        if (presetBtn) {
-            presetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-block';
-            presetBtn.textContent = '敵一覧保存';
-            presetBtn.title = isBattleOnlyMode ? '' : '現在の敵一覧を保存/読込する旧式の補助機能です';
-            presetBtn.onclick = () => {
-                if (isBattleOnlyMode) return;
-                if (typeof openPresetManagerModal === 'function') openPresetManagerModal();
-            };
-        }
         if (roomPresetBtn) {
-            roomPresetBtn.style.display = isBattleOnlyMode ? 'none' : 'inline-block';
-            roomPresetBtn.onclick = () => {
-                if (isBattleOnlyMode) return;
-                if (typeof openRoomPresetApplyModal === 'function') {
-                    openRoomPresetApplyModal();
-                }
-            };
+            roomPresetBtn.onclick = () => window.openRoomEncounterQueue();
         }
         if (boBtn) {
             boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
-            boBtn.textContent = '戦闘専用編成';
-            boBtn.onclick = openBattleOnlyDraftFromUi;
+            boBtn.textContent = '詳細調整';
+            boBtn.onclick = () => window.openBattleOnlyDraftModal();
         }
     } else {
         if (saveBtn) saveBtn.style.display = 'none';
-        if (presetBtn) presetBtn.style.display = 'none';
-        if (roomPresetBtn) roomPresetBtn.style.display = 'none';
         if (boBtn) {
             boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
             boBtn.textContent = 'かんたん戦闘突入';

@@ -126,3 +126,20 @@ def test_load_room_requires_name(client):
     _login(client, "owner-1", "owner")
     resp = client.get("/load_room")
     assert resp.status_code == 400
+
+
+def test_room_state_round_trip_cannot_expose_or_overwrite_encounters(client):
+    _login(client, "player-1", "player")
+    user_sids["sid-1"] = {"user_id": "player-1", "room": "R1", "username": "player"}
+    active_room_states["R1"] = {
+        "characters": [],
+        "encounter_queue": [{"name": "secret"}],
+        "preset_deployment_operations": [{"operation_id": "private"}],
+    }
+    data = client.get("/load_room?name=R1").get_json()
+    assert "encounter_queue" not in data
+    assert "preset_deployment_operations" not in data
+    data["encounter_queue"] = [{"name": "forged"}]
+    assert client.post("/save_room", json={"room_name": "R1", "state": data}).status_code == 200
+    assert active_room_states["R1"]["encounter_queue"] == [{"name": "secret"}]
+    assert active_room_states["R1"]["preset_deployment_operations"] == [{"operation_id": "private"}]

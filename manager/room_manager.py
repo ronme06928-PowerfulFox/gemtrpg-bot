@@ -60,7 +60,6 @@ def _default_battle_only_state():
         "active_record_id": None,
         "pending_auto_reset": False,
         "pending_auto_reset_round": None,
-        "preset_bookmarks": [],
     }
 
 def _ensure_battle_only_defaults(state):
@@ -92,8 +91,6 @@ def _ensure_battle_only_defaults(state):
         battle_only['enemy_entries'] = []
     if not isinstance(battle_only.get('records'), list):
         battle_only['records'] = []
-    if not isinstance(battle_only.get('preset_bookmarks'), list):
-        battle_only['preset_bookmarks'] = []
 
     if 'stage_field_effect_enabled' not in battle_only:
         battle_only['stage_field_effect_enabled'] = True
@@ -661,12 +658,17 @@ def broadcast_state_update(room_name):
             logger.error(f"emit_select_resolve_events failed room={room_name}: {e}")
 
 
+PRIVATE_ROOM_FIELDS = ("encounter_queue", "preset_deployment_operations")
+
+
 def build_participant_state(state):
     """通常のルーム状態配信からGM専用の準備メタデータを除外する。"""
     public_state = copy.deepcopy(state if isinstance(state, dict) else {})
-    battle_only = public_state.get('battle_only')
-    if isinstance(battle_only, dict):
-        battle_only.pop('preset_bookmarks', None)
+    for field in PRIVATE_ROOM_FIELDS:
+        public_state.pop(field, None)
+    draft = public_state.get("battle_only")
+    if isinstance(draft, dict):
+        draft.pop("preset_bookmarks", None)
     return public_state
 
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):

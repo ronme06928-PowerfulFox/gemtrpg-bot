@@ -49,7 +49,7 @@ class DeploymentBuild:
 def _safe_int(value, default=0):
     try:
         return int(float(value))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, OverflowError):
         return default
 
 
@@ -188,7 +188,7 @@ def normalize_deployment_request(raw):
             "record_id": record_id,
             "apply": {
                 "enemy_formation": bool(apply_src.get("enemy_formation", True)),
-                "ally_formation": bool(apply_src.get("ally_formation", True)),
+                "ally_formation": bool(apply_src.get("ally_formation", target_mode == "battle_only")),
                 "background": bool(apply_src.get("background", True)),
                 "field_effects": bool(apply_src.get("field_effects", True)),
                 "stage_avatar": bool(apply_src.get("stage_avatar", True)),
@@ -205,6 +205,8 @@ def normalize_deployment_request(raw):
         if not record_id:
             continue
         mode = str(row.get("mode") or ("append" if side == "ally" else "replace")).strip().lower()
+        if side == "ally" and target_mode == "normal":
+            mode = "append"
         if mode not in {"append", "replace"}:
             raise PresetDeploymentError("invalid_mode", "編成の適用方法が不正です。")
         formations[side] = {
@@ -239,6 +241,15 @@ def normalize_deployment_request(raw):
             "user_id": user_id,
         })
 
+    enemy_mode = src.get("enemy_mode", "replace")
+    if enemy_mode not in ("append", "replace"):
+        raise PresetDeploymentError("invalid_mode", "敵編成の適用方法が不正です。")
+    center = src.get("center")
+    if center is not None:
+        if not isinstance(center, dict) or any(type(center.get(axis)) is not int for axis in ("x", "y")):
+            raise PresetDeploymentError("invalid_center", "中心マスを整数で指定してください。")
+        center = {axis: center[axis] for axis in ("x", "y")}
+
     if not stage and not any(formations.values()) and not characters:
         raise PresetDeploymentError("empty_deployment", "配置するプリセットを選んでください。")
     return {
@@ -246,18 +257,27 @@ def normalize_deployment_request(raw):
         "stage": stage,
         "formations": formations,
         "characters": characters,
+        "enemy_mode": enemy_mode,
+        "replace_enemies": src.get("replace_enemies", "enemy_mode" in src) is True,
+        "ally_user_id": str(src.get("ally_user_id") or "").strip() or None,
+        "center": center,
     }
 
 
 def _require_deployable(store, record_type, record_id, access):
     record = get_record(store, record_type, record_id)
     if not isinstance(record, dict):
-        raise PresetDeploymentError("not_found", "プリセットが見つかりません。", refresh_required=True)
+        raise PresetDeploymentError("not_found", f"資源が見つかりません: {record_id}", refresh_required=True)
     if not can_read(record, **access):
-        raise PresetDeploymentError("permission_denied", "このプリセットを配置する権限がありません。", refresh_required=True)
-    if record_type in {"enemy_formation", "ally_formation", "stage"}:
+        raise PresetDeploymentError("permission_denied", f"資源を閲覧できません: {record_id}", refresh_required=True)
+    if record.get("deprecated") or (record.get("catalog_meta") or {}).get("archived"):
+        raise PresetDeploymentError("deprecated", f"資源は廃止済みです: {record_id}", refresh_required=True)
+    if record_type in {"enemy_formation", "ally_formation"}:
+        for row in _formation_rows(record, record_type.split("_")[0]):
+            _require_deployable(store, "character", row["preset_id"], access)
         if not valid_deployment_target(store, record_type, record):
-            raise PresetDeploymentError("invalid_reference", "参照先を利用できないプリセットです。", refresh_required=True)
+            raise PresetDeploymentError("invalid_reference", f"編成の陣営・パターンを確認してください: {record_id}",
+                                        refresh_required=True)
     return record
 
 
@@ -283,7 +303,8 @@ def resolve_deployment_request(store, request_data, *, user_id=None, is_author=F
             if stage_ref:
                 formation = {
                     "record_id": stage_ref,
-                    "mode": "append" if side == "ally" and resolved["target_mode"] == "normal" else "replace",
+                    "mode": (resolved["enemy_mode"] if side == "enemy" else
+                             "append" if resolved["target_mode"] == "normal" else "replace"),
                     "source": "stage",
                 }
                 resolved["formations"][side] = formation
@@ -441,27 +462,39 @@ def _formation_rows(formation, side):
     return rows
 
 
-def _assign_positions(state, new_chars):
+def _assign_positions(state, new_chars, center=None):
     chars = [char for char in new_chars if isinstance(char, dict)]
-    if not chars:
-        return
     map_data = state.get("map_data") if isinstance(state.get("map_data"), dict) else {}
-    width = max(6, _safe_int(map_data.get("width"), 20))
-    height = max(6, _safe_int(map_data.get("height"), 15))
+    width = max(1, min(100, _safe_int(map_data.get("width"), 20)))
+    height = max(1, min(100, _safe_int(map_data.get("height"), 15)))
     occupied = {
         (_safe_int(char.get("x"), -1), _safe_int(char.get("y"), -1))
-        for char in state.get("characters", []) if isinstance(char, dict)
-        if char not in chars and _safe_int(char.get("x"), -1) >= 0 and _safe_int(char.get("y"), -1) >= 0
+        for char in state.get("characters", [])
+        if isinstance(char, dict) and char not in chars
     }
-    for side in SIDES:
+    for side in ("enemy", "ally") if center else SIDES:
         side_chars = [char for char in chars if _char_side(char) == side]
-        xs = range(1, max(2, width // 2)) if side == "ally" else range(width - 2, max(width // 2, 1), -1)
-        candidates = [(x, y) for x in xs for y in range(1, height - 1)]
+        if center and side == "enemy":
+            x0, y0 = center["x"], center["y"]
+            if not (0 <= x0 < width and 0 <= y0 < height):
+                raise PresetDeploymentError("invalid_center", "盤面内の中心マスを指定してください。")
+            candidates = sorted(
+                ((x, y) for y in range(height) for x in range(width)),
+                key=lambda pos: ((pos[0] - x0) ** 2 + (pos[1] - y0) ** 2, pos[1], pos[0]),
+            )
+        else:
+            xs = range(1, max(2, width // 2)) if side == "ally" else range(width - 2, max(width // 2, 1), -1)
+            candidates = [(x, y) for x in xs for y in range(1, height - 1)]
+        slots = iter(pos for pos in candidates if pos not in occupied)
         for char in side_chars:
-            pos = next((value for value in candidates if value not in occupied), (-1, -1))
+            pos = next(slots, (-1, -1))
             char["x"], char["y"] = pos
-            if pos != (-1, -1):
-                occupied.add(pos)
+            occupied.add(pos)
+    return {
+        "width": width,
+        "height": height,
+        "unplaced": sum(char["x"] < 0 for char in chars),
+    }
 
 
 def _set_status_clamped(char, name, value):
@@ -532,6 +565,12 @@ def _initialize_battle_start(candidate, initial_chars):
     return logs
 
 
+def _replace_with_enemy_units(resolved):
+    return (resolved["replace_enemies"] and resolved["enemy_mode"] == "replace"
+            and not resolved["formations"].get("enemy")
+            and any(row["side"] == "enemy" for row in resolved["characters"]))
+
+
 def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_users=None):
     candidate = copy.deepcopy(state if isinstance(state, dict) else {})
     candidate.setdefault("characters", [])
@@ -548,17 +587,25 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
         "can_apply": True,
         "ready": True,
     }
+    summary["stage_changes"] = {}
     stage_row = resolved.get("stage")
     if stage_row:
         stage = stage_row["record"]
         apply_options = stage_row["apply"]
         if apply_options.get("background") and apply_stage_background_to_state(candidate, _stage_background(stage)):
             summary["changes"].append("背景")
+            summary["stage_changes"]["background"] = stage.get("name") or stage_row["record_id"]
         if apply_options.get("field_effects"):
             profile = normalize_stage_field_effect_profile(stage.get("field_effect_profile"))
             candidate["stage_field_effect_profile"] = copy.deepcopy(profile)
             candidate["field_effects"] = _stage_field_rows(profile, stage_row["record_id"])
             summary["changes"].append(f"フィールド効果 {len(candidate['field_effects'])}件")
+            summary["stage_changes"]["field_effects"] = {
+                "mode": "replace",
+                "before": len(state.get("field_effects") or []),
+                "names": [rule.get("display_name") or rule.get("label") or rule.get("kind") or row["field_id"]
+                          for row in candidate["field_effects"] for rule in [row["rule"]]],
+            }
         if apply_options.get("stage_avatar"):
             avatar = normalize_stage_avatar(stage.get("stage_avatar"))
             candidate["stage_avatar_profile"] = avatar
@@ -573,6 +620,8 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
     masters = skill_catalog()
     serial = len(candidate.get("characters", [])) + 1
     gm_name, gm_id = _owner_for(None, active_users, gm_user)
+    if _replace_with_enemy_units(resolved):
+        summary["removed"]["enemy"] = len(_remove_side(candidate, "enemy"))
     for side in SIDES:
         formation = resolved["formations"].get(side)
         if not formation:
@@ -584,7 +633,7 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
             rec = get_record(store, "character", row["preset_id"])
             if not isinstance(rec, dict):
                 raise PresetDeploymentError("invalid_reference", "編成内のキャラクターが見つかりません。", refresh_required=True)
-            owner_name, owner_id = _owner_for(row.get("user_id"), active_users, gm_user) if side == "ally" else (gm_name, gm_id)
+            owner_name, owner_id = _owner_for(resolved["ally_user_id"] or row.get("user_id"), active_users, gm_user) if side == "ally" else (gm_name, gm_id)
             for _ in range(row["count"]):
                 char = build_character(
                     rec, side, serial,
@@ -617,7 +666,17 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
             new_chars.append(char)
             summary["added"][side] += 1
 
-    _assign_positions(candidate, new_chars)
+    summary["placement"] = _assign_positions(candidate, new_chars, resolved["center"])
+    originals = {char.get("id"): char for char in state.get("characters", [])}
+    remaining = {char.get("id") for char in candidate["characters"]}
+    summary["maintained_names"] = [char.get("name", "") for key, char in originals.items() if key in remaining]
+    summary["removed_ids"] = [key for key in originals if key not in remaining]
+    summary["removed_names"] = [originals[key].get("name", "") for key in summary["removed_ids"]]
+    summary["new_tokens"] = [
+        {"name": char.get("name", ""), "side": _char_side(char), "x": char["x"], "y": char["y"],
+         "image": char.get("imageOriginal") or char.get("image")}
+        for char in new_chars
+    ]
     logs = _initialize_battle_start(candidate, new_chars)
     candidate["play_mode"] = "normal"
     if resolved["formations"].get("enemy"):
@@ -731,6 +790,11 @@ def _build_battle_only_candidate(state, resolved, store, *, gm_user=None, active
             bo["stage_avatar_enabled"] = bool(avatar.get("enabled", True))
         summary["changes"].append("ステージ")
 
+    if _replace_with_enemy_units(resolved):
+        summary["removed"]["enemy"] = sum(max(1, _safe_int(row.get("count"), 1))
+                                           for row in bo["enemy_entries"] if isinstance(row, dict))
+        bo["enemy_entries"] = []
+        bo["enemy_formation_id"] = None
     gm_name, gm_id = _owner_for(None, active_users, gm_user)
     for side in SIDES:
         key = f"{side}_entries"
@@ -749,7 +813,7 @@ def _build_battle_only_candidate(state, resolved, store, *, gm_user=None, active
         if side == "ally":
             expanded = []
             for row in rows:
-                owner_name, owner_id = _owner_for(row.get("user_id"), active_users, gm_user)
+                owner_name, owner_id = _owner_for(resolved["ally_user_id"] or row.get("user_id"), active_users, gm_user)
                 _ = owner_name
                 expanded.extend({"preset_id": row["preset_id"], "user_id": owner_id or gm_id} for _ in range(row["count"]))
             bo[key] = [*existing, *expanded]
@@ -826,10 +890,14 @@ def preview_deployment(state, request_data, store, **context):
         gm_user=context.get("gm_user"),
         active_users=context.get("active_users"),
     )
+    users = context.get("active_users") or {}
+    assignees = [resolved["ally_user_id"]] + [row["user_id"] for row in resolved["characters"] if row["side"] == "ally"]
+    for user_id in dict.fromkeys(value for value in assignees if value and value not in users):
+        build.summary["warnings"].append(f"担当 {user_id} は不在です。GMを担当に設定します。")
     return copy.deepcopy(build.summary)
 
 
-def apply_deployment(state, request_data, store, **context):
+def apply_deployment(state, request_data, store, *, expected_unplaced=None, **context):
     resolved = resolve_deployment_request(
         store,
         request_data,
@@ -844,6 +912,9 @@ def apply_deployment(state, request_data, store, **context):
         gm_user=context.get("gm_user"),
         active_users=context.get("active_users"),
     )
+    if expected_unplaced is not None and build.summary.get("placement", {}).get("unplaced", 0) > expected_unplaced:
+        raise PresetDeploymentError("placement_changed", "空きマスが減りました。配置を再確認してください。",
+                                    refresh_required=True)
     state.clear()
     state.update(build.state)
     return copy.deepcopy(build.summary), list(build.logs)
