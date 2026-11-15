@@ -60,7 +60,7 @@ function escapeDialogText(value) {
 
 let dismissAppDialog;
 
-function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, defaultFocus } = {}) {
+function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, validate = null, defaultFocus } = {}) {
     return new Promise((resolve) => {
         dismissAppDialog?.();
         const opener = document.activeElement;
@@ -174,8 +174,10 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
         const submit = () => {
             if (mode === 'prompt') {
                 const value = String(input?.value || '').trim();
-                if (required && !value) {
-                    if (error) error.textContent = '入力してください。';
+                // 未入力・形式の誤りは窓を閉じずに、窓の中で知らせる。
+                const problem = required && !value ? '入力してください。' : (validate?.(value) || '');
+                if (problem) {
+                    if (error) error.textContent = problem;
                     input?.focus();
                     return;
                 }
@@ -238,6 +240,7 @@ function showAppPrompt(message, options = {}) {
         confirmText: options.confirmText || '作成',
         cancelText: options.cancelText || 'キャンセル',
         required: !!options.required,
+        validate: options.validate || null,
     });
 }
 
@@ -816,6 +819,10 @@ async function joinRoomWithCode(roomName, requiresCode) {
     }
 }
 
+function validatePinOrMasterKey(value) {
+    return /^\d{4}$|^\d{8}$/.test(value) ? '' : 'GM PINは4桁、マスターキーは8桁の数字で入力してください。';
+}
+
 async function createNewRoom() {
     await createRoomByMode('normal');
 }
@@ -836,21 +843,16 @@ async function createRoomByMode(playMode) {
             required: true,
         }
     );
-    if (!roomName || roomName.trim() === '') {
-        alert('ルーム名は必須です。');
-        return;
-    }
+    if (roomName === null) return;  // キャンセル
 
     const gmPin = await showAppPrompt('GM PINとして使う4桁の数字を入力してください。', {
         title: 'GM PIN設定',
         placeholder: '例: 1234',
         confirmText: '作成',
         required: true,
+        validate: value => /^\d{4}$/.test(value) ? '' : 'GM PINは4桁の数字で入力してください。',
     });
-    if (!/^\d{4}$/.test(String(gmPin || '').trim())) {
-        alert('GM PINは4桁の数字で入力してください。');
-        return;
-    }
+    if (gmPin === null) return;  // キャンセル
 
     const payload = { room_name: roomName.trim(), gm_pin: String(gmPin).trim() };
     if (isBattleOnly) {
@@ -895,11 +897,9 @@ async function deleteRoom(roomName) {
             placeholder: '4桁PIN / 8桁マスターキー',
             confirmText: '削除',
             required: true,
+            validate: validatePinOrMasterKey,
         });
-        if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
-            alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
-            return;
-        }
+        if (gmPin === null) return;  // キャンセル
     }
     try {
         const response = await fetchWithSession('/delete_room', {
@@ -942,11 +942,9 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
                     placeholder: '4桁PIN / 8桁マスターキー',
                     confirmText: '入室',
                     required: true,
+                    validate: validatePinOrMasterKey,
                 });
-                if (!/^\d{4}$|^\d{8}$/.test(String(gmPin || '').trim())) {
-                    alert('GM PINは4桁、マスターキーは8桁の数字で入力してください。');
-                    return;
-                }
+                if (gmPin === null) return;  // キャンセル
                 roomEntry.gmPin = String(gmPin).trim();
             }
         }
