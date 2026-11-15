@@ -1,0 +1,526 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ジェムリア UIひな形</title>
+<style>
+/* ============ 1. トークン（ここが全画面の元） ============ */
+:root {
+  /* 文字・面・線 */
+  --ui-text: #253345;        /* 本文（本の濃紺） */
+  --ui-sub: #647080;         /* 補助の文字（本の灰青） */
+  --ui-bg: #ffffff;          /* 面 */
+  --ui-soft: #f5f7fa;        /* 淡い面 */
+  --ui-line: #d6dee8;        /* 飾りの線（カード・区切り） */
+  --ui-control: #7b8798;     /* 操作の枠（入力欄・ボタン） */
+  --ui-focus: #1d4ed8;
+  /* 意味の色（文字色／淡い面） */
+  --ui-primary: #1d4ed8;  --ui-primary-soft: #e8efff;  --ui-on-primary: #ffffff;
+  --ui-danger: #b42318;   --ui-danger-soft: #fdecea;
+  --ui-warn: #8a4b00;     --ui-warn-soft: #fff4dc;
+  --ui-add: #166534;      --ui-add-soft: #dcf5e4;
+  --ui-ally: #245f9b;     --ui-ally-soft: #e6f2ff;
+  --ui-enemy: #9b342f;    --ui-enemy-soft: #ffebea;
+  /* 宝石（濃い色／淡い面）。文字には使わず、印と面に使う */
+  --gem-quartz: #4f6d84;   --gem-quartz-soft: #edf2f6;
+  --gem-diamond: #6c8aa3;  --gem-diamond-soft: #eef3f7;
+  --gem-topaz: #b06a17;    --gem-topaz-soft: #fbf1e4;
+  --gem-emerald: #1b7a54;  --gem-emerald-soft: #e6f3ed;
+  --gem-ruby: #ad2840;     --gem-ruby-soft: #fbeaed;
+  --gem-sapphire: #1f4fa3; --gem-sapphire-soft: #e8eef9;
+  --gem-amethyst: #71479e; --gem-amethyst-soft: #f1ebf8;
+  --gem-citrine: #97760a;  --gem-citrine-soft: #faf4dd;
+  --gem-onyx: #2c2f36;     --gem-onyx-soft: #eceef1;
+  /* 影：常設の面には使わない。重なる物だけ */
+  --ui-shadow-float: 0 6px 20px rgba(20, 30, 50, .18);
+  /* 形 */
+  --ui-radius: 6px;  --ui-radius-badge: 999px;
+  /* 密度（標準） */
+  --ui-fs: 13px;  --ui-lh: 1.55;  --ui-gap: 6px;  --ui-pad: 9px;  --ui-row: 30px;
+}
+:root[data-density="wide"] { --ui-fs: 16px; --ui-lh: 1.7; --ui-gap: 9px; --ui-pad: 13px; --ui-row: 40px; }
+/* 暗い面（ルーム・戦闘）。名前は同じで値だけ変える */
+[data-surface="dark"] {
+  --ui-text: #e8ebf0;  --ui-sub: #aab4c2;  --ui-bg: #22242b;  --ui-soft: #2e313b;
+  --ui-line: #3f4553;  --ui-control: #8d98aa;  --ui-focus: #9db8ff;
+  --ui-primary: #9db8ff;  --ui-primary-soft: #2a3558;  --ui-on-primary: #14182a;
+  --ui-danger: #ff9b90;   --ui-danger-soft: #4a2622;
+  --ui-warn: #f0c070;     --ui-warn-soft: #473612;
+  --ui-add: #7fd8a0;      --ui-add-soft: #1d3d2a;
+  --ui-ally: #8fc2f5;     --ui-ally-soft: #1f344d;
+  --ui-enemy: #ff9f98;    --ui-enemy-soft: #4b2523;
+  --gem-quartz-soft: #2b343c; --gem-diamond-soft: #2c343b; --gem-topaz-soft: #3d2f1c;
+  --gem-emerald-soft: #1d3329; --gem-ruby-soft: #40222a; --gem-sapphire-soft: #202c45;
+  --gem-amethyst-soft: #31273f; --gem-citrine-soft: #3a3316; --gem-onyx-soft: #33363d;
+  --gem-quartz: #8fb0c8; --gem-diamond: #a9c2d6; --gem-topaz: #e2a155; --gem-emerald: #5cc79a;
+  --gem-ruby: #f07f93; --gem-sapphire: #7fa6f0; --gem-amethyst: #b995e0; --gem-citrine: #d8b84a; --gem-onyx: #b9bec8;
+  --ui-shadow-float: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+/* ============ テーマ：紙と金（管理・メニュー・読み物） ============ */
+[data-theme="paper"] {
+  --ui-text: #2d2618;  --ui-sub: #6b5c45;  --ui-bg: #f7efdd;  --ui-soft: #efe3c8;
+  --ui-line: #d9c7a0;  --ui-control: #8a7550;  --ui-focus: #1f4fa3;
+  --ui-primary: #1f4fa3;  --ui-primary-soft: #f0dfab;  --ui-on-primary: #ffffff;
+  --ui-danger: #9c2318;   --ui-danger-soft: #f6ddd3;
+  --ui-warn: #7a4a00;     --ui-warn-soft: #f5e2b0;
+  --ui-add: #1f5c33;      --ui-add-soft: #dcebc9;
+  --ui-ally: #1f548c;     --ui-ally-soft: #dbe6f0;
+  --ui-enemy: #8f2d28;    --ui-enemy-soft: #f5dcd6;
+  --gem-quartz: #4f6d84; --gem-diamond: #6c8aa3; --gem-topaz: #b06a17; --gem-emerald: #1b7a54; --gem-ruby: #ad2840;
+  --gem-sapphire: #1f4fa3; --gem-amethyst: #71479e; --gem-citrine: #97760a; --gem-onyx: #2c2f36;
+  --gem-quartz-soft: color-mix(in srgb, var(--gem-quartz) 16%, var(--ui-bg)); --gem-diamond-soft: color-mix(in srgb, var(--gem-diamond) 16%, var(--ui-bg)); --gem-topaz-soft: color-mix(in srgb, var(--gem-topaz) 16%, var(--ui-bg)); --gem-emerald-soft: color-mix(in srgb, var(--gem-emerald) 16%, var(--ui-bg)); --gem-ruby-soft: color-mix(in srgb, var(--gem-ruby) 16%, var(--ui-bg)); --gem-sapphire-soft: color-mix(in srgb, var(--gem-sapphire) 16%, var(--ui-bg)); --gem-amethyst-soft: color-mix(in srgb, var(--gem-amethyst) 16%, var(--ui-bg)); --gem-citrine-soft: color-mix(in srgb, var(--gem-citrine) 16%, var(--ui-bg)); --gem-onyx-soft: color-mix(in srgb, var(--gem-onyx) 16%, var(--ui-bg));
+  --ui-page: #dccaa2;
+  --ui-page-tex: radial-gradient(ellipse at 50% 0, rgba(255, 250, 235, .6), transparent 65%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .25 0 0 0 0 .1 0 0 0 .10 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ui-tex: linear-gradient(180deg, rgba(255, 252, 240, .65), rgba(255, 252, 240, 0) 140px), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .4 0 0 0 0 .28 0 0 0 0 .1 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ui-head-font: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+  --ui-gold: #b99a4e;  --ui-gold-strong: #8c6d1f;  --ui-select-line: #a8862f;
+  --ui-sheen: .30;  --ui-shade: .10;  --ui-inset: inset 0 1px 0 rgba(255, 255, 255, .55);
+  --ui-input-bg: #fcf8ee;
+  --ui-frame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cg fill='none' stroke='%23a8862f'%3E%3Crect x='1.5' y='1.5' width='45' height='45' stroke-width='1.2'/%3E%3Crect x='5.5' y='5.5' width='37' height='37' stroke-width='.7'/%3E%3C/g%3E%3Cg fill='%23a8862f'%3E%3Cpath d='M8 3l5 5-5 5-5-5z'/%3E%3Cpath d='M40 3l5 5-5 5-5-5z'/%3E%3Cpath d='M8 35l5 5-5 5-5-5z'/%3E%3Cpath d='M40 35l5 5-5 5-5-5z'/%3E%3C/g%3E%3C/svg%3E");
+  --ui-shadow-panel: 0 2px 8px rgba(90, 65, 20, .20);
+  --ui-shadow-float: 0 10px 28px rgba(70, 48, 10, .34);
+  color: var(--ui-text);
+}
+/* ============ テーマ：夜色と金（ルーム・戦闘） ============ */
+[data-theme="night"] {
+  --ui-text: #ece6d6;  --ui-sub: #b3ad9a;  --ui-bg: #1c2030;  --ui-soft: #262b40;
+  --ui-line: #3a4058;  --ui-control: #8f93aa;  --ui-focus: #f0d27a;
+  --ui-primary: #d9b85a;  --ui-primary-soft: #3b3421;  --ui-on-primary: #1c1505;
+  --ui-danger: #ff9b90;   --ui-danger-soft: #4a2622;
+  --ui-warn: #f0c070;     --ui-warn-soft: #473612;
+  --ui-add: #7fd8a0;      --ui-add-soft: #1d3d2a;
+  --ui-ally: #8fc2f5;     --ui-ally-soft: #1f344d;
+  --ui-enemy: #ff9f98;    --ui-enemy-soft: #4b2523;
+  --gem-quartz: #8fb0c8; --gem-diamond: #a9c2d6; --gem-topaz: #e2a155; --gem-emerald: #5cc79a; --gem-ruby: #f07f93;
+  --gem-sapphire: #7fa6f0; --gem-amethyst: #b995e0; --gem-citrine: #d8b84a; --gem-onyx: #b9bec8;
+  --gem-quartz-soft: color-mix(in srgb, var(--gem-quartz) 22%, var(--ui-bg)); --gem-diamond-soft: color-mix(in srgb, var(--gem-diamond) 22%, var(--ui-bg)); --gem-topaz-soft: color-mix(in srgb, var(--gem-topaz) 22%, var(--ui-bg)); --gem-emerald-soft: color-mix(in srgb, var(--gem-emerald) 22%, var(--ui-bg)); --gem-ruby-soft: color-mix(in srgb, var(--gem-ruby) 22%, var(--ui-bg)); --gem-sapphire-soft: color-mix(in srgb, var(--gem-sapphire) 22%, var(--ui-bg)); --gem-amethyst-soft: color-mix(in srgb, var(--gem-amethyst) 22%, var(--ui-bg)); --gem-citrine-soft: color-mix(in srgb, var(--gem-citrine) 22%, var(--ui-bg)); --gem-onyx-soft: color-mix(in srgb, var(--gem-onyx) 22%, var(--ui-bg));
+  --ui-page: #0f1120;
+  --ui-page-tex: radial-gradient(ellipse at 50% -10%, rgba(90, 100, 190, .32), transparent 60%), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ui-tex: linear-gradient(180deg, rgba(255, 255, 255, .06), rgba(255, 255, 255, 0) 140px), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --ui-head-font: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+  --ui-gold: #8f7a3c;  --ui-gold-strong: #c8a84b;  --ui-select-line: #c8a84b;
+  --ui-sheen: .22;  --ui-shade: .18;  --ui-inset: inset 0 1px 0 rgba(255, 255, 255, .18);
+  --ui-input-bg: #141829;
+  --ui-frame: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cg fill='none' stroke='%23c8a84b'%3E%3Crect x='1.5' y='1.5' width='45' height='45' stroke-width='1.2'/%3E%3Crect x='5.5' y='5.5' width='37' height='37' stroke-width='.7'/%3E%3C/g%3E%3Cg fill='%23c8a84b'%3E%3Cpath d='M8 3l5 5-5 5-5-5z'/%3E%3Cpath d='M40 3l5 5-5 5-5-5z'/%3E%3Cpath d='M8 35l5 5-5 5-5-5z'/%3E%3Cpath d='M40 35l5 5-5 5-5-5z'/%3E%3C/g%3E%3C/svg%3E");
+  --ui-shadow-panel: 0 2px 12px rgba(0, 0, 0, .5);
+  --ui-shadow-float: 0 12px 30px rgba(0, 0, 0, .65);
+  color: var(--ui-text);
+}
+
+/* ============ 2. 部品 ============ */
+* { box-sizing: border-box; }
+body { margin: 0; font-family: "Noto Sans JP", "Yu Gothic UI", "Hiragino Sans", "Meiryo", sans-serif; font-size: var(--ui-fs); line-height: var(--ui-lh); color: var(--ui-text); background: var(--ui-soft); }
+.surface { color: var(--ui-text); background: var(--ui-bg); }
+h1, h2, h3, h4, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.sub { color: var(--ui-sub); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* 宝石の印 */
+.gem { display: inline-block; width: .8em; height: .8em; flex: none; background: var(--gem, var(--gem-quartz)); clip-path: polygon(50% 0, 100% 35%, 80% 100%, 20% 100%, 0 35%); vertical-align: -.05em; }
+.g-quartz { --gem: var(--gem-quartz); --gem-soft: var(--gem-quartz-soft); }
+.g-diamond { --gem: var(--gem-diamond); --gem-soft: var(--gem-diamond-soft); }
+.g-topaz { --gem: var(--gem-topaz); --gem-soft: var(--gem-topaz-soft); }
+.g-emerald { --gem: var(--gem-emerald); --gem-soft: var(--gem-emerald-soft); }
+.g-ruby { --gem: var(--gem-ruby); --gem-soft: var(--gem-ruby-soft); }
+.g-sapphire { --gem: var(--gem-sapphire); --gem-soft: var(--gem-sapphire-soft); }
+.g-amethyst { --gem: var(--gem-amethyst); --gem-soft: var(--gem-amethyst-soft); }
+.g-citrine { --gem: var(--gem-citrine); --gem-soft: var(--gem-citrine-soft); }
+.g-onyx { --gem: var(--gem-onyx); --gem-soft: var(--gem-onyx-soft); }
+
+/* ボタン：主（塗り）／標準（枠）／危険（赤い文字）／危険の確定（赤い枠＋淡い赤） */
+.btn { display: inline-flex; align-items: center; gap: .35em; min-height: var(--ui-row); padding: 0 calc(var(--ui-pad) + 2px); font: inherit; font-weight: 600; color: var(--ui-text); background: var(--ui-bg); border: 1px solid var(--ui-control); border-radius: var(--ui-radius); cursor: pointer; white-space: nowrap; }
+.btn:hover { background: var(--ui-soft); }
+.btn.is-primary { color: var(--ui-on-primary); background: var(--ui-primary); border-color: var(--ui-primary); }
+.btn.is-primary:hover { filter: brightness(1.1); }
+.btn.is-danger { color: var(--ui-danger); border-color: transparent; background: transparent; }
+.btn.is-danger:hover { background: var(--ui-danger-soft); }
+.btn.is-danger-confirm { color: var(--ui-danger); border-color: var(--ui-danger); background: var(--ui-danger-soft); }
+.btn.is-text { border-color: transparent; background: transparent; color: var(--ui-primary); padding: 0 4px; }
+.btn.is-small { min-height: calc(var(--ui-row) - 6px); padding: 0 var(--ui-pad); font-size: .92em; }
+.btn:disabled { color: var(--ui-sub); border-color: var(--ui-line); background: var(--ui-soft); cursor: not-allowed; filter: none; }
+.btn .enter { font-size: .8em; font-weight: 400; opacity: .85; border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; }
+
+/* 入力 */
+.field { display: grid; gap: 2px; }
+.field > span { color: var(--ui-sub); font-size: .92em; }
+.input { min-height: var(--ui-row); padding: 0 var(--ui-pad); font: inherit; color: var(--ui-text); background: var(--ui-bg); border: 1px solid var(--ui-control); border-radius: var(--ui-radius); }
+.input.w-num { width: 6em; text-align: right; }
+.input.w-name { width: 18em; max-width: 100%; }
+.input.w-full { width: 100%; }
+textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
+.fixed-id { font-family: ui-monospace, Consolas, monospace; font-weight: 600; }
+.info { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border: 1px solid var(--ui-control); border-radius: 50%; font-size: .85em; color: var(--ui-sub); cursor: help; }
+
+/* 札 */
+.badge { display: inline-flex; align-items: center; gap: .3em; padding: 0 .6em; min-height: 1.6em; border-radius: var(--ui-radius-badge); font-size: .88em; font-weight: 600; border: 1px solid transparent; white-space: nowrap; color: var(--ui-text); background: var(--ui-soft); }
+.badge.is-public { color: var(--ui-add); background: var(--ui-add-soft); }
+.badge.is-staff { color: var(--ui-text); background: var(--ui-soft); border-color: var(--ui-control); }
+.badge.is-retired { color: var(--ui-sub); background: transparent; border: 1px dashed var(--ui-control); }
+.badge.is-draft { color: var(--ui-warn); background: var(--ui-warn-soft); border: 1px dashed var(--ui-warn); }
+.badge.is-warn { color: var(--ui-warn); background: var(--ui-warn-soft); }
+.badge.is-ally { color: var(--ui-ally); background: var(--ui-ally-soft); }
+.badge.is-enemy { color: var(--ui-enemy); background: var(--ui-enemy-soft); }
+.badge.is-kind { color: var(--ui-text); background: var(--gem-soft); }
+/* スキルの札：宣言パネルと同じ10組（明るい面専用の固定色） */
+.skill { display: inline-block; padding: 0 .55em; border-radius: 4px; font-size: .88em; font-weight: 600; }
+.sk-slash { background: #daeaf8; color: #1a5276; } .sk-blunt { background: #fde8cc; color: #a04000; }
+.sk-pierce { background: #fadbd8; color: #922b21; } .sk-phys { background: #e8daef; color: #6c3483; }
+.sk-magic { background: #d6eaf8; color: #1a4d7a; } .sk-support { background: #d5f5e3; color: #1d6a3a; }
+.sk-melee { background: #ebe6e0; color: #5d4037; } .sk-range { background: #d0f0f5; color: #00695c; }
+.sk-area1 { background: #efefef; color: #555; } .sk-area2 { background: #e8e8e8; color: #333; }
+
+/* タブ：選択は下線＋太字＋淡い面（色だけに頼らない） */
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ui-line); }
+.tab { display: inline-flex; align-items: center; gap: .4em; padding: var(--ui-gap) calc(var(--ui-pad) + 4px); font: inherit; color: var(--ui-sub); background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; }
+.tab[aria-selected="true"] { color: var(--ui-text); font-weight: 700; border-bottom-color: var(--gem, var(--ui-primary)); background: var(--gem-soft, var(--ui-primary-soft)); border-radius: var(--ui-radius) var(--ui-radius) 0 0; }
+.tab .count { font-size: .85em; color: var(--ui-sub); font-weight: 400; }
+
+/* 台帳の行 */
+.ledger { border: 1px solid var(--ui-line); border-radius: var(--ui-radius); overflow: hidden; background: var(--ui-bg); }
+.row { display: grid; grid-template-columns: 5.5em minmax(8em, 1.4fr) minmax(0, 2fr) auto; align-items: center; gap: var(--ui-gap) calc(var(--ui-gap) * 2); min-height: var(--ui-row); padding: 2px var(--ui-pad); border-top: 1px solid var(--ui-line); border-left: 3px solid transparent; }
+.row:first-child { border-top: 0; }
+.row:hover { background: var(--ui-soft); }
+.row[aria-selected="true"] { background: var(--ui-primary-soft); border-left-color: var(--ui-primary); font-weight: 600; }
+.row .cut { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .acts { display: flex; gap: 2px; align-items: center; }
+.row .acts .is-danger { margin-left: calc(var(--ui-gap) * 2); }
+
+/* 節の見出し・下の帯 */
+.sec-head { display: flex; align-items: center; gap: var(--ui-gap); padding: var(--ui-gap) 0; border-bottom: 1px solid var(--ui-line); position: sticky; top: 0; background: var(--ui-bg); }
+.sec-head h4 { font-size: 1.08em; display: flex; align-items: center; gap: .4em; }
+.sec-head .sp, .bar .sp { flex: 1; }
+.bar { display: flex; align-items: center; gap: var(--ui-gap); padding: var(--ui-gap) var(--ui-pad); border-top: 1px solid var(--ui-line); background: var(--ui-bg); }
+.dirty { color: var(--ui-warn); font-weight: 600; }
+.dirty::before { content: "● "; }
+
+/* 知らせ・確認窓・空 */
+.toast { display: inline-flex; align-items: center; gap: .6em; padding: var(--ui-pad) calc(var(--ui-pad) * 1.5); border-radius: var(--ui-radius); background: var(--ui-bg); border: 1px solid var(--ui-line); border-left: 4px solid var(--ui-add); box-shadow: var(--ui-shadow-float); }
+.toast.is-error { border-left-color: var(--ui-danger); }
+.dialog { width: min(26em, 100%); padding: calc(var(--ui-pad) * 1.6); border-radius: calc(var(--ui-radius) + 2px); background: var(--ui-bg); border: 1px solid var(--ui-line); box-shadow: var(--ui-shadow-float); display: grid; gap: var(--ui-pad); }
+.dialog .acts { display: flex; justify-content: flex-end; gap: var(--ui-gap); }
+.empty { display: grid; place-items: center; gap: var(--ui-gap); padding: calc(var(--ui-pad) * 3); color: var(--ui-sub); border: 1px dashed var(--ui-line); border-radius: var(--ui-radius); text-align: center; }
+.empty .gem { width: 1.8em; height: 1.8em; opacity: .55; }
+.pop { border: 1px solid var(--ui-line); border-radius: var(--ui-radius); box-shadow: var(--ui-shadow-float); background: var(--ui-bg); }
+
+/* ============ テーマの飾り（控えめ：質感・明朝・金の線・光沢） ============ */
+:root[data-theme] body { background-color: var(--ui-page); background-image: var(--ui-page-tex); background-attachment: fixed; }
+:root[data-theme] :is(.surface, .frame, .dialog, .toast, .pop, .ledger) { background-color: var(--ui-bg); background-image: var(--ui-tex); }
+:root[data-theme] .block { border-color: var(--ui-gold); box-shadow: var(--ui-shadow-panel); }
+:root[data-theme] .frame { border-color: var(--ui-gold-strong); box-shadow: var(--ui-shadow-panel); }
+:root[data-theme] :is(.block > h2, .sec-head h4, .frame > header, .dialog h4, .menu-card b, .read h4, .side > b) { font-family: var(--ui-head-font); letter-spacing: .03em; }
+:root[data-theme] .gem { background: linear-gradient(135deg, color-mix(in srgb, var(--gem, var(--gem-quartz)) 45%, white) 0 32%, var(--gem, var(--gem-quartz)) 32% 64%, color-mix(in srgb, var(--gem, var(--gem-quartz)) 68%, black) 64%); }
+:root[data-theme] .btn { background-image: linear-gradient(rgba(255, 255, 255, var(--ui-sheen)), rgba(0, 0, 0, var(--ui-shade))); box-shadow: var(--ui-inset), 0 1px 2px rgba(0, 0, 0, .2); }
+:root[data-theme] .btn.is-primary { border-color: var(--ui-gold-strong); }
+:root[data-theme] .btn:is(.is-danger, .is-text, :disabled) { background-image: none; box-shadow: none; }
+:root[data-theme] .input { background: var(--ui-input-bg); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .14); }
+:root[data-theme] .row[aria-selected="true"] { border-left-color: var(--ui-select-line); }
+:root[data-theme] .sec-head { border-bottom-color: var(--ui-gold); }
+:root[data-theme] .menu-card { border-color: var(--ui-gold); border-left-color: var(--gem); background-image: linear-gradient(120deg, transparent 50%, var(--gem-soft)); box-shadow: var(--ui-shadow-panel); }
+:root[data-theme] .top { background: linear-gradient(#2b2542, #191730); border-bottom: 2px solid #c8a84b; }
+
+/* ============ テーマの飾り（濃いめ：額縁・飾り罫・輝き・動き） ============ */
+:root[data-rich="high"] :is(.block, .dialog, .frame) { border: 11px solid transparent; border-image: var(--ui-frame) 16 / 11px stretch; border-radius: 0; }
+:root[data-rich="high"] .block > h2 { font-size: 1.45em; }
+:root[data-rich="high"] .block > h2::after { content: ""; flex: 1; height: 1px; margin-left: .5em; background: linear-gradient(90deg, var(--ui-gold-strong), transparent); }
+:root[data-rich="high"] .gem { filter: drop-shadow(0 0 3px color-mix(in srgb, var(--gem, var(--gem-quartz)) 75%, transparent)); }
+:root[data-rich="high"] .btn.is-primary { position: relative; overflow: hidden; box-shadow: var(--ui-inset), 0 0 0 1px var(--ui-bg), 0 0 0 2px var(--ui-gold-strong), 0 3px 6px rgba(0, 0, 0, .3); }
+:root[data-rich="high"] .btn.is-primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, .5) 50%, transparent 60%); transform: translateX(-120%); transition: transform .55s; }
+:root[data-rich="high"] .btn.is-primary:hover::after { transform: translateX(120%); }
+:root[data-rich="high"] .badge { box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 38%, transparent); }
+:root[data-rich="high"] .tab[aria-selected="true"] { box-shadow: inset 0 -7px 9px -6px var(--gem, var(--ui-primary)); }
+:root[data-rich="high"] .menu-card { position: relative; overflow: hidden; transition: transform .15s, box-shadow .15s; }
+:root[data-rich="high"] .menu-card:hover { transform: translateY(-2px); box-shadow: var(--ui-shadow-float); }
+:root[data-rich="high"] .menu-card::after { content: ""; position: absolute; right: -8px; bottom: -16px; width: 70px; height: 70px; background: var(--gem); opacity: .18; clip-path: polygon(50% 0, 100% 35%, 80% 100%, 20% 100%, 0 35%); }
+:root[data-rich="high"] .empty .gem { width: 2.4em; height: 2.4em; opacity: .8; }
+@media (prefers-reduced-motion: reduce) { .btn.is-primary::after, .menu-card { transition: none !important; } }
+
+/* ============ 3. このページの組み立て ============ */
+.top { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 8px 16px; background: #253345; color: #fff; font-size: 13px; }
+.top strong { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.top .seg { display: inline-flex; border: 1px solid #8ea0b5; border-radius: 6px; overflow: hidden; }
+.top .seg button { font: inherit; color: #fff; background: none; border: 0; padding: 3px 10px; cursor: pointer; }
+.top .seg button[aria-pressed="true"] { background: #fff; color: #253345; font-weight: 700; }
+.page { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 20px; max-width: 1500px; margin: 0 auto; padding: 16px; }
+.toc { position: sticky; top: 52px; align-self: start; display: grid; gap: 2px; font-size: 13px; }
+.toc a { color: var(--ui-sub); text-decoration: none; padding: 3px 8px; border-left: 2px solid var(--ui-line); }
+.toc a:hover { color: var(--ui-text); border-left-color: var(--ui-primary); }
+.block { margin-bottom: 22px; padding: calc(var(--ui-pad) * 1.6); border: 1px solid var(--ui-line); border-radius: 8px; scroll-margin-top: 56px; }
+.block > h2 { font-size: 1.3em; display: flex; align-items: center; gap: .45em; margin-bottom: 4px; }
+.block > p.lead { color: var(--ui-sub); margin-bottom: var(--ui-pad); }
+.block h3 { font-size: 1em; margin: calc(var(--ui-pad) * 1.4) 0 var(--ui-gap); color: var(--ui-sub); font-weight: 600; }
+.flow { display: flex; flex-wrap: wrap; gap: var(--ui-gap) calc(var(--ui-gap) * 1.5); align-items: center; }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pair > div { padding: var(--ui-pad); border-radius: 8px; border: 1px solid var(--ui-line); }
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; }
+.sw { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: center; padding: 6px; border: 1px solid var(--ui-line); border-radius: 6px; }
+.sw i { display: grid; place-items: center; height: 36px; border-radius: 4px; border: 1px solid var(--ui-line); font-style: normal; font-weight: 700; }
+.sw b { display: block; font-size: .95em; }
+.sw small { color: var(--ui-sub); }
+.ok { color: var(--ui-add); font-weight: 700; } .ng { color: var(--ui-danger); font-weight: 700; }
+.frames { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.frame { border: 1px solid var(--ui-control); border-radius: 8px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; min-height: 330px; background: var(--ui-bg); }
+.frame > header { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--ui-line); font-weight: 700; }
+.frame > header .sp { flex: 1; }
+.menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px; align-content: start; }
+.menu-card { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--ui-line); border-left: 4px solid var(--gem); border-radius: 8px; background: var(--ui-bg); text-align: left; font: inherit; color: var(--ui-text); cursor: pointer; }
+.menu-card:hover { background: var(--gem-soft); }
+.menu-card b { display: flex; align-items: center; gap: .4em; font-size: 1.1em; }
+.admin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); min-height: 0; }
+.admin > div { padding: 8px; display: grid; gap: 6px; align-content: start; }
+.admin > div + div { border-left: 1px solid var(--ui-line); grid-template-rows: 1fr auto; padding: 0; }
+.admin .edit { padding: 8px; display: grid; gap: 6px; align-content: start; }
+.read { padding: 16px 20px; font-size: 16px; line-height: 1.85; max-width: 40em; }
+.read h4 { font-size: 1.15em; margin-bottom: 6px; }
+.room { display: grid; grid-template-columns: minmax(0, 1fr) 230px; min-height: 0; }
+.board { position: relative; background: repeating-linear-gradient(0deg, transparent 0 31px, var(--ui-line) 31px 32px), repeating-linear-gradient(90deg, transparent 0 31px, var(--ui-line) 31px 32px), var(--ui-soft); }
+.piece { position: absolute; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 12px; border: 2px solid; }
+.piece.ally { color: var(--ui-ally); background: var(--ui-ally-soft); }
+.piece.enemy { color: var(--ui-enemy); background: var(--ui-enemy-soft); border-radius: 6px; }
+.piece.ghost { border-style: dashed; opacity: .8; }
+.side { border-left: 1px solid var(--ui-line); padding: 8px; display: grid; gap: 6px; align-content: start; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+@media (max-width: 900px) { .page { grid-template-columns: minmax(0, 1fr); } .toc { display: none; } .frames, .pair { grid-template-columns: minmax(0, 1fr); } .row { grid-template-columns: 5em 1fr auto; } .row .cut.note { display: none; } }
+</style>
+</head>
+<body>
+<div class="top">
+  <strong><span class="gem" style="--gem:#9db8ff"></span>ジェムリア UIひな形</strong>
+  <span>密度</span>
+  <span class="seg" id="density"><button data-v="std" aria-pressed="true">標準 13px</button><button data-v="wide" aria-pressed="false">拡大 16px</button></span>
+  <span>テーマ</span>
+  <span class="seg" id="theme"><button data-v="plain" aria-pressed="false">白（今）</button><button data-v="paper" aria-pressed="true">紙と金</button><button data-v="night" aria-pressed="false">夜色と金</button></span>
+  <span>飾り</span>
+  <span class="seg" id="rich"><button data-v="low" aria-pressed="true">控えめ</button><button data-v="high" aria-pressed="false">濃いめ</button></span>
+</div>
+
+<div class="page">
+<nav class="toc">
+  <a href="#token">1 色のトークン</a><a href="#gems">2 宝石の色</a><a href="#type">3 文字と密度</a><a href="#btn">4 ボタンと重要度</a>
+  <a href="#form">5 入力</a><a href="#badge">6 札</a><a href="#list">7 タブと一覧</a><a href="#sec">8 節と操作帯</a>
+  <a href="#notice">9 通知・確認・空表示</a><a href="#screens">10 画面のひな形</a>
+</nav>
+
+<main id="stage">
+
+<section class="block surface" id="token">
+  <h2><span class="gem g-sapphire"></span>1 色のトークン</h2>
+  <p class="lead">意味の名前で持ち、テーマで値を切り替える。比率は実測（文字4.5:1・操作枠3:1が基準）。</p>
+  <div class="swatches" id="swatches"></div>
+</section>
+
+<section class="block surface" id="gems">
+  <h2><span class="gem g-amethyst"></span>2 宝石の色</h2>
+  <p class="lead">分類の印と淡い面に使用。文字は本文色のまま。選択は下線・左線・太字を併用。</p>
+  <div class="flow" id="gemrow"></div>
+  <h3>割り当ての例</h3>
+  <div class="flow">
+    <span class="badge is-kind g-sapphire"><span class="gem"></span>ユニット</span>
+    <span class="badge is-kind g-emerald"><span class="gem"></span>編成</span>
+    <span class="badge is-kind g-topaz"><span class="gem"></span>ステージ</span>
+    <span class="sub">｜</span>
+    <span class="badge is-kind g-ruby"><span class="gem"></span>スキル</span>
+    <span class="badge is-kind g-amethyst"><span class="gem"></span>バフ</span>
+    <span class="badge is-kind g-citrine"><span class="gem"></span>アイテム</span>
+    <span class="badge is-kind g-quartz"><span class="gem"></span>パッシブ</span>
+    <span class="badge is-kind g-diamond"><span class="gem"></span>輝化スキル</span>
+    <span class="badge is-kind g-onyx"><span class="gem"></span>用語</span>
+  </div>
+</section>
+
+<section class="block surface" id="type">
+  <h2><span class="gem g-quartz"></span>3 文字と密度</h2>
+  <p class="lead">管理画面は標準（13px）、読み物は16px・行間1.85。上の切り替えで全部品が追従。</p>
+  <div class="pair">
+    <div><h3 style="margin-top:0">管理画面</h3>
+      <p style="font-size:1.3em;font-weight:700">画面の見出し 1.3</p>
+      <p style="font-size:1.08em;font-weight:700">節の見出し 1.08</p>
+      <p>本文 1.0　氷晶の魔導士ラティウム・アルベルト三世（長い名前の比較用）</p>
+      <p class="sub" style="font-size:.92em">補助 0.92　最終更新 2026-11-15　<span class="num">HP 120 / MP 45</span></p></div>
+    <div><h3 style="margin-top:0">読み物（使い方ページ）</h3>
+      <div style="font-size:16px;line-height:1.85;max-width:38em">本文は16px・行間1.85・1行約38字。手順の下に図を置き、写真は必要な範囲だけを切り出す。</div></div>
+  </div>
+</section>
+
+<section class="block surface" id="btn">
+  <h2><span class="gem g-ruby"></span>4 ボタンと重要度</h2>
+  <p class="lead">主（塗り）は1場面に1つ。標準は枠。危険は赤い文字。危険の確定だけ赤枠＋淡赤。</p>
+  <div class="flow">
+    <button class="btn is-primary">保存</button><button class="btn">変更を破棄</button><button class="btn is-danger">削除</button>
+    <button class="btn is-danger-confirm">削除を確定</button><button class="btn is-text">履歴を表示</button>
+    <button class="btn" disabled>変更を破棄</button><button class="btn is-small">＋ スキルを追加</button>
+  </div>
+  <h3>場面ごとの主操作</h3>
+  <div class="kv">
+    <span class="sub">ユニット編集</span><span class="flow"><button class="btn is-primary is-small">保存</button><button class="btn is-small">変更を破棄</button></span>
+    <span class="sub">マスター編集</span><span class="flow"><button class="btn is-primary is-small">承認を申請</button><button class="btn is-small">下書きを保存</button></span>
+    <span class="sub">差分の審査</span><span class="flow"><button class="btn is-primary is-small">承認</button><button class="btn is-small is-danger">却下</button></span>
+    <span class="sub">候補の行</span><span class="flow"><button class="btn is-small">追加</button><span class="sub">行ごとの操作は標準（主にしない）</span></span>
+  </div>
+</section>
+
+<section class="block surface" id="form">
+  <h2><span class="gem g-emerald"></span>5 入力</h2>
+  <p class="lead">幅は内容に合わせる。長文だけ全幅。変更不可のIDは文字で表示。補足は ⓘ。</p>
+  <div class="flow" style="align-items:end">
+    <label class="field"><span>正式ID</span><span class="fixed-id">U-012</span></label>
+    <label class="field"><span>名前</span><input class="input w-name" value="氷晶の魔導士"></label>
+    <label class="field"><span>最大HP</span><input class="input w-num num" value="120"></label>
+    <label class="field"><span>最大MP</span><input class="input w-num num" value="45"></label>
+    <label class="field"><span>陣営 <span class="info" title="編成の陣営は新規作成時に選択し、後から変更不可">i</span></span><span class="flow"><span class="badge is-enemy">敵</span></span></label>
+    <label class="flow"><input type="checkbox" checked> 予定スキルを公開</label>
+  </div>
+  <label class="field" style="margin-top:var(--ui-gap)"><span>説明</span><textarea class="input w-full">凍土の遺跡を守る魔導士。ラウンド開始時に氷壁を展開する。</textarea></label>
+  <h3>候補の選択（ページ内の一覧）</h3>
+  <div class="pop" style="max-width:34em">
+    <div class="bar" style="border-top:0"><input class="input w-name" placeholder="名前・IDで検索"><span class="sp"></span><span class="sub">追加済み 2</span></div>
+    <div class="row"><span class="fixed-id">Ms-04</span><span class="cut">氷槍</span><span class="flow"><span class="skill sk-magic">魔法</span><span class="skill sk-range">遠隔</span></span><span class="acts"><button class="btn is-small">追加</button></span></div>
+    <div class="row"><span class="fixed-id">Mb-02</span><span class="cut">凍てつく波動</span><span class="flow"><span class="skill sk-magic">魔法</span><span class="skill sk-area1">広域-個別</span></span><span class="acts"><span class="badge is-public">追加済み</span></span></div>
+  </div>
+</section>
+
+<section class="block surface" id="badge">
+  <h2><span class="gem g-topaz"></span>6 札</h2>
+  <p class="lead">状態・陣営・警告は、色に加えて文字と枠の形で区別。</p>
+  <h3 style="margin-top:0">状態</h3>
+  <div class="flow"><span class="badge is-public">公開</span><span class="badge is-staff">制作者・GMのみ</span><span class="badge is-retired">廃止</span><span class="badge is-draft">編集中</span><span class="badge is-warn">要確認 2</span></div>
+  <h3>陣営</h3>
+  <div class="flow"><span class="badge is-ally">味方</span><span class="badge is-enemy">敵</span><span class="sub">敵（陣営）と危険（削除）は別のトークン</span></div>
+  <h3>スキル（宣言パネルと同じ組）</h3>
+  <div class="flow" style="background:#fff;padding:6px;border-radius:6px"><span class="skill sk-slash">斬撃</span><span class="skill sk-blunt">打撃</span><span class="skill sk-pierce">貫通</span><span class="skill sk-phys">物理</span><span class="skill sk-magic">魔法</span><span class="skill sk-support">補助</span><span class="skill sk-melee">近接</span><span class="skill sk-range">遠隔</span><span class="skill sk-area1">広域-個別</span><span class="skill sk-area2">広域-合算</span></div>
+</section>
+
+<section class="block surface" id="list">
+  <h2><span class="gem g-sapphire"></span>7 タブと一覧</h2>
+  <p class="lead">1件1行。長文は1行で省略。行の操作は右端、外す・削除は離して配置。</p>
+  <div class="tabs" role="tablist">
+    <button class="tab g-sapphire" role="tab" aria-selected="true"><span class="gem"></span>ユニット <span class="count">42</span></button>
+    <button class="tab g-emerald" role="tab" aria-selected="false"><span class="gem"></span>編成 <span class="count">12</span></button>
+    <button class="tab g-topaz" role="tab" aria-selected="false"><span class="gem"></span>ステージ <span class="count">6</span></button>
+  </div>
+  <div class="bar" style="border-top:0;padding-left:0;padding-right:0"><input class="input w-name" placeholder="名前・ID・タグで検索"><button class="btn is-small">分類 ▾</button><span class="sp"></span><button class="btn is-small">＋ 新規</button></div>
+  <div class="ledger" id="ledger">
+    <div class="row" aria-selected="true" tabindex="0"><span class="fixed-id">U-012</span><span class="cut">氷晶の魔導士</span><span class="cut note sub">凍土の遺跡を守る魔導士。ラウンド開始時に氷壁を展開する。</span><span class="acts"><span class="badge is-enemy">敵</span><span class="badge is-public">公開</span></span></div>
+    <div class="row" tabindex="0"><span class="fixed-id">U-013</span><span class="cut">遺跡の番兵</span><span class="cut note sub">打撃に強い石像。行動パターン2件。</span><span class="acts"><span class="badge is-enemy">敵</span><span class="badge is-staff">制作者・GMのみ</span></span></div>
+    <div class="row" tabindex="0"><span class="fixed-id">U-014</span><span class="cut">案内人ミレイユ</span><span class="cut note sub">探索に同行するNPC。</span><span class="acts"><span class="badge is-ally">味方</span><span class="badge is-draft">編集中</span></span></div>
+    <div class="row" tabindex="0"><span class="fixed-id">U-009</span><span class="cut sub">旧・氷の精霊</span><span class="cut note sub">U-012 に統合。</span><span class="acts"><span class="badge is-enemy">敵</span><span class="badge is-retired">廃止</span></span></div>
+  </div>
+</section>
+
+<section class="block surface" id="sec">
+  <h2><span class="gem g-citrine"></span>8 節と操作帯</h2>
+  <p class="lead">節の追加は見出しの右。開いている1件の操作は下の帯（右に主、左に「その他」）。</p>
+  <div class="ledger" style="padding:0 var(--ui-pad)">
+    <div class="sec-head"><h4><span class="gem g-ruby"></span>スキル</h4><span class="sub">3件</span><span class="sp"></span><button class="btn is-small">＋ スキルを追加</button></div>
+    <div class="row" style="padding-left:0;padding-right:0"><span class="fixed-id">Ms-04</span><span class="cut">氷槍</span><span class="flow"><span class="skill sk-magic">魔法</span><span class="skill sk-range">遠隔</span></span><span class="acts"><button class="btn is-text is-small">名称変更</button><button class="btn is-danger is-small">外す</button></span></div>
+    <div class="row" style="padding-left:0;padding-right:0"><span class="fixed-id">D-02</span><span class="cut">鉄壁の防御</span><span class="flow"><span class="skill sk-support">補助</span></span><span class="acts"><button class="btn is-text is-small">名称変更</button><button class="btn is-danger is-small">外す</button></span></div>
+  </div>
+  <div class="bar ledger" style="margin-top:var(--ui-gap)"><button class="btn is-small">その他 ▾</button><span class="sp"></span><span class="dirty">未保存</span><button class="btn">変更を破棄</button><button class="btn is-primary">保存</button></div>
+</section>
+
+<section class="block surface" id="notice">
+  <h2><span class="gem g-diamond"></span>9 通知・確認・空表示</h2>
+  <p class="lead">成功は右下に数秒。エラーは残り、閉じるボタン付き。確認窓の Enter は印のあるボタンだけ。</p>
+  <div class="flow" style="align-items:start">
+    <div class="toast">保存しました。</div>
+    <div class="toast is-error">保存に失敗。他の編集と競合しています。<button class="btn is-small">再読込</button><button class="btn is-text is-small" aria-label="閉じる">✕</button></div>
+  </div>
+  <div class="flow" style="align-items:start;margin-top:var(--ui-pad)">
+    <div class="dialog" role="alertdialog"><h4>未保存の変更</h4><p>保存せずに移動すると、変更は失われます。</p><div class="acts"><button class="btn is-danger">破棄して移動</button><button class="btn is-primary">編集に戻る <span class="enter">Enter</span></button></div></div>
+    <div class="dialog" role="alertdialog"><h4>ユニットを削除</h4><p><b>U-009 旧・氷の精霊</b> を削除します。元に戻せません。</p><div class="acts"><button class="btn">キャンセル <span class="enter">Enter</span></button><button class="btn is-danger-confirm">削除を確定</button></div></div>
+    <div class="empty" style="flex:1;min-width:14em"><span class="gem g-emerald"></span><b>編成は未登録</b><button class="btn is-small">＋ 新規</button></div>
+  </div>
+</section>
+
+<section class="block surface" id="screens">
+  <h2><span class="gem g-onyx"></span>10 画面のひな形</h2>
+  <p class="lead">同じ部品で4種類の画面を構成。ルームは「夜色と金」（白のテーマでは暗い面）で表示。</p>
+  <div class="frames">
+    <div class="frame"><header><span class="gem g-sapphire"></span>メインメニュー<span class="sp"></span><span class="sub" style="font-weight:400">制作者</span></header>
+      <div class="menu-grid">
+        <button class="menu-card g-sapphire"><b><span class="gem"></span>ルーム</b><span class="sub">参加中 3・募集中 5</span></button>
+        <button class="menu-card g-emerald"><b><span class="gem"></span>ユニット管理</b><span class="sub">ユニット・編成・ステージ</span></button>
+        <button class="menu-card g-ruby"><b><span class="gem"></span>マスターデータ</b><span class="sub">承認待ち <span class="badge is-warn">2</span></span></button>
+        <button class="menu-card g-citrine"><b><span class="gem"></span>使い方</b><span class="sub">操作ガイド・管理画面</span></button>
+      </div></div>
+    <div class="frame"><header><button class="btn is-text is-small">← メニュー</button><span class="gem g-emerald"></span>ユニット管理<span class="sp"></span><button class="btn is-small">転送</button></header>
+      <div class="admin">
+        <div><div class="tabs"><button class="tab g-sapphire" aria-selected="true"><span class="gem"></span>ユニット</button><button class="tab g-emerald" aria-selected="false">編成</button></div>
+          <div class="ledger"><div class="row" aria-selected="true" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-012</span><span class="cut">氷晶の魔導士</span></div><div class="row" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-013</span><span class="cut">遺跡の番兵</span></div><div class="row" style="grid-template-columns:4.5em 1fr"><span class="fixed-id">U-014</span><span class="cut">案内人ミレイユ</span></div></div></div>
+        <div><div class="edit"><div class="sec-head"><h4>基本情報</h4><span class="sp"></span><span class="badge is-enemy">敵</span></div>
+            <label class="field"><span>名前</span><input class="input w-full" value="氷晶の魔導士"></label>
+            <div class="flow"><label class="field"><span>最大HP</span><input class="input w-num" value="120"></label><label class="field"><span>最大MP</span><input class="input w-num" value="45"></label></div></div>
+          <div class="bar"><button class="btn is-small">その他 ▾</button><span class="sp"></span><span class="dirty">未保存</span><button class="btn is-primary is-small">保存</button></div></div>
+      </div></div>
+    <div class="frame"><header><span class="gem g-citrine"></span>使い方（読み物）</header>
+      <div class="read"><h4>スキルを修正する</h4>一覧からスキルを選び、効果を編集します。修正が済んだら「承認を申請」を押します。承認されるまで、公開中のデータは変わりません。</div></div>
+    <div class="frame" id="room-frame" style="color:var(--ui-text)"><header><span class="gem g-ruby"></span>ルーム：凍土の遺跡<span class="sp"></span><span class="badge is-warn">戦闘準備中</span></header>
+      <div class="room">
+        <div class="board"><span class="piece ally" style="left:38px;top:70px">ナ</span><span class="piece ally" style="left:38px;top:134px">ミ</span><span class="piece enemy ghost" style="left:230px;top:70px">魔</span><span class="piece enemy ghost" style="left:230px;top:134px">番</span><span class="piece enemy ghost" style="left:262px;top:102px">番</span></div>
+        <div class="side"><b>遭遇の準備</b>
+          <div class="kv"><span class="sub">維持</span><span>PC 2</span><span class="sub">除外</span><span>敵 0</span><span class="sub">追加</span><span>敵 3</span><span class="sub">背景</span><span>凍土の遺跡</span></div>
+          <button class="btn is-primary">配置を確定</button><button class="btn">候補に戻る</button></div>
+      </div></div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+const root = document.documentElement, stage = document.getElementById('stage');
+function seg(id, apply) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    el.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+    apply(b.dataset.v); measure();
+  });
+}
+seg('density', (v) => v === 'wide' ? root.setAttribute('data-density', 'wide') : root.removeAttribute('data-density'));
+const state = { theme: 'paper', rich: 'low' }, roomFrame = document.getElementById('room-frame');
+function applyTheme() {
+  const themed = state.theme !== 'plain';
+  themed ? root.setAttribute('data-theme', state.theme) : root.removeAttribute('data-theme');
+  themed && state.rich === 'high' ? root.setAttribute('data-rich', 'high') : root.removeAttribute('data-rich');
+  if (themed) { roomFrame.setAttribute('data-theme', 'night'); roomFrame.removeAttribute('data-surface'); }
+  else { roomFrame.removeAttribute('data-theme'); roomFrame.setAttribute('data-surface', 'dark'); }
+  document.querySelectorAll('#rich button').forEach((b) => { b.disabled = !themed; b.style.opacity = themed ? '' : '.45'; });
+}
+seg('theme', (v) => { state.theme = v; applyTheme(); });
+seg('rich', (v) => { state.rich = v; applyTheme(); });
+applyTheme();
+
+// コントラスト比の実測
+const lum = (c) => { const v = c.map((x) => { x /= 255; return x <= .03928 ? x / 12.92 : ((x + .055) / 1.055) ** 2.4; }); return .2126 * v[0] + .7152 * v[1] + .0722 * v[2]; };
+const parse = (s) => { const d = document.createElement('i'); d.style.color = s; stage.appendChild(d); const c = getComputedStyle(d).color; d.remove(); const m = c.replace(/^color\(srgb/, '').match(/[\d.]+/g).slice(0, 3).map(Number); return c.startsWith('color(') ? m.map((x) => x * 255) : m; };
+const ratio = (a, b) => { const x = lum(parse(a)), y = lum(parse(b)); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const tok = (n) => getComputedStyle(stage).getPropertyValue(n).trim();
+const PAIRS = [
+  ['本文', '--ui-text', '--ui-bg', 4.5], ['補助の文字', '--ui-sub', '--ui-bg', 4.5], ['補助（淡い面）', '--ui-sub', '--ui-soft', 4.5],
+  ['操作の枠', '--ui-control', '--ui-bg', 3], ['操作の枠（淡い面）', '--ui-control', '--ui-soft', 3], ['飾りの線', '--ui-line', '--ui-bg', 0],
+  ['主（塗りの文字）', '--ui-on-primary', '--ui-primary', 4.5], ['主（文字）', '--ui-primary', '--ui-bg', 4.5],
+  ['危険', '--ui-danger', '--ui-danger-soft', 4.5], ['注意', '--ui-warn', '--ui-warn-soft', 4.5], ['追加・公開', '--ui-add', '--ui-add-soft', 4.5],
+  ['味方', '--ui-ally', '--ui-ally-soft', 4.5], ['敵', '--ui-enemy', '--ui-enemy-soft', 4.5], ['選択行の本文', '--ui-text', '--ui-primary-soft', 4.5],
+];
+const GEMS = [['quartz', '水晶'], ['diamond', 'ダイヤモンド'], ['topaz', 'トパーズ'], ['emerald', 'エメラルド'], ['ruby', 'ルビー'], ['sapphire', 'サファイア'], ['amethyst', 'アメジスト'], ['citrine', 'シトリン'], ['onyx', 'オニキス']];
+function mark(r, need) { return need ? `<span class="${r >= need ? 'ok' : 'ng'}">${r.toFixed(2)}:1 ${r >= need ? '適合' : '不足'}</span>（基準 ${need}）` : `${r.toFixed(2)}:1（飾り・基準なし）`; }
+function measure() {
+  document.getElementById('swatches').innerHTML = PAIRS.map(([name, fg, bg, need]) => {
+    const r = ratio(tok(fg), tok(bg));
+    return `<div class="sw"><i style="color:var(${fg});background:var(${bg})">${need === 3 || need === 0 ? '<span style="display:block;width:26px;height:18px;border:2px solid var(' + fg + ');border-radius:3px"></span>' : 'あ'}</i><div><b>${name}</b><small>${fg.replace('--ui-', '')} / ${bg.replace('--ui-', '')}<br>${mark(r, need)}</small></div></div>`;
+  }).join('');
+  document.getElementById('gemrow').innerHTML = GEMS.map(([k, name]) => {
+    const edge = ratio(tok(`--gem-${k}`), tok('--ui-bg')), text = ratio(tok('--ui-text'), tok(`--gem-${k}-soft`));
+    return `<div class="sw g-${k}" style="grid-template-columns:auto 1fr;background:var(--gem-soft);border-left:4px solid var(--gem)"><span class="gem" style="width:1.6em;height:1.6em"></span><div><b>${name}</b><small style="color:var(--ui-text)">印 ${edge.toFixed(2)}:1 ／ 面の本文 <span class="${text >= 4.5 ? 'ok' : 'ng'}">${text.toFixed(2)}:1</span></small></div></div>`;
+  }).join('');
+}
+measure();
+// 一覧の選択の見本
+document.getElementById('ledger').addEventListener('click', (e) => { const r = e.target.closest('.row'); if (!r) return; document.querySelectorAll('#ledger .row').forEach((x) => x.setAttribute('aria-selected', x === r)); });
+document.querySelectorAll('.tabs').forEach((t) => t.addEventListener('click', (e) => { const b = e.target.closest('.tab'); if (!b) return; t.querySelectorAll('.tab').forEach((x) => x.setAttribute('aria-selected', x === b)); }));
+</script>
+</body>
+</html>
