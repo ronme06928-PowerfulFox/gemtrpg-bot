@@ -1,63 +1,63 @@
 <!doctype html>
-<html lang="ja">
+<html lang="ja" data-theme="paper">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>マスターデータ管理画面の使い方</title>
+  <link rel="stylesheet" href="../css/modules/common_ui.css">
   <style>
 :root {
-  --text: #1e293b; --sub: #4b5563; --edge: #d6dee8; --control: #7b8798; --soft: #f5f7fa; --bg: #ffffff;
-  --primary: #1d4ed8; --primary-soft: #e8efff; --warn: #8a4b00; --warn-soft: #fff4dc;
   --size: 16px; --leading: 1.85; --measure: 38em; --gap: 1.1em;
   font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif;
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--soft); color: var(--text); font-size: var(--size); line-height: var(--leading); }
-.help-page { margin: 0 auto; padding: 32px 24px 96px; max-width: 1180px; background: var(--bg); min-height: 100vh; }
+body { margin: 0; background-color: var(--ui-page); background-image: var(--ui-page-tex); color: var(--ui-text); font-size: var(--size); line-height: var(--leading); }
+.help-page { margin: 0 auto; padding: 32px 24px 96px; max-width: 1180px; background-color: var(--ui-bg); background-image: var(--ui-tex); min-height: 100vh; }
 
 /* 見出しと本文 */
 .help-title { max-width: var(--measure); margin-bottom: 28px; }
-.help-kicker { margin: 0; color: var(--sub); font-size: .82em; letter-spacing: .04em; }
+.help-kicker { margin: 0; color: var(--ui-sub); font-size: .82em; letter-spacing: .04em; }
+h1, h2, h3 { font-family: var(--ui-head-font); }
 .help-title h1 { margin: .2em 0 .4em; font-size: 1.75em; line-height: 1.35; }
-.help-lead { margin: 0; color: var(--sub); }
+.help-lead { margin: 0; color: var(--ui-sub); }
 .help-body { min-width: 0; }
 .help-body section { max-width: var(--measure); margin: 0 0 3.2em; scroll-margin-top: 16px; }
-.help-body h2 { display: flex; align-items: center; gap: .6em; margin: 0 0 .8em; padding-bottom: .35em; border-bottom: 2px solid var(--edge); font-size: 1.45em; line-height: 1.4; }
-.help-num { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; border-radius: 6px; background: var(--primary); color: #fff; font-size: .72em; }
+.help-body h2 { display: flex; align-items: center; gap: .6em; margin: 0 0 .8em; padding-bottom: .35em; border-bottom: 2px solid var(--ui-gold); font-size: 1.45em; line-height: 1.4; }
+.help-num { display: inline-grid; place-items: center; min-width: 1.7em; height: 1.7em; border-radius: 6px; background: var(--ui-primary); color: var(--ui-on-primary); font-size: .72em; }
 .help-body h3 { margin: 1.8em 0 .5em; font-size: 1.15em; line-height: 1.45; }
 .help-body p { margin: 0 0 var(--gap); }
 .help-body b { font-weight: 700; }
-.ui { padding: 0 .3em; border: 1px solid var(--control); border-radius: 4px; background: var(--bg); font-weight: 600; }
-code { padding: 0 .25em; border-radius: 3px; background: var(--soft); font-size: .92em; }
-a { color: var(--primary); }
+.ui { padding: 0 .3em; border: 1px solid var(--ui-control); border-radius: 4px; background: var(--ui-bg); font-weight: 600; }
+code { padding: 0 .25em; border-radius: 3px; background: var(--ui-soft); font-size: .92em; }
+a { color: var(--ui-primary); }
 
 /* 手順・前提・結果・困ったとき */
 .help-steps { margin: 0 0 var(--gap); padding-left: 1.6em; }
 .help-steps li + li { margin-top: .55em; }
-.help-steps li::marker { color: var(--primary); font-weight: 700; }
-.help-pre, .help-result { padding: .5em .8em; border-radius: 6px; background: var(--soft); }
-.help-result { background: var(--primary-soft); }
-.help-pre > span, .help-result > span { display: inline-block; margin-right: .6em; padding: 0 .5em; border-radius: 3px; background: var(--bg); color: var(--sub); font-size: .85em; font-weight: 700; }
-.help-trouble { margin: 1.2em 0 0; padding: .8em 1em; border-left: 3px solid var(--warn); background: var(--warn-soft); }
-.help-trouble::before { content: "うまくいかないとき"; display: block; margin-bottom: .4em; color: var(--warn); font-size: .85em; font-weight: 700; }
+.help-steps li::marker { color: var(--ui-primary); font-weight: 700; }
+.help-pre, .help-result { padding: .5em .8em; border-radius: 6px; background: var(--ui-soft); }
+.help-result { background: var(--ui-primary-soft); }
+.help-pre > span, .help-result > span { display: inline-block; margin-right: .6em; padding: 0 .5em; border-radius: 3px; background: var(--ui-bg); color: var(--ui-sub); font-size: .85em; font-weight: 700; }
+.help-trouble { margin: 1.2em 0 0; padding: .8em 1em; border-left: 3px solid var(--ui-warn); background: var(--ui-warn-soft); }
+.help-trouble::before { content: "うまくいかないとき"; display: block; margin-bottom: .4em; color: var(--ui-warn); font-size: .85em; font-weight: 700; }
 #appendix .help-trouble::before { content: none; }
 .help-trouble dt { font-weight: 700; }
 .help-trouble dd { margin: .1em 0 .7em; }
 .help-trouble dd:last-child { margin-bottom: 0; }
 
 /* 役割の印と流れ */
-.help-role { display: inline-block; margin-left: .6em; padding: 0 .6em; border: 1px solid var(--warn); border-radius: 999px; color: var(--warn); background: var(--warn-soft); font-size: .62em; font-weight: 700; vertical-align: middle; }
+.help-role { display: inline-block; margin-left: .6em; padding: 0 .6em; border: 1px solid var(--ui-warn); border-radius: 999px; color: var(--ui-warn); background: var(--ui-warn-soft); font-size: .62em; font-weight: 700; vertical-align: middle; }
 p .help-role { font-size: .8em; margin: 0 .2em; }
 .help-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 0; margin: 0 0 var(--gap); padding: 0; list-style: none; }
 .help-flow li { position: relative; display: grid; gap: .1em; padding: .5em 1.4em .5em .9em; }
-.help-flow li + li::before { content: "→"; position: absolute; left: -.45em; top: .45em; color: var(--sub); }
-.help-state { padding: 0 .6em; border: 1px solid var(--control); border-radius: 999px; font-weight: 700; }
-.help-flow small { color: var(--sub); font-size: .78em; }
+.help-flow li + li::before { content: "→"; position: absolute; left: -.45em; top: .45em; color: var(--ui-sub); }
+.help-state { padding: 0 .6em; border: 1px solid var(--ui-control); border-radius: 999px; font-weight: 700; }
+.help-flow small { color: var(--ui-sub); font-size: .78em; }
 
 /* 表 */
 table { width: 100%; margin: 0 0 var(--gap); border-collapse: collapse; font-size: .95em; }
-th, td { padding: .5em .75em; border-bottom: 1px solid var(--edge); text-align: left; vertical-align: top; }
-thead th { background: var(--soft); color: var(--sub); font-size: .88em; }
+th, td { padding: .5em .75em; border-bottom: 1px solid var(--ui-line); text-align: left; vertical-align: top; }
+thead th { background: var(--ui-soft); color: var(--ui-sub); font-size: .88em; }
 tbody th { width: 34%; }
 @media (min-width: 600px) { tbody th { white-space: nowrap; width: auto; } }
 .help-body { overflow-wrap: anywhere; }
@@ -65,17 +65,17 @@ tbody th { width: 34%; }
 /* 図 */
 .help-figure { margin: 1.4em 0 1.6em; }
 .help-figure-editor { max-width: 30em; }
-.help-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--edge); border-radius: 8px; box-shadow: 0 4px 14px #0f172a14; }
-.help-figure figcaption { margin-top: .55em; color: var(--sub); font-size: .86em; line-height: 1.6; }
-.help-fig-no { margin-right: .6em; color: var(--text); font-weight: 700; }
+.help-figure img { display: block; width: 100%; height: auto; border: 1px solid var(--ui-line); border-radius: 8px; box-shadow: var(--ui-shadow-panel); }
+.help-figure figcaption { margin-top: .55em; color: var(--ui-sub); font-size: .86em; line-height: 1.6; }
+.help-fig-no { margin-right: .6em; color: var(--ui-text); font-weight: 700; }
 /* 目次 */
-.help-toc { margin: 0 0 32px; padding: 1em 1.2em; border: 1px solid var(--edge); border-radius: 8px; background: var(--soft); max-width: var(--measure); }
-.help-toc-title { margin: 0 0 .4em; color: var(--sub); font-size: .85em; font-weight: 700; }
+.help-toc { margin: 0 0 32px; padding: 1em 1.2em; border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-soft); max-width: var(--measure); }
+.help-toc-title { margin: 0 0 .4em; color: var(--ui-sub); font-size: .85em; font-weight: 700; }
 .help-toc ol { margin: 0; padding-left: 1.6em; columns: 2; column-gap: 2em; }
 .help-toc li { break-inside: avoid; }
 .help-toc a { text-decoration: none; }
 .help-toc a:hover { text-decoration: underline; }
-.help-toc-admin::after { content: "管理者"; margin-left: .5em; color: var(--warn); font-size: .75em; font-weight: 700; white-space: nowrap; }
+.help-toc-admin::after { content: "管理者"; margin-left: .5em; color: var(--ui-warn); font-size: .75em; font-weight: 700; white-space: nowrap; }
 @media (min-width: 900px) {
   .help-page { display: grid; grid-template-columns: 236px minmax(0, 1fr); column-gap: 40px; }
   .help-title { grid-column: 1 / -1; }
@@ -275,7 +275,7 @@ tbody th { width: 34%; }
     <li>よければ<b class="ui">承認して公開</b>を押します。新しいデータは、承認のときに正式IDが付きます。直してほしいときは<b class="ui">却下…</b>を押し、理由を書いて<b class="ui">却下する</b>を押します。</li>
   </ol>
   <figure class="help-figure">
-    <img width="1230" height="330" loading="lazy" src="master_data/06_review.png" alt="承認の画面。変わった項目が左右に並び、下に承認と却下のボタン">
+    <img width="1230" height="595" loading="lazy" src="master_data/06_review.png" alt="承認の画面。変わった項目が左右に並び、下に承認と却下のボタン">
     <figcaption><span class="help-fig-no">図8-1</span>承認の画面。変わった項目だけを左右に並べます。</figcaption>
   </figure>
   <p class="help-result"><span>結果</span>承認すると公開中になり、遊んでいるルームにもすぐに反映されます。</p>

@@ -74,7 +74,7 @@ controller.destroy();
 def test_text_actions_info_and_line_contracts():
     from pathlib import Path
     source = Path('static/css/modules/master_data.css').read_text(encoding='utf-8')
-    assert '--cat-edge: #d6dee8' in source and '--cat-control: #7b8798' in source
+    assert '--cat-edge: var(--ui-line)' in source and '--cat-control: var(--ui-control)' in source
     assert '.cat-text-tools-bar { visibility: hidden' not in source
     # ⓘの説明は body 直下に出すので、管理画面の窓（1500）より上、確認の窓（12000）より下に置く。
     import re

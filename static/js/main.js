@@ -67,10 +67,26 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
+        if (opener?.closest?.('.cat-workspace')) overlay.dataset.theme = 'paper';
         overlay.className = 'modal-backdrop app-dialog-backdrop';
         overlay.innerHTML = `
             <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
                 <style>
+                    [data-theme="paper"] .app-dialog-modal {
+                        background-color: var(--ui-bg); background-image: var(--ui-tex);
+                        border-color: var(--ui-gold);
+                        box-shadow: var(--ui-shadow-float);
+                    }
+                    [data-theme="paper"] .app-dialog-title { font-family: var(--ui-head-font); }
+                    [data-theme="paper"] .app-dialog-input {
+                        background: var(--ui-input-bg);
+                        color: var(--ui-text);
+                        box-shadow: var(--ui-shadow-input);
+                    }
+                    [data-theme="paper"] .app-dialog-actions button {
+                        border: 1px solid var(--ui-gold-strong);
+                        box-shadow: var(--ui-inset), var(--ui-shadow-button);
+                    }
                     .app-dialog-modal {
                         width: min(420px, calc(100vw - 28px));
                         padding: 22px;
@@ -81,26 +97,26 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
                     .app-dialog-title {
                         margin: 0 0 10px;
                         font-size: 1.18rem;
-                        color: #173f36;
+                        color: var(--ui-text, #173f36);
                     }
                     .app-dialog-message {
                         white-space: pre-wrap;
                         line-height: 1.65;
-                        color: #34443f;
+                        color: var(--ui-text, #34443f);
                     }
                     .app-dialog-input {
                         width: 100%;
                         box-sizing: border-box;
                         margin-top: 14px;
                         padding: 10px 12px;
-                        border: 1px solid #b8c9c2;
+                        border: 1px solid var(--ui-control, #b8c9c2);
                         border-radius: 10px;
                         font-size: 1rem;
                     }
                     .app-dialog-error {
                         min-height: 1.2em;
                         margin-top: 8px;
-                        color: #b42318;
+                        color: var(--ui-danger, #b42318);
                         font-size: 0.9rem;
                     }
                     .app-dialog-actions {
@@ -117,16 +133,18 @@ function openAppDialog({ title = '確認', message = '', mode = 'confirm', defau
                         font-weight: 700;
                     }
                     .app-dialog-actions button:focus {
-                        outline: 2px solid #173f36;
+                        outline: 2px solid var(--ui-focus, #173f36);
                         outline-offset: 3px;
                     }
                     .app-dialog-cancel {
-                        background: #e6ece9;
-                        color: #25352f;
+                        background: var(--ui-soft, #e6ece9);
+                        background-image: var(--ui-gloss, none);
+                        color: var(--ui-text, #25352f);
                     }
                     .app-dialog-confirm {
-                        background: #d97732;
-                        color: white;
+                        background: var(--ui-primary, #d97732);
+                        background-image: var(--ui-primary-gloss, none);
+                        color: var(--ui-on-primary, white);
                     }
                 </style>
                 <h3 id="app-dialog-title" class="app-dialog-title">${escapeDialogText(title)}</h3>

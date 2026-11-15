@@ -27,7 +27,7 @@
 
   function recordRow(row, selected) {
     return `<button type="button" class="bo-workspace__record ${selected ? 'is-selected' : ''}"
-      data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${selected}">
+      data-ui-kind="${h(row.kind)}" data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${selected}">
       <code class="cat-id">${h(row.entry_id)}</code><strong title="${h(row.payload.name)}">${h(row.payload.name)}</strong>
       <span class="unit-record-badges">${badges(row)}</span></button>`;
   }
@@ -61,7 +61,7 @@
         : row.kind === 'formation' ? sides[p.type] : row.kind === 'unit' ? badges(row) : (p.分類 || p.category || '—');
       const detail = skill ? [['パレット',p.チャットパレット],['コスト',plain(p.コスト)],['効果',plain(p.発動時効果)],['特記',plain(p.特記)]]
         : [['説明',p.description],['タグ',(p.tags || []).join('、')],['構成',p.members?.map(m => `${m.unit_id} × ${m.count}`).join('、')]];
-      return `<article class="unit-candidate"><header><code class="cat-id">${h(row.entry_id)}</code><strong>${h(nameOf(p))}</strong>
+      return `<article class="unit-candidate" data-ui-kind="${h(row.kind || source)}" data-ui-skill-prefix="${skill ? h(skillPrefix(row.entry_id)) : ''}"><header><code class="cat-id">${h(row.entry_id)}</code><strong>${h(nameOf(p))}</strong>
         <span>${row.kind === 'unit' ? group : h(group)}</span>
         <div class="unit-candidate-actions">${used.has(row.entry_id) ? '<span>追加済み</span>' :
           button(action,'candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を${action}"`,'unit-candidate-add')}

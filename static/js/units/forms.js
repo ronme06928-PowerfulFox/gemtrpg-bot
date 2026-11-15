@@ -35,8 +35,8 @@
   const badge = (label, style = '') => `<span class="cat-badge ${style}">${label}</span>`;
   const badges = row => {
     const p = row.payload;
-    return [p.allow_ally && badge('味方'), p.allow_enemy && badge('敵','unit-enemy'),
-      p.type && badge(sides[p.type], p.type === 'enemy' ? 'unit-enemy' : ''),
+    return [p.allow_ally && badge('味方','unit-ally'), p.allow_enemy && badge('敵','unit-enemy'),
+      p.type && badge(sides[p.type], p.type === 'enemy' ? 'unit-enemy' : 'unit-ally'),
       row.visibility === 'staff' && badge('非公開','unit-staff'), row.deprecated && badge('廃止','unit-deprecated')].filter(Boolean).join(' ');
   };
   const textLines = value => Array.isArray(value) ? value.join('\n') : '';
