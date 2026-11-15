@@ -6,7 +6,7 @@
 
 画面ごとに「どのような見た目にしたか」「なぜその表現を選んだか」「他画面でも再利用できるか」を記録し、アプリ全体のUIデザインの統一感を段階的に高めるための継続更新用覚書である。
 
-この文書は実装済み画面の観察記録と判断理由を扱う。未実装案は`manuals/planned/`、正式なUI仕様は`manuals/implemented/E01_Visual_Battle_Architecture.md`と`manuals/implemented/E02_UI_Component_Specs.md`、実際の色・寸法・挙動はソースコードを正とする。
+画面をまたぐ共通の決まりは[アプリ全体のUI計画](projects/app_foundation/ui/ui_foundation_plan.md)を正とする。この文書は実装済み画面の観察記録と判断理由を扱う。未実装案は`manuals/planned/`、正式なUI仕様は`manuals/implemented/E01_Visual_Battle_Architecture.md`と`manuals/implemented/E02_UI_Component_Specs.md`、実際の色・寸法・挙動はソースコードを正とする。
 
 ## 2. 更新ルール
 
