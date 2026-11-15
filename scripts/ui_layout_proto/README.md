@@ -8,3 +8,7 @@
 - キャッシュを元に、承認案件・制作者限定データ・ルーム一覧の比較用データを用意する。保存と承認は試作を開いている間の状態に反映する。
 
 `node scripts/ui_layout_proto/check.mjs` で Chrome の操作とコントラストを検査する（Python の Playwright が必要）。
+
+## 本物のマスターデータの画面で試す
+
+`node scripts/catalog_preview/pr19/build.mjs` のあとに `node scripts/ui_layout_proto/build-real.mjs` を実行し、`_local/ui_layout_proto/master_real.html` を開く（大きいので `local-outputs` のサーバー経由で `http://127.0.0.1:8765/ui_layout_proto/master_real.html`）。本物の管理画面のコードを偽物のサーバーで動かし、`real_skin.css` で「紙と金・控えめ」を上書きする。左下で今の見た目と切り替える。
