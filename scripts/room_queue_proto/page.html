@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja" data-theme="night">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>待機列と登場｜ルーム試作</title>
+  <!-- style -->
+</head>
+<body>
+  <header class="topbar">
+    <div class="identity"><span class="gem" aria-hidden="true"></span><div><span>ジェムリアTRPG</span><h1>セッションルーム</h1></div></div>
+    <nav id="scenes" aria-label="試作の場面">
+      <button data-scene="A"><span>A</span> 準備</button>
+      <button data-scene="B"><span>B</span> 探索</button>
+      <button data-scene="C"><span>C</span> 戦闘中</button>
+      <button data-scene="D"><span>D</span> 戦闘専用</button>
+    </nav>
+    <span id="room-state" class="status"></span>
+  </header>
+  <main id="screen"></main>
+  <aside class="compare" aria-label="表示切替">
+    <label id="space-setting" hidden>盤面<select id="space"><option value="normal">通常</option><option value="tight">空き不足</option></select></label>
+    <label>準備テーマ<select id="theme"><option value="night">夜色と金</option><option value="paper">紙と金</option></select></label>
+    <label>閲覧者<select id="viewer"><option value="GM">GM</option><option value="PL">PL</option></select></label>
+  </aside>
+  <dialog id="dialog"></dialog>
+  <!-- script -->
+</body>
+</html>
