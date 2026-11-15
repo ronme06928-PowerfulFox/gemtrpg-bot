@@ -268,6 +268,10 @@ textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
 .menu-card { display: grid; gap: 2px; padding: 12px; border: 1px solid var(--ui-line); border-left: 4px solid var(--gem); border-radius: 8px; background: var(--ui-bg); text-align: left; font: inherit; color: var(--ui-text); cursor: pointer; }
 .menu-card:hover { background: var(--gem-soft); }
 .menu-card b { display: flex; align-items: center; gap: .4em; font-size: 1.1em; }
+.menu-card.is-big { padding: 20px 14px; }
+.menu-card.is-big b { font-size: 1.3em; }
+.menu-card:disabled { cursor: default; opacity: .75; }
+.menu-admin { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--ui-gap); padding-top: 10px; border-top: 1px solid var(--ui-gold, var(--ui-line)); }
 .admin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); min-height: 0; }
 .admin > div { padding: 8px; display: grid; gap: 6px; align-content: start; }
 .admin > div + div { border-left: 1px solid var(--ui-line); grid-template-rows: 1fr auto; padding: 0; }
@@ -438,12 +442,13 @@ textarea.input { padding: var(--ui-pad); min-height: 4.5em; resize: vertical; }
   <h2><span class="gem g-onyx"></span>10 画面のひな形</h2>
   <p class="lead">同じ部品で4種類の画面を構成。ルームは「夜色と金」（白のテーマでは暗い面）で表示。</p>
   <div class="frames">
-    <div class="frame"><header><span class="gem g-sapphire"></span>メインメニュー<span class="sp"></span><span class="sub" style="font-weight:400">制作者</span></header>
+    <div class="frame"><header><span class="gem g-sapphire"></span>メインメニュー<span class="sp"></span><span class="badge is-staff">制作者</span><button class="btn is-small">アカウント</button></header>
       <div class="menu-grid">
-        <button class="menu-card g-sapphire"><b><span class="gem"></span>ルーム</b><span class="sub">参加中 3・募集中 5</span></button>
-        <button class="menu-card g-emerald"><b><span class="gem"></span>ユニット管理</b><span class="sub">ユニット・編成・ステージ</span></button>
-        <button class="menu-card g-ruby"><b><span class="gem"></span>マスターデータ</b><span class="sub">承認待ち <span class="badge is-warn">2</span></span></button>
-        <button class="menu-card g-citrine"><b><span class="gem"></span>使い方</b><span class="sub">操作ガイド・管理画面</span></button>
+        <button class="menu-card is-big g-sapphire"><b><span class="gem"></span>セッション</b><span class="sub">ルーム一覧　参加中 3・募集中 5</span></button>
+        <button class="menu-card is-big g-amethyst" disabled><b><span class="gem"></span>ダンジョン</b><span class="sub"><span class="badge is-retired">準備中</span></span></button>
+        <button class="menu-card g-emerald"><b><span class="gem"></span>マイキャラクター</b><span class="sub">作成・管理</span></button>
+        <button class="menu-card g-citrine"><b><span class="gem"></span>使い方</b><span class="sub">操作ガイド</span></button>
+        <div class="menu-admin"><span class="sub">データ管理</span><button class="btn is-small">ユニット管理</button><button class="btn is-small">マスターデータ</button><button class="btn is-small">承認待ち <span class="badge is-warn">2</span></button></div>
       </div></div>
     <div class="frame"><header><button class="btn is-text is-small">← メニュー</button><span class="gem g-emerald"></span>ユニット管理<span class="sp"></span><button class="btn is-small">転送</button></header>
       <div class="admin">
