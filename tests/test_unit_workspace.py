@@ -176,12 +176,13 @@ globalThis.document = {
   activeElement: opener,
   createElement() {
     const controls = Object.fromEntries(['cancel','confirm','input','error'].map(key => ['#app-dialog-' + key,control()]));
-    overlay = {...control(),
+    overlay = {...control(), dataset: {},
       querySelector(key) {return key.endsWith('-input') && !this.innerHTML.includes('id="app-dialog-input"') ? null : controls[key];},
       remove() {this.closed = true;}};
     return overlay;
   },
   body: {appendChild() {}},
+  getElementById() { return null; },
   addEventListener(type,cb,options) {assert.equal(options,true); listeners.set(type,cb);},
   removeEventListener(type,cb,options) {
     assert.equal(options,true); assert.equal(listeners.get(type),cb); listeners.delete(type);
@@ -223,6 +224,10 @@ result = showAppConfirm('backdrop');
 overlay.click({target:overlay});
 assert.equal(await result,false);
 assert.equal(listeners.size,0);
+result = showAppAlert('done');
+assert.equal(overlay.dataset.theme,'paper');
+key('Escape');
+assert.equal(await result,true);
 """
     result = subprocess.run(["node", "--input-type=module", "-e", script],
                             cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
