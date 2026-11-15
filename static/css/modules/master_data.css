@@ -18,7 +18,6 @@
   --cat-shadow: var(--ui-shadow-float);
   position: relative;
 }
-.cat-backdrop { container: catalog / inline-size; }
 .cat-workspace.bo-workspace { width: min(96vw, 1280px); height: min(92vh, 900px); background-color: var(--cat-bg); background-image: var(--ui-tex); color: var(--cat-text); border: 1px solid var(--ui-gold); border-radius: 12px; box-shadow: var(--ui-shadow-float); font: 14px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", "Meiryo", sans-serif; }
 .cat-workspace * { box-sizing: border-box; }
 .cat-workspace [hidden] { display: none !important; }

@@ -19,10 +19,10 @@ OUT = ROOT / "_local" / "catalog_preview" / "help" / "shots"
 PUBLISHED = ROOT / "static" / "help" / "master_data"
 # 試作の「要る所を切り出す」の範囲（1280×720、左・上・幅・高さ）。
 CROPS = {
-    "02_skill": (0, 90, 1280, 630),
-    "04_effects": (176, 145, 584, 480),
-    "05_writer": (176, 145, 584, 480),
-    "06_review": (25, 90, 1230, 595),
+    "02_skill": (0, 122, 1280, 566),
+    "04_effects": (168, 180, 592, 448),
+    "05_writer": (168, 180, 592, 448),
+    "06_review": (16, 122, 1250, 566),
 }
 
 
@@ -31,10 +31,9 @@ def wait(page, ms=900):
 
 
 def open_workspace(page, base):
-    page.goto(base + "/")
-    wait(page, 1500)
-    page.get_by_role("button", name="マスターデータ", exact=True).first.click()
-    wait(page, 1500)
+    page.goto(base + "/#master")  # メインメニューの下の全幅の画面（E02 Part 18）
+    page.reload()  # # だけの移動では読み込み直されず、登録したログインが画面に反映されないため。
+    wait(page, 2500)
 
 
 def pick(page, text):

@@ -7,15 +7,10 @@
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
   const labels = {unit:'ユニット',formation:'編成',stage:'ステージ'};
-  let active;
 
-  function openUnitManagement() {
-    if (active) { active.focus(); return; }
-    const opener = document.activeElement;
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-backdrop bo-workspace-backdrop cat-backdrop';
-    overlay.innerHTML = `<section class="modal-content bo-workspace cat-workspace unit-workspace" role="dialog"
-      aria-modal="true" aria-label="ユニット管理" tabindex="-1">
+  // メインメニューの下の全幅の画面（#units）として、渡された枠の中に描く（E02 Part 10・18）。
+  function mountUnitManagement(host) {
+    host.innerHTML = `<section class="bo-workspace cat-workspace unit-workspace" aria-label="ユニット管理" tabindex="-1">
       <header class="bo-workspace__header"><h2>ユニット管理</h2><div class="bo-workspace__header-actions"></div></header>
       <div class="cat-message" hidden></div>
       <nav class="unit-tabs" aria-label="資源の種類"></nav>
@@ -28,10 +23,7 @@
       </div>
       <section class="unit-dialog" role="dialog" aria-modal="true" aria-label="ユニット管理の操作" hidden></section>
       </section>`;
-    document.body.append(overlay);
-    const panel = overlay.firstElementChild;
-    active = panel;
-    panel.focus();
+    const panel = host.firstElementChild;
     const get = selector => panel.querySelector(selector);
     const detail = get('.unit-detail');
     const dialog = get('.unit-dialog');
@@ -64,13 +56,11 @@
       return body;
     }
 
-    function close() {
+    function destroy() {
       clearTimeout(checkTimer);
       document.removeEventListener('keydown', onKey);
       window.removeEventListener('beforeunload', beforeUnload);
-      overlay.remove();
-      active = null;
-      opener?.focus();
+      host.innerHTML = '';
     }
 
     function beforeUnload(event) {
@@ -115,7 +105,7 @@
 
     function renderFrame() {
       get('.bo-workspace__header-actions').innerHTML = (canEdit() ? button('書き出し・取り込み','transfer') : '') +
-        button('再読み込み','reload') + button('閉じる','close');
+        button('再読み込み','reload');
       get('.unit-tabs').innerHTML = Object.entries(labels).map(([kind,label]) =>
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
           `data-kind="${kind}" aria-pressed="${state.kind === kind}"`)).join('');
@@ -580,9 +570,8 @@
     async function onAction(control) {
       if (!control) return;
       const {unitAction:action,id,kind,section,path,index,revision} = control.dataset;
-      const readActions = ['close','close-dialog','reload','tab','record','section','toggle-confirm','jump-confirm','jump-edit'];
+      const readActions = ['close-dialog','reload','tab','record','section','toggle-confirm','jump-confirm','jump-edit'];
       if (!canEdit() && !readActions.includes(action)) return;
-      if (action === 'close') { if (await canLeave()) close(); }
       if (action === 'close-dialog') closeDialog();
       if (action === 'reload' && await canLeave()) await reload();
       if (action === 'record' && id !== state.selected && await canLeave()) {
@@ -746,17 +735,20 @@
     }
 
     function onKey(event) {
-      if (event.defaultPrevented || document.getElementById('app-dialog-backdrop') || [...document.querySelectorAll('.modal-backdrop')].at(-1) !== overlay) return;
+      if (event.defaultPrevented || document.getElementById('app-dialog-backdrop') || document.querySelector('.modal-backdrop')) return;
       if (event.key === 'Escape') {
-        event.preventDefault();
         const more = get('.unit-more[open]');
         if (dialog.hidden && more) {
+          event.preventDefault();
           more.open = false;
           more.querySelector('summary').focus();
-        } else run(() => dialog.hidden ? onAction(get('[data-unit-action="close"]')) : closeDialog());
+        } else if (!dialog.hidden) {
+          event.preventDefault();
+          closeDialog();
+        }
       }
-      if (event.key === 'Tab') {
-        const controls = [...(dialog.hidden ? panel : dialog).querySelectorAll('button,input,select,textarea,summary')]
+      if (event.key === 'Tab' && !dialog.hidden) {
+        const controls = [...dialog.querySelectorAll('button,input,select,textarea,summary')]
           .filter(control => !control.disabled && control.getClientRects().length && !control.closest('[inert]'));
         const edge = event.shiftKey ? controls[0] : controls.at(-1);
         if (edge && document.activeElement === edge) {
@@ -771,9 +763,6 @@
       if (more && !more.contains(event.target)) more.open = false;
       const control = event.target.closest('[data-unit-action]');
       if (control && !control.disabled) run(() => onAction(control),control.dataset.unitAction);
-    });
-    overlay.addEventListener('click', event => {
-      if (event.target === overlay && dialog.hidden) run(() => onAction(get('[data-unit-action="close"]')));
     });
     panel.addEventListener('input', event => {
       const input = event.target;
@@ -859,7 +848,8 @@
       await Promise.all(views.master.map(async kind => { masters[kind] = (await window.CatalogApi.list(kind)).entries; }));
       await reload(null);
     });
+    return {allowLeave: canLeave, destroy};
   }
 
-  window.openUnitManagement = openUnitManagement;
+  window.mountUnitManagement = mountUnitManagement;
 })();

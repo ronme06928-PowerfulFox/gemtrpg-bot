@@ -1,9 +1,15 @@
 // static/js/app_screens.js
-// ログイン後の画面（メインメニュー・ルーム一覧・使い方）の切り替えと、URL の # の扱い（計画62、E02 Part 18）。
+// ログイン後の画面（メインメニューとその下の画面）の切り替えと、URL の # の扱い（計画62、E02 Part 18）。
 // main.js のグローバル（showRoomPortal・leaveCurrentSocketRoom など）を使う。
 
 (function () {
-  const SCREENS = ['menu', 'sessions', 'help'];
+  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'users'];
+  // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
+  const WORKSPACES = {
+    characters: host => mountOwnedCharacters(host),
+    units: host => mountUnitManagement(host),
+    master: host => mountCatalogWorkspace(host),
+  };
   const HELP_LINKS = [
     ['/manuals/rulebook.pdf', '基本ルールブック', 'PDF'],
     ['/manuals/guide.pdf', 'セッション操作ガイド', 'PDF'],
@@ -68,8 +74,15 @@
 
   const portal = () => document.getElementById('menu-portal');
   const visible = id => document.getElementById(id)?.style.display === 'block';
+  let mounted = null;  // {name, controller}
+
+  function releaseWorkspace() {
+    mounted?.controller.destroy();
+    mounted = null;
+  }
 
   function hideMenuScreens() {
+    releaseWorkspace();
     const menu = portal();
     if (menu) menu.style.display = 'none';
     const users = document.getElementById('user-management-portal');
@@ -95,15 +108,41 @@
     showPortal(helpHtml());
   }
 
+  function showWorkspace(name) {
+    showPortal(`${backBar()}<div class="screen-workspace" data-screen="${name}"></div>`);
+    mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'))};
+  }
+
+  function showUsers() {
+    if (!window.currentUserIsAppAdmin) { goScreen('menu'); return; }
+    for (const id of ['entry-portal', 'room-portal', 'main-app-container']) {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    }
+    hideMenuScreens();
+    showUserManagement();
+  }
+
   function showScreen(name) {
     if (name === 'sessions') showRoomPortal();
     else if (name === 'help') showHelp();
+    else if (name === 'users') showUsers();
+    else if (WORKSPACES[name]) showWorkspace(name);
     else showMainMenu();
   }
 
-  function goScreen(name) {
-    if (screenFromHash(location.hash) === name && location.hash) showScreen(name);
-    else location.hash = name;
+  let leaveApproved = false;  // 画面の中の操作で確認を済ませたとき、hashchange で聞き直さない。
+
+  async function canLeaveWorkspace(target) {
+    if (!mounted || mounted.name === target || !mounted.controller.allowLeave) return true;
+    return mounted.controller.allowLeave();
+  }
+
+  async function goScreen(name) {
+    if (!await canLeaveWorkspace(name)) return;
+    if (screenFromHash(location.hash) === name && location.hash) { showScreen(name); return; }
+    leaveApproved = !!mounted;
+    location.hash = name;
   }
 
   function showStartScreen() {
@@ -142,6 +181,17 @@
   async function onHashChange() {
     if (visible('entry-portal') || !window.currentUsername) return;
     const target = screenFromHash(location.hash);
+    // ブラウザーの「戻る」などで移るとき、保存していない変更があればその画面の確認を通す。
+    // 取り消したら今の画面の # を積み直して留まる（もう一度「戻る」を押せば、また確認が出る）。
+    const approved = leaveApproved;
+    leaveApproved = false;
+    if (!approved && mounted) {
+      const leaving = mounted;
+      if (!await canLeaveWorkspace(target)) {
+        if (mounted === leaving) history.pushState(null, '', '#' + leaving.name);
+        return;
+      }
+    }
     if (!visible('main-app-container')) {
       showScreen(target);
       return;
@@ -178,16 +228,9 @@
     portal().querySelector('.menu-account__list').hidden = !open;
   }
 
-  const CARD_ACTIONS = {
-    sessions: () => goScreen('sessions'),
-    help: () => goScreen('help'),
-    characters: () => openOwnedCharactersModal(),
-    units: () => openUnitManagement(),
-    master: () => openMasterDataWorkspace(),
-  };
   const ACCOUNT_ACTIONS = {
     settings: () => openUserSettingsModal(true),
-    users: () => { hideMenuScreens(); showUserManagement(); },
+    users: () => goScreen('users'),
     logout,
   };
 
@@ -195,7 +238,7 @@
     const back = event.target.closest('[data-screen-back]');
     if (back) { goScreen(back.dataset.screenBack); return; }
     const card = event.target.closest('#menu-portal [data-screen-card]');
-    if (card) { CARD_ACTIONS[card.dataset.screenCard]?.(); return; }
+    if (card) { goScreen(card.dataset.screenCard); return; }
     const toggle = event.target.closest('#menu-portal .menu-account__toggle');
     if (toggle) { setAccountOpen(toggle.getAttribute('aria-expanded') !== 'true'); return; }
     const account = event.target.closest('#menu-portal [data-account-action]');

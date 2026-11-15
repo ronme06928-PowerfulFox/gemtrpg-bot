@@ -23,6 +23,7 @@ assert.equal(s.screenFromHash(''), 'menu');
 assert.equal(s.screenFromHash('#sessions'), 'sessions');
 assert.equal(s.screenFromHash('#help'), 'help');
 assert.equal(s.screenFromHash('#nope'), 'menu');
+for (const name of ['characters', 'units', 'master', 'users']) assert.equal(s.screenFromHash('#' + name), name);
 
 const html = s.menuHtml({name: 'Alice', isAppAdmin: false});
 const order = [...html.matchAll(/data-screen-card="(\w+)"/g)].map(m => m[1]);
@@ -61,3 +62,19 @@ def test_screens_are_wired():
     assert "@import 'css/modules/main_menu.css';" in _read("static/styles.css")
     assert re.search(r'id="menu-portal"[^>]*data-theme="paper"', _read("static/index.html"))
     assert "メインメニューに戻る" in _read("static/index.html")
+
+
+def test_workspaces_open_as_screens():
+    menu = _read("static/js/app_screens.js")
+    for mount in ("mountCatalogWorkspace(", "mountUnitManagement(", "mountOwnedCharacters("):
+        assert mount in menu
+    sources = {path: _read(path) for path in (
+        "static/js/app_screens.js", "static/js/master_data/workspace.js",
+        "static/js/units/workspace.js", "static/js/modals/owned_characters_modal.js")}
+    for old in ("openMasterDataWorkspace", "openUnitManagement", "openOwnedCharactersModal", "owned-chars-backdrop"):
+        assert not [path for path, text in sources.items() if old in text], old
+    assert "allowLeave" in sources["static/js/master_data/workspace.js"]
+    assert "allowLeave" in sources["static/js/units/workspace.js"]
+    # 全幅の画面には閉じる操作を置かない。
+    assert "button('閉じる','close')" not in sources["static/js/units/workspace.js"]
+    assert "owned-chars-close-btn" not in sources["static/js/modals/owned_characters_modal.js"]

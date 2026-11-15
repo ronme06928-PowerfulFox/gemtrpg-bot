@@ -1,5 +1,6 @@
 /* メインメニューと使い方（計画62、E02 Part 18）。色は紙と金のトークン（common_ui.css）だけを使う。 */
 #menu-portal {
+  container: catalog / inline-size;
   min-height: 100vh;
   box-sizing: border-box;
   padding: 0 16px 32px;
@@ -30,7 +31,7 @@
 #menu-portal :is(h1, h2) { font-family: var(--ui-head-font); letter-spacing: .03em; }
 .menu-head__brand { font-size: 1.15rem; font-weight: 700; color: var(--ui-gold-strong); }
 
-#menu-portal button,
+#menu-portal :where(.menu-head, .main-menu, .screen-back-bar) button,
 .help-link {
   font: inherit;
   color: var(--ui-text);
@@ -41,7 +42,7 @@
   box-shadow: var(--ui-inset), var(--ui-shadow-button);
   cursor: pointer;
 }
-#menu-portal button:focus-visible,
+#menu-portal :where(.menu-head, .main-menu, .screen-back-bar) button:focus-visible,
 .help-link:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
 .menu-account { position: relative; }
@@ -142,6 +143,7 @@
 #menu-portal .menu-data-button { padding: 8px 14px 8px 32px; font-weight: 600; }
 
 .screen-back-bar { width: min(100%, 1100px); margin: 0 auto; padding: 14px 0; }
+#menu-portal:has(.screen-workspace:not([data-screen="characters"])) .screen-back-bar { width: min(100%, 1500px); }
 #menu-portal .screen-back,
 #room-portal .screen-back { padding: 6px 12px; font-weight: 600; cursor: pointer; }
 
@@ -157,6 +159,27 @@
 }
 .help-link strong { font-size: 1.1rem; }
 .help-link span { color: var(--ui-sub); }
+
+/* メニューの下の全幅の画面（マイキャラクター・ユニット管理・マスターデータ） */
+#menu-portal .screen-workspace { width: min(100%, 1500px); margin: 0 auto; }
+#menu-portal .screen-workspace[data-screen="characters"] { width: min(100%, 1100px); }
+#menu-portal .screen-workspace.bo-workspace,
+#menu-portal .screen-workspace > .bo-workspace {
+  width: 100%;
+  height: calc(100vh - 100px);
+  max-width: none;
+  max-height: none;
+}
+#menu-portal .screen-workspace > .owned-chars-modal-content {
+  width: 100%;
+  max-height: none;
+  overflow: hidden;
+  border: 1px solid var(--ui-gold);
+  border-radius: 10px;
+  background: var(--ui-bg);
+  box-shadow: var(--ui-shadow-panel);
+}
+#menu-portal .screen-workspace .owned-chars-modal { max-height: none; }
 
 @media (max-width: 680px) {
   .menu-grid { grid-template-columns: minmax(0, 1fr); }

@@ -1,5 +1,4 @@
 (function () {
-  let active = null;
   const models = { glossary: window.CatalogGlossary, buff: window.CatalogBuff, skill: window.CatalogSkill, ...window.CatalogResources };
   const mounts = new Set();
   const h = window.CatalogGlossary.escape;
@@ -940,6 +939,7 @@
     const controller = {
       kind: () => state.kind,
       refresh: () => load(true).catch(error => { if (alive()) notice(error.message, true); }),
+      allowLeave,
       destroy() {
         if (destroyed) return;
         destroyed = true; power.destroy(); infoTools.destroy(); state.listRequest++; state.detailRequest++;
@@ -956,43 +956,8 @@
     return controller;
   }
 
-  function openMasterDataWorkspace() {
-    if (active) { active.panel.focus(); return; }
-    const opener = document.activeElement;
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-backdrop bo-workspace-backdrop cat-backdrop';
-    overlay.innerHTML = '<section class="modal-content bo-workspace cat-workspace" role="dialog" aria-modal="true" aria-label="マスターデータ" tabindex="-1"></section>';
-    document.body.appendChild(overlay);
-    const panel = overlay.querySelector('.cat-workspace');
-    const controller = mountCatalogWorkspace(panel, { onClose: closeWindow });
-    function closeWindow() {
-      controller.destroy();
-      document.removeEventListener('keydown', onKey);
-      overlay.removeEventListener('click', onBackdrop);
-      overlay.remove(); active = null;
-      if (opener?.isConnected) opener.focus();
-    }
-    function onBackdrop(event) {
-      if (event.target === overlay) panel.querySelector('[data-action="close"]').click();
-    }
-    function onKey(event) {
-      if (event.defaultPrevented) return;
-      if ([...document.querySelectorAll('.modal-backdrop')].at(-1) !== overlay || !panel.contains(document.activeElement)) return;
-      if (event.key === 'Escape') { event.preventDefault(); panel.querySelector('[data-action="close"]').click(); }
-      if (event.key === 'Tab') {
-        const controls = [...panel.querySelectorAll('a[href],button,input,select,textarea,summary')].filter(control => !control.disabled && control.getClientRects().length);
-        const first = controls[0], last = controls[controls.length - 1];
-        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-      }
-    }
-    overlay.addEventListener('click', onBackdrop);
-    document.addEventListener('keydown', onKey);
-    active = { panel, controller }; panel.focus();
-  }
   window.mountCatalogWorkspace = mountCatalogWorkspace;
   window.mountSkillWorkspace = (container, options = {}) => mountCatalogWorkspace(container, {...options,kind:'skill'});
-  window.openMasterDataWorkspace = openMasterDataWorkspace;
   window.CatalogWorkspace = { renderProblems, onUpdated(data) {
     mounts.forEach(controller => { controller.refresh(); });
   } };

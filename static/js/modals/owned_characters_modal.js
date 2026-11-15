@@ -75,16 +75,10 @@
         return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
     }
 
-    async function openOwnedCharactersModal() {
-        const existing = document.getElementById('owned-chars-backdrop');
-        if (existing) existing.remove();
-
-        const overlay = document.createElement('div');
-        overlay.id = 'owned-chars-backdrop';
-        overlay.className = 'modal-backdrop';
-
+    // メインメニューの下の全幅の画面（#characters）として、渡された枠の中に描く（E02 Part 6・18）。
+    function mountOwnedCharacters(host) {
         const panel = document.createElement('div');
-        panel.className = 'modal-content owned-chars-modal-content';
+        panel.className = 'owned-chars-modal-content';
 
         panel.innerHTML = `
             <div class="owned-chars-modal">
@@ -116,14 +110,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="bo-actions-end" style="margin:16px 26px 0;">
-                    <button id="owned-chars-close-btn" class="bo-btn bo-btn--sm bo-btn--neutral">閉じる</button>
-                </div>
             </div>
         `;
 
-        overlay.appendChild(panel);
-        document.body.appendChild(overlay);
+        host.replaceChildren(panel);
 
         const listEl = panel.querySelector('#owned-chars-list');
         const importText = panel.querySelector('#owned-chars-import-text');
@@ -474,19 +464,9 @@
             }
         });
 
-        function closeModal() {
-            overlay.remove();
-        }
-        panel.querySelector('#owned-chars-close-btn')?.addEventListener('click', closeModal);
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeModal();
-        });
-
-        await loadList();
+        loadList();
+        return { destroy: () => host.replaceChildren() };
     }
 
-    global.OwnedCharactersModal = {
-        open: openOwnedCharactersModal,
-    };
-    global.openOwnedCharactersModal = openOwnedCharactersModal;
+    global.mountOwnedCharacters = mountOwnedCharacters;
 })(window);
