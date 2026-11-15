@@ -382,3 +382,27 @@ def test_formation_saves_cloned_pattern_and_member_atomically(unit_app):
                             entry_id=unit_id)[0]
     with pytest.raises(repository.CatalogConflictError):
         repository.save("formation", None, formation, pattern_additions=additions)
+
+
+def test_deploying_saved_stage_normalizes_skill_constraints(unit_app):
+    from manager.preset_deployment import apply_deployment
+    from manager.units.runtime import deployment_store
+
+    stage, _ = repository.save("stage", None, {
+        "name": "制約を持つステージ",
+        "field_effect_profile": {"version": 1, "rules": [{
+            "rule_id": "limit",
+            "type": "SPEED_ROLL_MOD",
+            "scope": "ALL",
+            "value": -1,
+            "skill_constraints": {"mode": "block", "match": {"skill_id": "E-23"}},
+        }]},
+    })
+    state = {"characters": []}
+    apply_deployment(state, {"stage": {"id": stage.entry_id}}, deployment_store(), room_role="gm")
+
+    rules = state["stage_field_effect_profile"]["rules"]
+    assert len(rules) == 1
+    assert rules[0]["skill_constraints"][0]["mode"] == "block"
+    assert rules[0]["skill_constraints"][0]["match"]["skill_id"] == "E-23"
+    assert state["field_effects"][0]["source_id"] == stage.entry_id

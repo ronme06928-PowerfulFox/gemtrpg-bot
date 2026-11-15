@@ -1,0 +1,132 @@
+{
+  "units": [
+    {
+      "entry_id": "U-001",
+      "payload": {
+        "name": "鉄の番兵",
+        "allow_enemy": true,
+        "hp": 32,
+        "mp": 8,
+        "params": [
+          {
+            "label": "敏捷",
+            "value": 5
+          }
+        ],
+        "skills": [
+          {
+            "id": "E-23",
+            "name": "守衛の一撃"
+          }
+        ]
+      }
+    },
+    {
+      "entry_id": "U-002",
+      "payload": {
+        "name": "石扉の守護者",
+        "allow_enemy": true,
+        "hp": 48,
+        "mp": 4,
+        "params": [
+          {
+            "label": "体格",
+            "value": 10
+          }
+        ],
+        "skills": [
+          {
+            "id": "E-23",
+            "name": "岩砕き"
+          }
+        ]
+      }
+    },
+    {
+      "entry_id": "U-003",
+      "payload": {
+        "name": "街道の斥候",
+        "allow_ally": true,
+        "hp": 22,
+        "mp": 10,
+        "params": [
+          {
+            "label": "敏捷",
+            "value": 9
+          }
+        ],
+        "skills": [
+          {
+            "id": "Ps-01"
+          }
+        ]
+      }
+    },
+    {
+      "entry_id": "U-004",
+      "payload": {
+        "name": "旅の術師",
+        "allow_ally": true,
+        "hp": 18,
+        "mp": 16,
+        "params": [
+          {
+            "label": "精神力",
+            "value": 11
+          }
+        ],
+        "skills": [
+          {
+            "id": "Ms-01"
+          }
+        ]
+      }
+    }
+  ],
+  "formations": [
+    {
+      "entry_id": "F-001",
+      "payload": {
+        "name": "遺跡の警護",
+        "type": "enemy",
+        "members": [
+          {
+            "unit_id": "U-001",
+            "count": 2
+          },
+          {
+            "unit_id": "U-002",
+            "count": 1
+          }
+        ]
+      }
+    },
+    {
+      "entry_id": "F-002",
+      "payload": {
+        "name": "先行調査隊",
+        "type": "ally",
+        "members": [
+          {
+            "unit_id": "U-003",
+            "count": 1
+          },
+          {
+            "unit_id": "U-004",
+            "count": 1
+          }
+        ]
+      }
+    }
+  ],
+  "stages": [
+    {
+      "entry_id": "ST-001",
+      "payload": {
+        "name": "石造りの遺跡",
+        "enemy_formation_id": "F-001",
+        "ally_formation_id": "F-002"
+      }
+    }
+  ]
+}

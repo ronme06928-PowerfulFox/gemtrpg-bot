@@ -38,9 +38,7 @@
 8. 解決パネルの見比べ用HTMLは `npm run resolve-preview` で作る。本番のバンドルには入らない。
 9. 演出の試作の見比べ用HTMLは `npm run fx-proto` で作る（攻撃は `/_local/fx_proto/slash_proto.html`、宝石の加護と戦闘の終わりは `/_local/fx_proto/pr5_proto.html`）。本番のバンドルには入らない。
 10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html`（計画60 §5.3）と `/_local/catalog_preview/ui_revision.html`（見やすさの改修、計画60 §6-3）を作る。PR60-19 の試作は `node scripts/catalog_preview/pr19/build.mjs` で `/_local/catalog_preview/pr19/compare.html` を作る（本物の管理画面のコードを、本物の API の返事を写した偽物のサーバーで動かす）。PR60-21 の試作は `node scripts/catalog_preview/pr21/build.mjs` で作り、`python scripts/catalog_preview/pr21/serve.py` を動かして `http://127.0.0.1:8766/` で見る（威力の計算は本物）。PR60-22 の試作は `node scripts/catalog_preview/pr22/build.mjs` で `/_local/catalog_preview/pr22/index.html` を作る（`?as=author` で制作者の見え方）。PR60-24 の試作は `node scripts/catalog_preview/pr24/build.mjs` で `/_local/catalog_preview/pr24/index.html` を作り、作った文章が元の効果に戻るかを `node scripts/catalog_preview/pr24/measure.mjs` で数える。管理画面の使い方ページの試作は、`python scripts/catalog_preview/help/shots.py --db <別フォルダの instance/gemtrpg.db>` で本物のアプリから写真を撮り（別のフォルダから起動したアプリが要る）、`node scripts/catalog_preview/help/build.mjs` で `/_local/catalog_preview/help/index.html` を作る。本番のバンドルには入らない。
-11. 計画61（敵キャラと行動パターン）の画面の試作は `node scripts/preset_preview/plan61/build.mjs` で `/_local/preset_preview/plan61/index.html` を作る（データは `data/cache/` のキャッシュ）。本番のバンドルには入らない。
-12. メインメニューと専用の管理画面（権限・密度・配色）の試作は `node scripts/ui_layout_proto/build.mjs` で `/_local/ui_layout_proto/index.html` を作る（UI 基盤計画 §7.2）。本物のマスターデータの画面に見た目の案を当てた見比べは、`node scripts/catalog_preview/pr19/build.mjs` のあとに `node scripts/ui_layout_proto/build-real.mjs` で `/_local/ui_layout_proto/master_real.html` を作る。本番のバンドルには入らない。
-13. 計画61 PR61-4（待機列と登場）の試作は `node scripts/room_queue_proto/build.mjs` で `/_local/room_queue_proto/index.html` を作る。本番のバンドルには入らない。
+11. メインメニューと専用の管理画面（権限・密度・配色）の試作は `node scripts/ui_layout_proto/build.mjs` で `/_local/ui_layout_proto/index.html` を作る（UI 基盤計画 §7.2）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

@@ -14,13 +14,11 @@ from manager.buff_catalog import get_buff_by_id
 from manager.json_rule_v2 import (
     JsonRuleV2Error,
     extract_and_normalize_skill_rule_data,
-    normalize_skill_constraints_rows,
 )
 
 
 DEFAULT_SKILLS = REPO_ROOT / "data" / "cache" / "skills_cache.json"
 DEFAULT_BUFFS = REPO_ROOT / "data" / "cache" / "buff_catalog_cache.json"
-DEFAULT_STAGE_PRESETS = REPO_ROOT / "data" / "cache" / "battle_only_presets_cache.json"
 DEFAULT_OUTDIR = REPO_ROOT / "logs" / "migration_v2"
 
 
@@ -217,62 +215,6 @@ def migrate_buff_catalog(buff_data, report):
     return out
 
 
-def _migrate_stage_profile(profile, report, stage_id):
-    if not isinstance(profile, dict):
-        return profile
-    out = copy.deepcopy(profile)
-    rules = out.get("rules")
-    if not isinstance(rules, list):
-        return out
-    new_rules = []
-    for idx, rule in enumerate(rules):
-        if not isinstance(rule, dict):
-            new_rules.append(rule)
-            continue
-        row = copy.deepcopy(rule)
-        constraints = row.get("skill_constraints", None)
-        if constraints is None and isinstance(row.get("rule"), dict):
-            constraints = row.get("rule", {}).get("skill_constraints")
-        if constraints is not None:
-            try:
-                row["skill_constraints"] = normalize_skill_constraints_rows(
-                    constraints,
-                    source_path=f"stage_presets[{stage_id}].field_effect_profile.rules[{idx}].skill_constraints",
-                )
-                report["migrated"]["field_effects"] += 1
-            except JsonRuleV2Error as ex:
-                report["errors"].append(
-                    {
-                        "resource": "field_effects",
-                        "id": str(stage_id),
-                        "path": getattr(ex, "path", ""),
-                        "error": str(ex),
-                    }
-                )
-                report["failed"]["field_effects"] += 1
-        new_rules.append(row)
-    out["rules"] = new_rules
-    return out
-
-
-def migrate_stage_presets(stage_data, report):
-    if not isinstance(stage_data, dict):
-        report["errors"].append({"resource": "field_effects", "id": "-", "path": "$", "error": "preset root must be object"})
-        return stage_data
-    out = copy.deepcopy(stage_data)
-    stage_presets = out.get("stage_presets")
-    if not isinstance(stage_presets, dict):
-        return out
-    for stage_id, row in stage_presets.items():
-        if not isinstance(row, dict):
-            continue
-        profile = row.get("field_effect_profile")
-        if profile is None:
-            continue
-        row["field_effect_profile"] = _migrate_stage_profile(profile, report, stage_id)
-    return out
-
-
 def run(args):
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     outdir = Path(args.output_dir).resolve()
@@ -281,34 +223,28 @@ def run(args):
     report = {
         "timestamp": ts,
         "schema": "skill_json_rule_v2",
-        "migrated": {"skills": 0, "buff_catalog": 0, "field_effects": 0},
-        "failed": {"skills": 0, "buff_catalog": 0, "field_effects": 0},
+        "migrated": {"skills": 0, "buff_catalog": 0},
+        "failed": {"skills": 0, "buff_catalog": 0},
         "errors": [],
         "outputs": {},
     }
 
     skills_data = _load_json(Path(args.skills))
     buff_data = _load_json(Path(args.buffs))
-    stage_data = _load_json(Path(args.stage_presets))
 
     migrated_buffs = migrate_buff_catalog(buff_data, report)
     migrated_skills = migrate_skills(skills_data, migrated_buffs, report)
-    migrated_stage = migrate_stage_presets(stage_data, report)
 
     out_skills = outdir / f"skills_cache.v2.{ts}.json"
     out_buffs = outdir / f"buff_catalog_cache.v2.{ts}.json"
-    out_stage = outdir / f"battle_only_presets_cache.v2.{ts}.json"
     out_report = outdir / f"migration_report.{ts}.json"
 
     _dump_json(out_skills, migrated_skills)
     _dump_json(out_buffs, migrated_buffs)
-    _dump_json(out_stage, migrated_stage)
-    _dump_json(out_report, report)
 
     report["outputs"] = {
         "skills": str(out_skills),
         "buff_catalog": str(out_buffs),
-        "stage_presets": str(out_stage),
         "report": str(out_report),
     }
     _dump_json(out_report, report)
@@ -321,7 +257,6 @@ def build_argparser():
     p = argparse.ArgumentParser(description="Migrate cache JSON resources to skill_json_rule_v2.")
     p.add_argument("--skills", default=str(DEFAULT_SKILLS))
     p.add_argument("--buffs", default=str(DEFAULT_BUFFS))
-    p.add_argument("--stage-presets", default=str(DEFAULT_STAGE_PRESETS))
     p.add_argument("--output-dir", default=str(DEFAULT_OUTDIR))
     return p
 

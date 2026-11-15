@@ -3,8 +3,8 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 const root = new URL('../../', import.meta.url);
 const read = path => readFile(new URL(path, root), 'utf8');
 const cache = async name => JSON.parse(await read(`data/cache/${name}_cache.json`));
-const [presets, skills, catalogCss, commonCss, template, layoutCss, theme, declaration, script] = await Promise.all([
-  cache('battle_only_presets'),
+const [samples, skills, catalogCss, commonCss, template, layoutCss, theme, declaration, script] = await Promise.all([
+  read('scripts/ui_layout_proto/sample_units.json').then(JSON.parse),
   cache('skills'),
   read('static/css/modules/master_data.css'),
   read('static/css/modules/common_ui.css'),
@@ -16,27 +16,21 @@ const [presets, skills, catalogCss, commonCss, template, layoutCss, theme, decla
 ]);
 
 const plain = value => String(value ?? '').replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1');
-const characters = Object.values(presets.character_presets)
-  .filter(row => row.visibility === 'public')
-  .map(row => {
-    const character = row.character_json.data;
-    return {
-      name: row.name,
-      sides: [row.allow_ally && '味方', row.allow_enemy && '敵'].filter(Boolean),
-      status: character.status.filter(stat => ['HP', 'MP', 'FP'].includes(stat.label)),
-      params: character.params.map(({ label, value }) => ({ label, value })),
-      skills: [...character.commands.matchAll(/【([\w-]+) ([^】]+)】/g)]
-        .map(([, id, name]) => ({ id, name })),
-    };
-  });
+const characters = samples.units.map(({payload}) => ({
+  name: payload.name,
+  sides: [payload.allow_ally && '味方', payload.allow_enemy && '敵'].filter(Boolean),
+  status: [['HP', payload.hp], ['MP', payload.mp]].map(([label, value]) => ({label, value, max: value})),
+  params: payload.params,
+  skills: payload.skills.map(({id, name}) => ({id, name: name || skills[id]?.デフォルト名称 || id})),
+}));
 
-// The public snapshot has six units. Copies provide enough rows to compare scroll restoration.
-const units = Array.from({ length: 5 }, (_, copy) => characters.map((row, index) => ({
+// Repeat the sample set to exercise scroll restoration and role filtering.
+const units = Array.from({ length: 8 }, (_, copy) => characters.map((row, index) => ({
   ...row,
   id: `U-${String(copy * characters.length + index + 1).padStart(3, '0')}`,
   name: copy ? `${row.name} ${String(copy + 1).padStart(2, '0')}` : row.name,
   kind: 'ユニット',
-  staff: copy === 4,
+  staff: copy >= 6,
 }))).flat();
 const master = Object.entries(skills).map(([id, row], index) => ({
   id, name: row['デフォルト名称'], kind: 'スキル', type: row['属性'],
@@ -48,26 +42,19 @@ const master = Object.entries(skills).map(([id, row], index) => ({
   revision: index % 4 + 1,
 }));
 
-const publicRows = rows => Object.values(rows).filter(row => row.visibility === 'public');
-const formation = (id, side) => {
-  const rows = side === '味方' ? presets.ally_formations : presets.enemy_formations;
-  return (rows[id]?.members ?? []).flatMap(member => {
-    const character = presets.character_presets[member.preset_id];
-    return character ? Array(Math.max(1, member.count ?? 1)).fill(character.name) : [];
-  });
-};
-const relatedUnits = [
-  ...[['味方', presets.ally_formations], ['敵', presets.enemy_formations]].flatMap(([side, rows]) =>
-    publicRows(rows).map(row => ({ name: row.name, kind: '編成', sides: [side], groups: { [side]: formation(row.id, side) } }))),
-  ...publicRows(presets.stage_presets).map(row => ({
-    name: row.name, kind: 'ステージ', sides: [],
-    groups: { 味方: formation(row.ally_formation_id, '味方'), 敵: formation(row.enemy_formation_id, '敵') },
-  })),
-];
-for (const [index, row] of relatedUnits.entries()) units.push({
-  ...row, id: (row.kind === '編成' ? 'F-' : 'ST-') + String(index + 1).padStart(3, '0'),
-  status: [], params: [], skills: [],
-});
+const unitNames = new Map(samples.units.map(({entry_id, payload}) => [entry_id, payload.name]));
+const formations = new Map(samples.formations.map(({entry_id, payload}) => [entry_id, payload]));
+const members = id => (formations.get(id)?.members || []).flatMap(({unit_id, count}) =>
+  Array(count).fill(unitNames.get(unit_id)));
+const emptyFields = {status: [], params: [], skills: []};
+for (const [id, payload] of formations) {
+  const side = payload.type === 'ally' ? '味方' : '敵';
+  units.push({...emptyFields, id, name: payload.name, kind: '編成', sides: [side], groups: {[side]: members(id)}});
+}
+for (const {entry_id, payload} of samples.stages) {
+  units.push({...emptyFields, id: entry_id, name: payload.name, kind: 'ステージ', sides: [],
+    groups: {味方: members(payload.ally_formation_id), 敵: members(payload.enemy_formation_id)}});
+}
 
 const catalogCaches = [
   ['用語', 'glossary_catalog'], ['バフ', 'buff_catalog'], ['アイテム', 'items'],

@@ -240,7 +240,7 @@
 ## 7. テスト基準
 - `tests/test_skill_catalog_smoke.py`（JSON lint）
 - `tests/test_phase3_strict_rehearsal.py`
-- `tests/test_phase3_non_battle_input_audit.py`
+- `tests/test_units.py`（保存済みステージのスキル制約）
 
 完了判定:
 - `schema_missing == 0`
