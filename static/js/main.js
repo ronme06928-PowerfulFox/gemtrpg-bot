@@ -309,6 +309,8 @@ async function fetchWithSession(url, options = {}) {
 // --- 3. エントリー/ポータル機能 ---
 // 通常ログイン(login_name+password)を主導線とし、新規登録・復旧を補助導線へ分ける。
 function showEntryPortal() {
+    hideMenuScreens();
+    clearScreenHash();
     roomPortal.style.display = 'none';
     mainAppContainer.style.display = 'none';
     entryPortal.style.display = 'block';
@@ -441,6 +443,7 @@ async function showRoomPortal() {
     }
     entryPortal.style.display = 'none';
     mainAppContainer.style.display = 'none';
+    hideMenuScreens();
     roomPortal.style.display = 'block';
     roomPortal.innerHTML = '<h2>ルーム一覧を読み込み中...</h2>';
 
@@ -504,25 +507,9 @@ async function leaveCurrentSocketRoom() {
 }
 
 function renderRoomPortal(rooms, currentUserId, isGm) {
-    // ユーザー管理は app admin 限定（/api/admin/users が 403 になるため、
-    // 非管理者にはボタン自体を出さない）。
-    const manageUsersButton = currentUserIsAppAdmin
-        ? `<button id="manage-users-btn" class="portal-settings-button" style="margin-left:10px; background:#e0e0ff;">👥 ユーザー管理</button>`
-        : '';
     roomPortal.innerHTML = `
-        <div class="portal-user-band">
-            <span class="portal-welcome-message">
-                ようこそ, <strong>${currentUsername}</strong> (${currentUserAttribute}) さん
-            </span>
-            <div>
-                <button id="portal-user-settings-btn" class="portal-settings-button" title="ユーザー情報変更">
-                    ⚙️ ユーザー設定
-                </button>
-                ${manageUsersButton}
-                <button id="portal-logout-btn" class="portal-settings-button" style="margin-left:10px; background:#ffe0e0;" title="ログアウト">
-                    🚪 ログアウト
-                </button>
-            </div>
+        <div class="screen-back-bar">
+            <button type="button" class="screen-back" data-screen-back="menu">← メインメニュー</button>
         </div>
         <div class="room-portal-header">
             <h2>⚔️ ジェムリアTRPGダイスボット</h2>
@@ -539,13 +526,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             <ul id="room-list" class="room-list"></ul>
             <p id="room-list-empty" style="display: none;">該当するルームはありません。</p>
         </div>
-        <div class="catalog-portal-actions">
-            <button id="open-master-data-btn" class="cat-portal-open">マスターデータ</button>
-            <button id="open-unit-management-btn" class="cat-portal-open">ユニット管理</button>
-        </div>
-        <button id="open-owned-chars-btn" class="portal-floating-owned-chars-btn">
-            マイキャラクター
-        </button>
     `;
 
     const roomList = document.getElementById('room-list');
@@ -554,54 +534,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const createBattleOnlyBtn = document.getElementById('create-battle-only-room-btn');
     const refreshBtn = document.getElementById('refresh-room-list-btn');
     const emptyMsg = document.getElementById('room-list-empty');
-    const settingsBtn = document.getElementById('portal-user-settings-btn');
-    const ownedCharsBtn = document.getElementById('open-owned-chars-btn');
-    document.getElementById('open-master-data-btn').addEventListener('click', () => openMasterDataWorkspace());
-    document.getElementById('open-unit-management-btn').addEventListener('click', () => openUnitManagement());
-
-    if (ownedCharsBtn) {
-        ownedCharsBtn.addEventListener('click', () => {
-            if (typeof openOwnedCharactersModal === 'function') openOwnedCharactersModal();
-        });
-    }
-
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', () => openUserSettingsModal(true));
-    }
-
-    const logoutBtn = document.getElementById('portal-logout-btn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async () => {
-            const yes = await showAppConfirm('この端末からログアウトします。よろしいですか？', {
-                title: 'ログアウト', confirmText: 'ログアウト', cancelText: 'キャンセル',
-            });
-            if (!yes) return;
-            try {
-                // device モード: 端末トークンを失効し、自動復旧を止める。
-                await fetch(API_BASE_URL + '/api/logout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ mode: 'device' }),
-                });
-            } catch (_e) { /* 失効はベストエフォート */ }
-            clearSavedRecoveryToken();
-            try { if (socket && socket.connected) socket.disconnect(); } catch (_e) {}
-            showEntryPortal();
-        });
-    }
-    // ★追加: ユーザー管理ボタンのイベントリスナー
-    const manageUsersBtn = document.getElementById('manage-users-btn');
-    if (manageUsersBtn) {
-        manageUsersBtn.addEventListener('click', () => {
-            if (typeof showUserManagement === 'function') {
-                showUserManagement();
-            } else {
-                alert('機能読み込み中...');
-            }
-        });
-    }
-
     // ★追加: 更新ボタンのイベントリスナー
     if (refreshBtn) {
         refreshBtn.addEventListener('click', () => {
@@ -1053,6 +985,8 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         });
         entryPortal.style.display = 'none';
         roomPortal.style.display = 'none';
+        hideMenuScreens();
+        enterRoomHistory();
         mainAppContainer.style.display = 'block';
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
         updateHeaderUserInfo();
@@ -1163,7 +1097,7 @@ function initializeSocketIO() {
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
             window.SocketClient.initialize();
         }
-        showRoomPortal();
+        showStartScreen();
     });
     socket.on('disconnect', () => {
         socketInitInFlight = false;
@@ -1397,21 +1331,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const homeBtn = document.getElementById('home-portal-btn');
     if (homeBtn) {
         homeBtn.addEventListener('click', async () => {
-            const ok = await showAppConfirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）', {
-                defaultFocus: 'cancel',
-                title: 'ルーム一覧へ戻る',
-                confirmText: '戻る',
-            });
-            if (!ok) return;
             homeBtn.disabled = true;
-            const leaveResult = await leaveCurrentSocketRoom();
-            if (!leaveResult?.ok) {
-                console.warn('Socket room leave acknowledgement timed out.', leaveResult);
-                alert('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。');
-                homeBtn.disabled = false;
-                return;
-            }
-            showRoomPortal();
+            await leaveRoomTo('sessions');
             homeBtn.disabled = false;
         });
     }

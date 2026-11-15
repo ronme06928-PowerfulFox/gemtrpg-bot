@@ -92,6 +92,7 @@ const CLASSIC_SCRIPTS = [
   'js/units/views.js',
   'js/units/workspace.js',
   'js/main.js',
+  'js/app_screens.js',
 ];
 
 const BATTLE_ENTRY = path.join(JS, 'battle', 'index.js');

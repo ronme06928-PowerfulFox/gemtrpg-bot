@@ -1,0 +1,165 @@
+/* メインメニューと使い方（計画62、E02 Part 18）。色は紙と金のトークン（common_ui.css）だけを使う。 */
+#menu-portal {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 0 16px 32px;
+  color: var(--ui-text);
+  background-color: var(--ui-page);
+  background-image: var(--ui-page-tex);
+  font-family: "Noto Sans JP", "Yu Gothic UI", "Hiragino Sans", Meiryo, sans-serif;
+}
+#menu-portal [data-gem="sapphire"] { --ui-gem: var(--gem-sapphire); }
+#menu-portal [data-gem="ruby"] { --ui-gem: var(--gem-ruby); }
+#menu-portal [data-gem="topaz"] { --ui-gem: var(--gem-topaz); }
+#menu-portal [data-gem="quartz"] { --ui-gem: var(--gem-quartz); }
+#menu-portal [data-gem="emerald"] { --ui-gem: var(--gem-emerald); }
+#menu-portal [data-gem="amethyst"] { --ui-gem: var(--gem-amethyst); }
+
+.menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: min(100%, 1100px);
+  margin: 0 auto;
+  padding: 14px 0;
+  color: var(--ui-text);
+  background: transparent;
+}
+.menu-head__brand,
+#menu-portal :is(h1, h2) { font-family: var(--ui-head-font); letter-spacing: .03em; }
+.menu-head__brand { font-size: 1.15rem; font-weight: 700; color: var(--ui-gold-strong); }
+
+#menu-portal button,
+.help-link {
+  font: inherit;
+  color: var(--ui-text);
+  border: 1px solid var(--ui-control);
+  border-radius: 8px;
+  background-color: var(--ui-bg);
+  background-image: var(--ui-gloss);
+  box-shadow: var(--ui-inset), var(--ui-shadow-button);
+  cursor: pointer;
+}
+#menu-portal button:focus-visible,
+.help-link:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+
+.menu-account { position: relative; }
+#menu-portal .menu-account__toggle { padding: 6px 12px; font-weight: 600; }
+.menu-account__list {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 10;
+  min-width: 180px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--ui-gold);
+  border-radius: 8px;
+  background: var(--ui-bg);
+  box-shadow: var(--ui-shadow-float);
+}
+#menu-portal .menu-account__list button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  border-color: transparent;
+  background-image: none;
+  box-shadow: none;
+}
+#menu-portal .menu-account__list button:hover { background: var(--ui-primary-soft); }
+
+.main-menu {
+  width: min(100%, 1100px);
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: clamp(16px, 3vh, 34px) clamp(14px, 3vw, 40px);
+  border: 1px solid var(--ui-gold);
+  border-radius: 10px;
+  background-color: var(--ui-bg);
+  background-image: var(--ui-tex);
+  box-shadow: var(--ui-shadow-panel);
+}
+.main-menu h1 {
+  margin: 0 0 clamp(12px, 2.5vh, 26px);
+  padding-bottom: 10px;
+  font-size: 2.1rem;
+  border-bottom: 1px solid var(--ui-gold);
+}
+.menu-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(10px, 1.6vh, 18px); }
+
+#menu-portal .menu-card,
+#menu-portal .menu-data-button,
+.help-link { position: relative; }
+#menu-portal .menu-card::before,
+#menu-portal .menu-data-button::before,
+.help-link::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: 11px;
+  top: calc(50% - 7px);
+  width: 13px;
+  height: 14px;
+  background: var(--ui-gem, var(--ui-gold));
+  background-image: linear-gradient(135deg, var(--ui-gem-facet), transparent 58%);
+  clip-path: polygon(50% 0, 91% 24%, 91% 74%, 50% 100%, 9% 74%, 9% 24%);
+}
+#menu-portal .menu-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: clamp(78px, 12vh, 130px);
+  padding: 16px 20px 16px 34px;
+  text-align: left;
+  border-color: var(--ui-gold-strong);
+  border-left: 5px solid var(--ui-gem);
+  background-color: color-mix(in srgb, var(--ui-gem) 12%, var(--ui-bg));
+  background-image: linear-gradient(120deg, var(--ui-bg) 0 42%, transparent);
+  box-shadow: var(--ui-shadow-panel);
+}
+#menu-portal .menu-card:hover:not(:disabled) { background-color: color-mix(in srgb, var(--ui-gem) 16%, var(--ui-bg)); }
+#menu-portal .menu-card:is([data-screen-card="sessions"], [data-screen-card="dungeon"]) { min-height: clamp(140px, 25vh, 260px); }
+#menu-portal .menu-card__copy { display: grid; gap: 4px; }
+#menu-portal .menu-card__copy strong { font-family: var(--ui-head-font); font-size: 1.4rem; letter-spacing: .03em; }
+#menu-portal .menu-card:is([data-screen-card="sessions"], [data-screen-card="dungeon"]) .menu-card__copy strong { font-size: 1.9rem; }
+#menu-portal .menu-card__copy span { color: var(--ui-sub); }
+#menu-portal .menu-card__arrow { font-size: 1.6rem; color: var(--ui-gold-strong); }
+#menu-portal .menu-card:disabled { opacity: 1; color: var(--ui-text); cursor: default; border-style: dashed; border-left-style: solid; box-shadow: none; }
+
+.menu-data {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: clamp(16px, 3vh, 30px);
+  padding-top: 14px;
+  border-top: 1px solid var(--ui-gold);
+}
+.menu-data h2 { margin: 0 6px 0 0; font-size: 1rem; }
+#menu-portal .menu-data-button { padding: 8px 14px 8px 32px; font-weight: 600; }
+
+.screen-back-bar { width: min(100%, 1100px); margin: 0 auto; padding: 14px 0; }
+#menu-portal .screen-back,
+#room-portal .screen-back { padding: 6px 12px; font-weight: 600; cursor: pointer; }
+
+.help-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.help-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px 14px 34px;
+  text-decoration: none;
+  --ui-gem: var(--gem-quartz);
+}
+.help-link strong { font-size: 1.1rem; }
+.help-link span { color: var(--ui-sub); }
+
+@media (max-width: 680px) {
+  .menu-grid { grid-template-columns: minmax(0, 1fr); }
+  #menu-portal .menu-card:is([data-screen-card="sessions"], [data-screen-card="dungeon"]) { min-height: 110px; }
+  .main-menu h1 { font-size: 1.7rem; }
+}

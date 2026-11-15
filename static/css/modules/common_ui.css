@@ -259,10 +259,3 @@ button:disabled,
   --ui-primary-gloss: linear-gradient(#ffffff1f, rgb(0 0 0 / var(--ui-shade)));
 }
 
-/* ロビーの既存の管理画面ボタン。 */
-.cat-portal-open {
-  --catalog-launch-edge: #7b8798;
-  --catalog-launch-bg: #1d4ed8;
-  --catalog-launch-text: #ffffff;
-  --catalog-launch-shadow: 0 4px 10px #0003;
-}

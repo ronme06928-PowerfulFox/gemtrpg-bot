@@ -103,7 +103,6 @@
 .cat-review-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 6px; padding: 10px 12px; background: var(--cat-soft); border: 1px solid var(--cat-edge); border-radius: 7px; }
 .cat-review-heading h3 { margin: 0; font-size: 14px; }
 .cat-review-footer .cat-field { flex: 1; min-width: 180px; margin: 0; }
-.cat-portal-open { position: fixed; left: 180px; bottom: 18px; z-index: 1200; padding: 9px 13px; border: 1px solid var(--catalog-launch-edge); border-radius: 999px; background: var(--catalog-launch-bg); color: var(--catalog-launch-text); font-size: 13px; font-weight: 700; cursor: pointer; box-shadow: var(--catalog-launch-shadow); }
 @container catalog (max-width: 980px) {
   .cat-workspace .bo-workspace__body { grid-template-columns: 200px minmax(0, 1fr); min-height: auto; }
   .cat-workspace .bo-workspace__detail-pane { grid-column: 1 / -1; border-top: 1px solid var(--cat-edge); }
@@ -118,7 +117,6 @@
   .cat-edit-input, .cat-edit-preview { overflow: visible; padding: 14px; }
   .cat-edit-input { border-right: 0; border-bottom: 1px solid var(--cat-edge); }
 }
-@media (max-width: 680px) { .cat-portal-open { left: 18px; bottom: 66px; } }
 
 .cat-workspace .cat-array-field { min-width: 0; margin: 5px 0 14px; padding: 0; border: 0; color: var(--cat-sub); font-size: 11px; }
 .cat-array-field legend { padding: 0; margin-bottom: 5px; }

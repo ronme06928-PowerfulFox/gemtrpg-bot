@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@900&amp;family=Zen+Antique&amp;display=swap">
-    <link rel="stylesheet" href="dist/app.bundle.css?v=5a3540e67232">
+    <link rel="stylesheet" href="dist/app.bundle.css?v=a06300cd6363">
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 </head>
 
@@ -61,6 +61,8 @@
         </div>
     </div>
 
+    <div id="menu-portal" data-theme="paper" style="display: none;"></div>
+
     <div id="room-portal" style="display: none;">
     </div>
 
@@ -69,7 +71,7 @@
         <div
             style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 15px; margin-bottom: 20px;">
             <h2 style="margin: 0; color: #6f42c1;">ユーザー管理 (GM専用)</h2>
-            <button id="back-to-room-portal-btn" style="padding: 8px 16px;">ルーム一覧に戻る</button>
+            <button id="back-to-menu-btn" type="button" data-screen-back="menu" style="padding: 8px 16px;">メインメニューに戻る</button>
         </div>
 
         <div id="user-list-container">
@@ -104,7 +106,7 @@
     <!-- JavaScript: esbuild でバンドル済み (ソースは static/js/、ビルドは `npm run build`) -->
     <!-- app.bundle.js = クラシックスクリプト連結 / battle.bundle.js = battle/index.js のモジュールツリー -->
     <!-- ?v= はビルド時にコンテンツハッシュへ自動置換される -->
-    <script defer src="dist/app.bundle.js?v=0e275d9bbe08"></script>
+    <script defer src="dist/app.bundle.js?v=7f4fd4480bfd"></script>
     <script type="module" src="dist/battle.bundle.js?v=acc863390779"></script>
 </body>
 

@@ -269,10 +269,6 @@ async function toggleUserManagementAdmin(userId, enabled) {
     }
 }
 
-document.getElementById('back-to-room-portal-btn').addEventListener('click', () => {
-    document.getElementById('user-management-portal').style.display = 'none';
-    document.getElementById('room-portal').style.display = 'block';
-});
 
 
 async function toggleCatalogAuthor(userId, enabled) {
