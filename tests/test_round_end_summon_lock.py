@@ -1,7 +1,10 @@
+import pytest
+
 from manager.battle import common_manager
 
 
-def test_process_full_round_end_ignores_summon_locked_actor(monkeypatch):
+@pytest.mark.parametrize("summoned", [True, False])
+def test_process_full_round_end_ignores_actor_waiting_until_next_round(monkeypatch, summoned):
     state = {
         "round": 1,
         "is_round_ended": False,
@@ -27,7 +30,7 @@ def test_process_full_round_end_ignores_summon_locked_actor(monkeypatch):
                 "y": 0,
                 "hasActed": False,
                 "is_escaped": False,
-                "is_summoned": True,
+                "is_summoned": summoned,
                 "can_act_from_round": 2,
                 "states": [],
                 "special_buffs": [],

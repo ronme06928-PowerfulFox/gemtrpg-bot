@@ -671,6 +671,7 @@ def _lifecycle_effect_context():
         'get_status_value': get_status_value,
         'logger': logger,
         'process_skill_effects': process_skill_effects,
+        'set_status_value': set_status_value,
     }
 
 
@@ -684,9 +685,6 @@ def process_on_death(room, char, username, death_context=None):
     )
 
 
-def process_battle_start(room, char):
-    return _lifecycle_effects.process_battle_start(
-        room,
-        char,
-        _lifecycle_effect_context(),
-    )
+def process_battle_start(room, char, *, state=None):
+    characters = char if isinstance(char, list) else [char]
+    return _lifecycle_effects.process_battle_start(room, characters, _lifecycle_effect_context(), state=state)

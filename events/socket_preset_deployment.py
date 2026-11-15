@@ -13,6 +13,7 @@ from flask import request
 from extensions import socketio, user_sids
 from events.battle_only.catalog_access_context import catalog_request_context
 from manager.room_access import GM_ROLES
+from manager.battle.common_manager import _get_round_transition_lock
 from manager.units.runtime import deployment_store
 from manager.preset_deployment import (
     PresetDeploymentError,
@@ -302,7 +303,7 @@ def handle_preset_deployment_apply(data):
     context = _require_context(data)
     if context is None:
         return
-    with _mutation_lock:
+    with _get_round_transition_lock(context["room"]), _mutation_lock:
         _apply(context, data)
 
 

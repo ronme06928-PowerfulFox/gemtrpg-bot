@@ -18,7 +18,7 @@ from manager.battle.enemy_behavior import (
     BEHAVIOR_ON_NO_TARGET_CANCEL,
     normalize_target_candidates,
 )
-from manager.battle.action_slot_mode import is_action_slot_disabled, is_character_deployed
+from manager.battle.action_slot_mode import is_action_slot_disabled, is_character_deployed, is_round_action_locked
 from manager.character_tags import get_effective_tag_ids
 
 
@@ -51,21 +51,6 @@ def _is_pve_actionable_character(char):
     if bool(char.get('is_escaped', False)):
         return False
     return is_character_deployed(char)
-
-def _is_summon_action_locked(char, round_value):
-    if not isinstance(char, dict):
-        return False
-    if not bool(char.get('is_summoned', False)):
-        return False
-    try:
-        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
-    except (TypeError, ValueError):
-        can_act_from_round = 0
-    try:
-        current_round = int(round_value or 0)
-    except (TypeError, ValueError):
-        current_round = 0
-    return can_act_from_round > current_round
 
 def _remove_summoned_characters(state):
     if not isinstance(state, dict):
@@ -427,7 +412,7 @@ def prepare_pve_behavior_round_plan(state, battle_state, round_value):
             continue
         if not _is_pve_actionable_character(actor):
             continue
-        if is_action_slot_disabled(actor) or _is_summon_action_locked(actor, normalized_round):
+        if is_action_slot_disabled(actor) or is_round_action_locked(actor, normalized_round):
             continue
 
         profile = _read_behavior_profile_from_actor(actor)

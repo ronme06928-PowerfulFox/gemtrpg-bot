@@ -21,6 +21,7 @@ from manager.battle.action_slot_mode import (
     build_non_action_anchor,
     is_character_deployed,
     is_action_slot_disabled,
+    is_round_action_locked,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
 from manager.battle.resolve_presentation import reset_resolve_presentation
@@ -133,7 +134,6 @@ import manager.battle.pve_intent_planner as _pve_planner_mod
 from manager.battle.pve_intent_planner import (
     _canonical_team,
     _is_pve_actionable_character,
-    _is_summon_action_locked,
     _remove_summoned_characters,
     _extract_skill_rule_data,
     _extract_skill_tags,
@@ -358,12 +358,12 @@ def _process_full_round_end_impl(room, username):
         is_dead = c.get('hp', 0) <= 0
         is_escaped = c.get('is_escaped', False)
         is_incapacitated = ConfusionBuff.is_incapacitated(c)
-        is_action_locked_summon = _is_summon_action_locked(c, current_round)
+        is_action_locked = is_round_action_locked(c, current_round)
         should_act = (
             not is_dead
             and not is_escaped
             and not is_incapacitated
-            and not is_action_locked_summon
+            and not is_action_locked
             and not is_action_slot_disabled(c)
         )
 
@@ -654,7 +654,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
         if removed_summon_count > 0:
             broadcast_log(room, f"[Reset] Removed {removed_summon_count} summoned characters.", "info")
 
-        for char in state.get('characters', []):
+        for char in list(state.get('characters', [])):
+            char.pop('can_act_from_round', None)
             initial = char.get('initial_state', {})
 
 
@@ -1078,14 +1079,7 @@ def _process_round_start_impl(room, username):
         if is_action_slot_disabled(char):
             logger.debug("[Timeline] Skip %s (action_slot_mode=none)", char.get('name'))
             continue
-        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
-        if bool(char.get('is_summoned', False)) and can_act_from_round > int(state.get('round', 0)):
-            logger.debug(
-                "[Timeline] Skip %s (summon lock: can_act_from=%s current=%s)",
-                char.get('name'),
-                can_act_from_round,
-                state.get('round', 0),
-            )
+        if is_round_action_locked(char, state.get('round')):
             continue
 
 

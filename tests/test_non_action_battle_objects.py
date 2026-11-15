@@ -59,10 +59,12 @@ def test_round_start_creates_target_anchor_without_action_slot(monkeypatch):
         passive_data={"action_slot_mode": "none"},
         summoned=True,
     )
+    reinforcement = _character("reinforcement", "enemy")
+    reinforcement["can_act_from_round"] = 2
     room_state = {
         "round": 1,
         "battle_mode": "pvp",
-        "characters": [actor, rubble],
+        "characters": [actor, rubble, reinforcement],
         "timeline": [],
     }
     monkeypatch.setattr(select_resolve_state, "get_room_state", lambda _room: room_state)
@@ -92,6 +94,11 @@ def test_round_start_creates_target_anchor_without_action_slot(monkeypatch):
         is_actor_actionable_fn=lambda _room, _actor: True,
     )
     assert required == {action_slots[0]["slot_id"]}
+    next_round = select_resolve_state.process_select_resolve_round_start("room", "battle", 2)
+    assert {slot["actor_id"] for slot in next_round["slots"].values() if not slot.get("target_only")} == {
+        "actor", "reinforcement",
+    }
+
 
 
 def test_action_dock_ready_fallback_excludes_non_action_anchors():

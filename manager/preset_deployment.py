@@ -3,32 +3,23 @@
 from __future__ import annotations
 
 import copy
+import json
+import re
 from dataclasses import dataclass
 
 from manager.room_access import GM_ROLES
 from manager.units.characters import build_character, skill_catalog
 from manager.units.runtime import can_read, get_record, record_map, valid_deployment_target, visible_records
-from manager.buff_catalog import get_buff_effect
-from manager.game_logic import (
-    apply_buff,
-    get_status_value,
-    process_skill_effects,
-    set_status_value,
-)
-from manager.granted_skills.service import apply_grant_skill_change
-from manager.room_preset_apply import (
-    apply_stage_background_to_state,
-    assign_runtime_character_number,
-    normalize_stage_avatar,
-    normalize_stage_field_effect_profile,
-)
-from manager.summons.service import apply_summon_change
+from manager.battle.combat_session import mark_combat_arrival
+from manager.game_logic import process_battle_start
+from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 from manager.utils import apply_passive_effect_buffs
 
 
 MAX_DEPLOYED_CHARACTERS = 100
 RECORD_TYPES = ("character", "enemy_formation", "ally_formation", "stage")
 SIDES = ("ally", "enemy")
+_CHARACTER_NUMBER_SUFFIX_RE = re.compile(r"\s*\[(味方|敵)\s*(\d+)\]\s*$")
 
 
 class PresetDeploymentError(ValueError):
@@ -338,6 +329,33 @@ def resolve_deployment_request(store, request_data, *, user_id=None, is_author=F
     return resolved
 
 
+def assign_runtime_character_number(char, existing_characters):
+    """Assign the first unused side-local display number to a runtime character."""
+    if not isinstance(char, dict):
+        return char
+    side = str(char.get("type") or char.get("team") or "enemy").strip().lower()
+    side_label = "味方" if side == "ally" else "敵"
+    used_numbers = set()
+    for existing in existing_characters if isinstance(existing_characters, list) else []:
+        if not isinstance(existing, dict):
+            continue
+        match = _CHARACTER_NUMBER_SUFFIX_RE.search(str(existing.get("name", "")))
+        if match and match.group(1) == side_label:
+            used_numbers.add(int(match.group(2)))
+    suffix_num = 1
+    while suffix_num in used_numbers:
+        suffix_num += 1
+    base_name = (
+        str(char.get("baseName", "")).strip()
+        or _CHARACTER_NUMBER_SUFFIX_RE.sub("", str(char.get("name", ""))).strip()
+        or "Enemy"
+    )
+    char["baseName"] = base_name
+    char["name"] = f"{base_name} [{side_label} {suffix_num}]"
+    return char
+
+
+
 def _char_side(char):
     if not isinstance(char, dict):
         return ""
@@ -402,6 +420,116 @@ def _remove_side(state, side):
     state["characters"] = [char for char in chars if _char_side(char) != side]
     _cleanup_removed_refs(state, removed)
     return [value for value in removed if value]
+
+
+def normalize_stage_field_effect_profile(raw):
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as ex:
+            raise PresetDeploymentError("invalid_stage", f"field_effect_profile is invalid JSON: {ex}") from ex
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise PresetDeploymentError("invalid_stage", "field_effect_profile must be an object")
+
+    rules_src = raw.get("rules")
+    if rules_src is None:
+        rules_src = []
+    if not isinstance(rules_src, list):
+        raise PresetDeploymentError("invalid_stage", "field_effect_profile.rules must be an array")
+
+    rules = []
+    for idx, row in enumerate(rules_src):
+        if not isinstance(row, dict):
+            raise PresetDeploymentError("invalid_stage", f"field_effect_profile.rules[{idx}] must be an object")
+        rule_type = str(row.get("type", "")).strip()
+        if not rule_type:
+            raise PresetDeploymentError("invalid_stage", f"field_effect_profile.rules[{idx}].type is required")
+        rule = {
+            "type": rule_type,
+            "scope": str(row.get("scope", "ALL") or "ALL").strip().upper(),
+            "priority": _safe_int(row.get("priority", 0), 0),
+        }
+        for key in ("value", "condition", "state_name", "rule_id", "display_name", "name", "description", "flavor_text", "flavor", "trigger_state_name"):
+            if key in row:
+                rule[key] = copy.deepcopy(row.get(key))
+        constraints = row.get("skill_constraints")
+        if constraints is not None:
+            try:
+                rule["skill_constraints"] = normalize_skill_constraints_rows(
+                    constraints,
+                    source_path=f"field_effect_profile.rules[{idx}].skill_constraints",
+                )
+            except JsonRuleV2Error as ex:
+                raise PresetDeploymentError("invalid_stage", str(ex)) from ex
+        rules.append(rule)
+    return {"version": max(1, _safe_int(raw.get("version", 1), 1)), "rules": rules}
+
+
+def normalize_stage_avatar(raw):
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return {}
+        try:
+            raw = json.loads(text)
+        except json.JSONDecodeError as ex:
+            raise PresetDeploymentError("invalid_stage", f"stage_avatar is invalid JSON: {ex}") from ex
+    if raw is None:
+        return {}
+    if not isinstance(raw, dict):
+        raise PresetDeploymentError("invalid_stage", "stage_avatar must be an object")
+    return {
+        "enabled": bool(raw.get("enabled", True)),
+        "name": str(raw.get("name", "")).strip(),
+        "description": str(raw.get("description", "")).strip(),
+        "icon": str(raw.get("icon", "")).strip(),
+    }
+
+
+
+def apply_stage_background_to_state(state, background):
+    if not isinstance(background, dict) or not background:
+        return False
+    image = (
+        background.get("background_image")
+        or background.get("backgroundImage")
+        or background.get("background_url")
+        or background.get("backgroundUrl")
+        or background.get("image_url")
+        or background.get("image")
+    )
+    image = str(image or "").strip()
+    if not image:
+        return False
+
+    map_data = state.get("battle_map_data")
+    if not isinstance(map_data, dict):
+        map_data = {}
+        state["battle_map_data"] = map_data
+    map_data["background_image"] = image
+    if "scale" in background:
+        map_data["background_scale"] = background.get("scale")
+    if "background_scale" in background:
+        map_data["background_scale"] = background.get("background_scale")
+    for src_key, dst_key in (
+        ("offset_x", "background_offset_x"),
+        ("offset_y", "background_offset_y"),
+        ("background_offset_x", "background_offset_x"),
+        ("background_offset_y", "background_offset_y"),
+    ):
+        if src_key in background:
+            map_data[dst_key] = background.get(src_key)
+
+    legacy_map = state.get("map_data")
+    if isinstance(legacy_map, dict):
+        legacy_map["backgroundImage"] = image
+    return True
+
 
 
 def _stage_background(stage):
@@ -495,74 +623,6 @@ def _assign_positions(state, new_chars, center=None):
         "height": height,
         "unplaced": sum(char["x"] < 0 for char in chars),
     }
-
-
-def _set_status_clamped(char, name, value):
-    numeric = max(0, _safe_int(value, 0))
-    if str(name) == "HP" and _safe_int(char.get("maxHp"), 0) > 0:
-        numeric = min(numeric, _safe_int(char.get("maxHp"), numeric))
-    if str(name) == "MP" and _safe_int(char.get("maxMp"), 0) > 0:
-        numeric = min(numeric, _safe_int(char.get("maxMp"), numeric))
-    set_status_value(char, name, numeric)
-
-
-def _initialize_battle_start(candidate, initial_chars):
-    logs = []
-    queue = list(initial_chars)
-    processed = 0
-    while queue:
-        char = queue.pop(0)
-        processed += 1
-        if processed > 512:
-            raise PresetDeploymentError("initialization_loop", "戦闘開始時効果の連鎖が上限を超えました。")
-        for buff in char.get("special_buffs", []) if isinstance(char.get("special_buffs"), list) else []:
-            if not isinstance(buff, dict):
-                continue
-            buff_name = str(buff.get("name") or "")
-            effect_data = get_buff_effect(buff_name) or (buff.get("data") if isinstance(buff.get("data"), dict) else None)
-            start_effects = effect_data.get("battle_start_effect") if isinstance(effect_data, dict) else []
-            if not isinstance(start_effects, list) or not start_effects:
-                continue
-            effects = copy.deepcopy(start_effects)
-            for effect in effects:
-                if isinstance(effect, dict):
-                    effect["timing"] = "BATTLE_START"
-                    effect.setdefault("target", "self")
-            _, snippets, changes = process_skill_effects(
-                effects,
-                "BATTLE_START",
-                char,
-                None,
-                None,
-                context={"characters": candidate.get("characters", []), "state": candidate},
-            )
-            if snippets:
-                logs.append(f"[{char.get('name', '')} battle_start] " + " ".join(snippets))
-            for target, change_type, name, value in changes:
-                if change_type == "APPLY_STATE":
-                    _set_status_clamped(target, name, get_status_value(target, name) + _safe_int(value, 0))
-                elif change_type == "APPLY_BUFF" and isinstance(value, dict):
-                    apply_buff(
-                        target,
-                        name,
-                        value.get("lasting", 0),
-                        value.get("delay", 0),
-                        data=copy.deepcopy(value.get("data")),
-                        count=value.get("count"),
-                    )
-                    logs.append(f"[{name}] applied to {target.get('name', '')}")
-                elif change_type == "SUMMON_CHARACTER" and isinstance(value, dict):
-                    result = apply_summon_change(None, candidate, target, value, run_battle_start=False)
-                    if result.get("ok") and isinstance(result.get("char"), dict):
-                        queue.append(result["char"])
-                        logs.append(str(result.get("message") or "Summon applied"))
-                elif change_type == "GRANT_SKILL" and isinstance(value, dict):
-                    payload = copy.deepcopy(value)
-                    payload.setdefault("skill_id", name)
-                    result = apply_grant_skill_change(None, candidate, char, target, payload)
-                    if result.get("ok"):
-                        logs.append(str(result.get("message") or "Skill grant applied"))
-    return logs
 
 
 def _replace_with_enemy_units(resolved):
@@ -677,7 +737,11 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
          "image": char.get("imageOriginal") or char.get("image")}
         for char in new_chars
     ]
-    logs = _initialize_battle_start(candidate, new_chars)
+    arriving = [char for char in new_chars if mark_combat_arrival(candidate, char)]
+    try:
+        logs = process_battle_start(None, arriving, state=candidate)
+    except ValueError as ex:
+        raise PresetDeploymentError("initialization_failed", str(ex)) from ex
     candidate["play_mode"] = "normal"
     if resolved["formations"].get("enemy"):
         candidate["battle_mode"] = "pve"

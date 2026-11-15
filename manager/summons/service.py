@@ -337,7 +337,7 @@ def apply_summon_change(room, state, summoner, payload, *, run_battle_start=True
         try:
             from manager.game_logic import process_battle_start
 
-            process_battle_start(room, new_char)
+            process_battle_start(room, new_char, state=room_state)
         except Exception as e:
             logger.warning("summon process_battle_start failed: %s", e)
 

@@ -80,7 +80,7 @@ def synthetic_state(character_count, buffs_per_character, log_count):
         "round": 1, "play_mode": "normal", "characters": characters, "timeline": timeline,
         "logs": [{"log_id": index, "message": f"合成ログ{index}: " + "効果と状態の確認。" * 8,
                   "type": "info", "timestamp": 0} for index in range(log_count)],
-        "battle_only": {"preset_bookmarks": ["synthetic-private-metadata"]},
+        "encounter_queue": [{"name": "synthetic-private-metadata"}],
         "character_owners": {}, "battle_state": {},
     }
 

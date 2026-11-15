@@ -1,6 +1,7 @@
 import re
 import json
 from threading import Lock
+from manager.battle.action_slot_mode import is_round_action_locked
 from manager.core.lock_manager import file_lock
 from extensions import all_skill_data, socketio
 
@@ -198,6 +199,10 @@ def handle_skill_declaration(room, data, username, sid=None):
     target = next((c for c in state['characters'] if str(c.get('id')) == str(target_id)), None)
 
     if not actor: return
+    if commit and is_round_action_locked(actor, state.get("round")):
+        _safe_emit('new_log', {'message': '途中参加したキャラクターは次のラウンドから行動できます。', 'type': 'error'}, to=sid or room)
+        return
+
 
     skill_data = all_skill_data.get(skill_id)
 

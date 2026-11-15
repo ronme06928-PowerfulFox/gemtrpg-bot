@@ -105,3 +105,13 @@ def test_retired_socket_handlers_are_unregistered():
     for path in [*(root / "events").rglob("*.py"), *(root / "static/js").rglob("*.js")]:
         source = path.read_text(encoding="utf-8")
         assert not any(event in source for event in removed), str(path)
+
+
+def test_retired_bookmarks_have_no_production_code():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    for directory in ("events", "manager", "scripts", "static/js"):
+        for suffix in (".py", ".js", ".mjs"):
+            for path in (root / directory).rglob("*" + suffix):
+                assert "preset_bookmarks" not in path.read_text(encoding="utf-8"), str(path)

@@ -19,6 +19,7 @@ from manager.battle.action_slot_mode import (
     get_action_unavailable_reason,
     is_character_deployed,
     is_action_slot_disabled,
+    is_round_action_locked,
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
 from manager.battle.resolve_presentation import reset_resolve_presentation
@@ -356,8 +357,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
             continue
         if is_action_slot_disabled(char):
             continue
-        can_act_from_round = int(char.get('can_act_from_round', 0) or 0)
-        if bool(char.get('is_summoned', False)) and can_act_from_round > int(round_value):
+        if is_round_action_locked(char, round_value):
             continue
 
         actor_id = char.get('id')

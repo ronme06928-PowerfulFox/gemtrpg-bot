@@ -4,6 +4,8 @@ from flask import request
 
 from extensions import socketio
 from manager.room_access import is_sid_in_room
+from manager.game_logic import get_status_value, process_battle_start
+from manager.battle.common_manager import _get_round_transition_lock
 from manager.room_manager import (
     broadcast_log,
     broadcast_state_update,
@@ -86,12 +88,16 @@ def on_request_combat_enter(data):
     room, state, username = _authorized_normal_room(data)
     if not room:
         return
-    session = start_combat_session(state, username)
-    if session is None:
-        _emit_error(_sid(), "combat is already active")
-        return
-    broadcast_log(room, f"--- {username} が戦闘突入しました ---", "round")
-    _sync(room, state)
+    with _get_round_transition_lock(room):
+        session = start_combat_session(state, username)
+        if session is None:
+            _emit_error(_sid(), "combat is already active")
+            return
+        broadcast_log(room, f"--- {username} が戦闘突入しました ---", "round")
+        living = [char for char in state.get("characters", [])
+                  if isinstance(char, dict) and get_status_value(char, "HP") > 0]
+        process_battle_start(room, living)
+        _sync(room, state)
 
 
 @socketio.on("request_combat_conclude")
@@ -99,15 +105,16 @@ def on_request_combat_conclude(data):
     room, state, username = _authorized_normal_room(data)
     if not room:
         return
-    if not _session_matches(data, state):
-        _emit_error(_sid(), "stale combat session")
-        return
-    record = conclude_combat_session(state, username, (data or {}).get("outcome"))
-    if record is None:
-        _emit_error(_sid(), "combat conclusion is invalid")
-        return
-    broadcast_log(room, f"--- {username} が戦闘終結しました: {record['outcome']} ---", "round")
-    _sync(room, state, concluded_record=record)
+    with _get_round_transition_lock(room):
+        if not _session_matches(data, state):
+            _emit_error(_sid(), "stale combat session")
+            return
+        record = conclude_combat_session(state, username, (data or {}).get("outcome"))
+        if record is None:
+            _emit_error(_sid(), "combat conclusion is invalid")
+            return
+        broadcast_log(room, f"--- {username} が戦闘終結しました: {record['outcome']} ---", "round")
+        _sync(room, state, concluded_record=record)
 
 
 @socketio.on("request_combat_history_delete")

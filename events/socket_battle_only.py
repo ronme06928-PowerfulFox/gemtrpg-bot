@@ -435,8 +435,6 @@ def handle_bo_draft_state(data):
     visible_ally_formations = visible_records(record_map(store, "ally_formation"), is_author=context["is_author"], room_role=context["room_role"])
     visible_stage_presets = visible_records(record_map(store, "stage"), is_author=context["is_author"], room_role=context["room_role"])
     bo_payload = copy.deepcopy(bo)
-    if context.get('room_role') not in GM_ROLES:
-        bo_payload.pop('preset_bookmarks', None)
     payload = {
         "battle_only": bo_payload,
         "users": users,
@@ -704,7 +702,7 @@ def handle_bo_start_battle(data):
     else:
         _bo_assign_auto_positions([], built_enemy_chars, state, anchor=anchor)
 
-    for char in state.get('characters', []):
+    for char in list(state.get('characters', [])):
         apply_passive_effect_buffs(char)
         process_battle_start(room, char)
 

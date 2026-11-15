@@ -548,7 +548,7 @@ CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（
 
 正規化・派生処理の正本は`manager/character_tags.py`。持ちキャラ作成・更新、ルーム投入、戦闘専用プリセット、ルームプリセット、召喚で同じデータ契約を維持する。プレイヤーキャラクターの保存・投入時には、取得済み輝化スキルのコスト合計が通過点を超えていないこともサーバー側で検証する。
 
-関連テストは`tests/test_character_tags.py`、`tests/test_owned_characters_api.py`、`tests/test_add_character_owned_character.py`、`tests/test_room_preset_apply.py`。
+関連テストは`tests/test_character_tags.py`、`tests/test_owned_characters_api.py`、`tests/test_add_character_owned_character.py`、`tests/test_preset_deployment.py`。
 
 ---
 

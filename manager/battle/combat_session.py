@@ -108,6 +108,18 @@ def is_combat_progression_allowed(state):
     return state.get("combat_phase") is None or str(state.get("combat_phase")).strip().lower() == "active"
 
 
+def mark_combat_arrival(state, char):
+    """Return whether this character joined a combat already in progress."""
+    if _is_battle_only(state):
+        active = (state.get("battle_only") or {}).get("status") == "in_battle"
+    else:
+        active = state.get("combat_phase") == "active" and isinstance(state.get("combat_session"), dict)
+    char.pop("can_act_from_round", None)
+    if active:
+        char["can_act_from_round"] = _as_int(state.get("round")) + 1
+    return active
+
+
 def _clear_character_combat_state(char):
     initial = char.get("initial_state") if isinstance(char.get("initial_state"), dict) else {}
     initial_buffs = initial.get("special_buffs", [])
@@ -117,6 +129,7 @@ def _clear_character_combat_state(char):
             row["value"] = 0
     from manager.granted_skills.service import clear_granted_skills
     clear_granted_skills(char)
+    char.pop("can_act_from_round", None)
     char["hasActed"] = False
     char["speedRoll"] = 0
     char["totalSpeed"] = None

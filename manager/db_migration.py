@@ -72,14 +72,6 @@ def _remap_room_drafts(ids):
                             member.pop("behavior_profile_override", None)
                     draft[field] = [member for member in draft[field]
                                     if isinstance(member, dict) and member["preset_id"]]
-            bookmarks = draft.get("preset_bookmarks")
-            if isinstance(bookmarks, list):
-                for bookmark in bookmarks:
-                    if isinstance(bookmark, dict):
-                        key = (bookmark.get("target_type"), bookmark.get("target_id"))
-                        bookmark["target_id"] = ids.get(key)
-                draft["preset_bookmarks"] = [bookmark for bookmark in bookmarks
-                                             if isinstance(bookmark, dict) and bookmark["target_id"]]
         placement = state.get("room_preset_state")
         if isinstance(placement, dict) and placement.get("selected_stage_id"):
             placement["selected_stage_id"] = ids.get(("stage", placement["selected_stage_id"]))

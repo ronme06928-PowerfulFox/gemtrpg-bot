@@ -43,6 +43,14 @@ def is_action_slot_disabled(character):
     return get_action_slot_mode(character) == ACTION_SLOT_MODE_NONE
 
 
+def is_round_action_locked(character, round_value):
+    try:
+        first_round = int(character.get("can_act_from_round") or 0)
+        return first_round > int(round_value or 0)
+    except (TypeError, ValueError):
+        return False
+
+
 def is_character_deployed(character):
     """Return whether a character has a valid battlefield position."""
     if not isinstance(character, dict):

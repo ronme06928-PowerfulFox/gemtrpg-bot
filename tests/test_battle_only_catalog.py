@@ -96,6 +96,10 @@ def _find_event(emits, event_name):
 
 
 def test_bo_draft_update_and_start_battle(monkeypatch):
+    from manager import room_manager
+    from manager.game_logic import process_battle_start
+    from manager.utils import get_status_value
+
     state = _base_state()
     store = {
         'character_presets': {
@@ -122,7 +126,20 @@ def test_bo_draft_update_and_start_battle(monkeypatch):
 
     emits = _patch_common(monkeypatch, state, store)
     monkeypatch.setattr(socket_battle_only, 'set_character_owner', lambda room, char_id, username: owner_calls.append((room, char_id, username)))
-    monkeypatch.setattr(socket_battle_only, 'process_battle_start', lambda room, char: start_calls.append((room, char.get('id'))))
+    buff = {"name": "TestInitFP", "data": {"battle_start_effect": [
+        {"type": "APPLY_STATE", "state_name": "FP", "value": 1},
+    ]}}
+    for unit in store["character_presets"].values():
+        unit["special_buffs"] = [buff]
+    monkeypatch.setattr(room_manager, "get_room_state", lambda *_: state)
+    for fn in ("broadcast_log", "broadcast_state_update", "save_specific_room_state"):
+        monkeypatch.setattr(room_manager, fn, lambda *args, **kwargs: None)
+
+    def track_battle_start(room, char):
+        start_calls.append((room, char["id"]))
+        process_battle_start(room, char)
+
+    monkeypatch.setattr(socket_battle_only, "process_battle_start", track_battle_start)
 
     socket_battle_only.handle_bo_draft_update(
         {
@@ -152,6 +169,7 @@ def test_bo_draft_update_and_start_battle(monkeypatch):
     assert allies[0].get('owner') == 'Alice'
     assert owner_calls
     assert len(start_calls) == 3
+    assert [get_status_value(char, 'FP') for char in chars] == [1, 1, 1]
     assert int(state.get('round', 0) or 0) == 1
     assert isinstance(state.get('timeline'), list)
     assert len(state.get('timeline')) >= 1

@@ -15,6 +15,8 @@ from manager.room_manager import (
     is_authorized_for_character
 )
 from manager.game_logic import process_battle_start, process_skill_effects
+from manager.battle.combat_session import mark_combat_arrival
+from manager.battle.common_manager import _get_round_transition_lock
 from manager.utils import (
     get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff,
     apply_passive_effect_buffs
@@ -199,13 +201,12 @@ def handle_add_character(data):
 
     print(f"User {username} adding character to room '{room}': {displayName}")
 
-    state["characters"].append(char_data)
-
-    # ★ 追加: 所有権マップに登録
-    set_character_owner(room, new_char_id, username)
-
-    # ★ 追加: 戦闘開始時効果（戦闘準備など）を適用
-    process_battle_start(room, char_data)
+    with _get_round_transition_lock(room):
+        in_combat = mark_combat_arrival(state, char_data)
+        state["characters"].append(char_data)
+        set_character_owner(room, new_char_id, username)
+        if in_combat:
+            process_battle_start(room, char_data)
 
     broadcast_log(room, f"{displayName} が戦闘に参加しました。", 'info')
     broadcast_state_update(room)

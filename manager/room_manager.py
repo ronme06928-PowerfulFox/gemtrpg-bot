@@ -666,9 +666,6 @@ def build_participant_state(state):
     public_state = copy.deepcopy(state if isinstance(state, dict) else {})
     for field in PRIVATE_ROOM_FIELDS:
         public_state.pop(field, None)
-    draft = public_state.get("battle_only")
-    if isinstance(draft, dict):
-        draft.pop("preset_bookmarks", None)
     return public_state
 
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
