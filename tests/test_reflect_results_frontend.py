@@ -46,6 +46,7 @@ const context = {
 context.window = context;
 vm.createContext(context);
 vm.runInContext(fs.readFileSync('./static/js/modals.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync('./static/js/modals/behavior_flow_editor_modal.js', 'utf8'), context);
 const trigger = { getBoundingClientRect: () => ({ bottom: 10, left: 250 }) };
 context.createSettingsContextMenu(trigger, character);
 nodes.get('ctx-reflect-exp').value = '2';

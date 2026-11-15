@@ -355,3 +355,28 @@ def test_startup_removes_initial_states_from_units_and_history(unit_app):
         assert current.revision == 1
         assert current.payload == {"name": "Enemy", "hp": 9, "initial_hp": 4}
         assert [snapshot.payload for snapshot in repository.history("unit", key)] == [current.payload]
+
+
+def test_formation_saves_cloned_pattern_and_member_atomically(unit_app):
+    profile = {"enabled": True, "loops": {"a": {"steps": [{"actions": ["E-23"]}]}}}
+    unit, _ = repository.save("unit", None, {"name": "Enemy", "skills": [{"id": "E-23"}],
+        "patterns": [{"id": "BP-1", "name": "First", "profile": profile}]})
+    unit_id = unit.entry_id
+    pattern = {"id": "BP-2", "name": "Second", "profile": profile}
+    additions = {unit_id: {"base_revision": 1, "patterns": [pattern]}}
+    members = [{"unit_id": unit_id, "count": 1, "pattern_id": "BP-2"}]
+    formation = {"name": "Enemy group", "type": "enemy", "members": members}
+    assert not repository.check("formation", formation, pattern_additions=additions)[0]
+    with pytest.raises(repository.CatalogValidationError):
+        repository.save("formation", None, {**formation, "name": ""}, pattern_additions=additions)
+    assert repository.get("unit", unit_id).revision == 1
+    row, _ = repository.save("formation", None, formation, pattern_additions=additions)
+    assert row.payload["members"][0]["pattern_id"] == "BP-2"
+    saved_unit = repository.get("unit", unit_id)
+    assert saved_unit.revision == 2
+    assert saved_unit.payload["default_pattern_id"] == "BP-1"
+    assert build_character(saved_unit.payload, "enemy", 1, pattern_id="BP-2")["flags"]["behavior_profile"]["enabled"]
+    assert repository.check("unit", {**saved_unit.payload, "patterns": saved_unit.payload["patterns"][:1]},
+                            entry_id=unit_id)[0]
+    with pytest.raises(repository.CatalogConflictError):
+        repository.save("formation", None, formation, pattern_additions=additions)

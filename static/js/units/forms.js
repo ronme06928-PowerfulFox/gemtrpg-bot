@@ -2,7 +2,7 @@
   const h = window.CatalogGlossary.escape;
   const sections = {
     unit: [['basic','基本情報'], ['status','ステータス'], ['skills','スキル'],
-      ['gear',['パッシブ・','輝化スキル・','アイテム']], ['behavior','行動設定'], ['history','履歴']],
+      ['gear',['パッシブ・','輝化スキル・','アイテム']], ['behavior','行動設定'], ['patterns','行動パターン'], ['history','履歴']],
     formation: [['basic','基本情報'], ['members','メンバー'], ['history','履歴']],
     stage: [['basic','基本情報'], ['battle','編成'], ['field','フィールド効果'], ['avatar','ステージアバター'], ['history','履歴']],
   };
@@ -28,6 +28,7 @@
   function sectionAction(section, payload, edit) {
     if (section === 'skills') return picker('＋ スキルを追加','skill','skills',edit);
     if (section === 'members') return picker('＋ メンバーを追加',payload.type + '-unit','members',edit);
+    if (section === 'patterns' && edit && window.UnitPatterns.canCreate(payload)) return button('＋ パターンを追加','pattern-add');
     if (section === 'field' && edit) return button('＋ 効果ルールを追加','add-rule');
     return '';
   }
@@ -107,8 +108,8 @@
         </div></fieldset></div>`;
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
         card('画像',image(p.image) + '<div class="unit-row-actions">' + (edit ? button('画像を選択','image') + (p.image ? button('解除','clear-image') : '') : '') + '</div>'),
-        card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy,'checkbox')),
-        field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GM限定表示','gm_only',p.gm_only,'checkbox')) + common + tags();
+        card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy !== false,'checkbox')),
+        field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GMのみ操作可能','gm_only',p.gm_only,'checkbox')) + common + tags();
       if (kind === 'formation') return field('編成名','name',p.name) +
         grid(`<p>種類 <strong>${h(sides[p.type])}</strong></p>`,num('推奨人数','recommended_ally_count',p.recommended_ally_count,'min="0"')) + common;
       return field('名前','name',p.name) + `<div class="unit-stage-description">${field('コンセプト','concept',p.concept)}
@@ -161,11 +162,33 @@
       field('予定スキルを公開','behavior.show_planned',p.behavior?.show_planned,'checkbox'),
       select('行動スロット','behavior.slot_mode',{normal:'通常',none:'なし'},p.behavior?.slot_mode || 'normal'))
       + field('スキルの制約（JSON）','behavior.constraints',window.CatalogJson.stringify(p.behavior?.constraints || []),'area');
-    if (section === 'members') return `<table class="unit-members"><thead><tr><th>ユニット</th><th>数</th><th></th></tr></thead><tbody>${
+    if (section === 'patterns') return window.UnitPatterns.render(row,records,masters.skill,edit);
+    if (section === 'members') {
+      const enemy = p.type === 'enemy';
+      const memberPattern = (member,i) => {
+        const unit = records.find(entry => entry.kind === 'unit' && entry.entry_id === member.unit_id)?.payload;
+        const patterns = unit?.patterns || [];
+        const selected = member.pattern_id;
+        if (!patterns.length && !selected) return '<span>自動選択</span>';
+        const defaultName = patterns.find(pattern => pattern.id === unit?.default_pattern_id)?.name;
+        const choices = {'':defaultName ? `既定（${defaultName}）` : '自動選択',
+          ...Object.fromEntries(patterns.map(pattern => [pattern.id,pattern.name]))};
+        const missing = selected && !Object.hasOwn(choices,selected);
+        if (missing) choices[selected] = `参照不可（${selected}）`;
+        return `<select data-path="members.${i}.pattern_id" aria-label="${h(resource(member.unit_id))}の行動パターン">${options(choices,selected)}</select>
+          ${missing ? '<span class="unit-pattern-missing">参照できないパターンです</span>' : ''}`;
+      };
+      return `<table class="unit-members"><thead><tr><th>ユニット</th><th>数</th>${enemy ? '<th>行動パターン</th>' : ''}<th></th></tr></thead><tbody>${
       (p.members || []).map((member,i) => `<tr><td><code>${h(member.unit_id)}</code> ${h(resource(member.unit_id))}</td>
         <td><input type="number" min="1" data-path="members.${i}.count" value="${h(member.count)}" aria-label="${h(resource(member.unit_id))}の数"></td>
-        <td>${edit ? button('外す','remove-row',`data-path="members" data-index="${i}" aria-label="${h(resource(member.unit_id))}を編成から外す"`,'unit-remove') : ''}</td></tr>`).join('')
-      || '<tr><td colspan="3" class="cat-caption">メンバーなし</td></tr>'}</tbody></table>`;
+        ${enemy ? `<td>${memberPattern(member,i)}</td>` : ''}
+        <td><div class="unit-row-actions">${edit && enemy && records.some(entry => entry.kind === 'unit' &&
+          entry.entry_id === member.unit_id && entry.payload.patterns?.some(pattern =>
+            pattern.id === (member.pattern_id || entry.payload.default_pattern_id))) ?
+            button('複製して編集','pattern-copy-member',`data-index="${i}"`) : ''}
+        ${edit ? button('外す','remove-row',`data-path="members" data-index="${i}" aria-label="${h(resource(member.unit_id))}を編成から外す"`,'unit-remove') : ''}</div></td></tr>`).join('')
+      || `<tr><td colspan="${enemy ? 4 : 3}" class="cat-caption">メンバーなし</td></tr>`}</tbody></table>`;
+    }
     if (section === 'battle') return ['enemy','ally'].map(side => {
       const path = side + '_formation_id';
       return card(sides[side], `<p>${h(resource(p[path]))}</p><div class="unit-row-actions">` + picker('編成を選択',side + '-formation',path,edit)

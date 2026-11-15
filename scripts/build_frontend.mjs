@@ -87,6 +87,7 @@ const CLASSIC_SCRIPTS = [
   'js/master_data/workspace_parts.js',
   'js/master_data/workspace.js',
   'js/units/api.js',
+  'js/units/patterns.js',
   'js/units/forms.js',
   'js/units/views.js',
   'js/units/workspace.js',

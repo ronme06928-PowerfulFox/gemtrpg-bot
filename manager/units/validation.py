@@ -3,7 +3,8 @@ from copy import deepcopy
 import re
 
 from models import CatalogEntry
-from manager.battle.enemy_behavior import normalize_behavior_profile
+from manager.battle.enemy_behavior import BEHAVIOR_NO_ACTION_TOKEN, normalize_behavior_profile
+from manager.battle.pve_intent_planner import _is_random_usable_skill_token
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 
 IDS = {"unit": ("U", 3), "formation": ("F", 3),
@@ -86,6 +87,7 @@ def _check_unit(unit, errors, previous):
     ids = set()
     skills = {row.get("id") for row in unit.get("skills", [])
               if isinstance(row, dict) and _text(row.get("id"))}
+    previous_ids = {pattern["id"] for pattern in (previous or {}).get("patterns", [])}
     for index, pattern in enumerate(unit.get("patterns", [])):
         path = f"patterns[{index}]"
         if (not isinstance(pattern, dict) or not _text(pattern.get("id"))
@@ -94,12 +96,15 @@ def _check_unit(unit, errors, previous):
             errors[path] = "パターンには一意のID・名前・チャートが必要です"
             continue
         ids.add(pattern["id"])
+        if unit.get("allow_enemy") is False and pattern["id"] not in previous_ids:
+            errors[path] = "敵キャラクターのみパターンを作成できます"
         profile = normalize_behavior_profile(pattern["profile"])
         pattern["profile"] = profile
         for loop in profile["loops"].values():
             for step in loop["steps"]:
                 for skill in step["actions"]:
-                    if skill and skill != "__NO_ACTION__" and skill not in skills:
+                    if (skill and skill != BEHAVIOR_NO_ACTION_TOKEN and not _is_random_usable_skill_token(skill)
+                            and skill not in skills):
                         errors[path] = f"ユニットが持っていないスキルです: {skill}"
     default = unit.get("default_pattern_id")
     if len(ids) == 1 and not default and not (previous or {}).get("patterns"):

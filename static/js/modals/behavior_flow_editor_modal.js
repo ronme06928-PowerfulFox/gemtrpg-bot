@@ -226,6 +226,7 @@ function getLatestCharacterForBehaviorEditor(charOrId) {
 }
 
 const BEHAVIOR_STEP_ACTION_RANDOM_USABLE = '__RANDOM_USABLE__';
+const BEHAVIOR_STEP_ACTION_NO_ACTION = '__NO_ACTION__';
 
 function coerceBehaviorStepSkillId(rawValue) {
     if (rawValue === null || rawValue === undefined) return null;
@@ -242,6 +243,7 @@ function coerceBehaviorStepSkillId(rawValue) {
     ].includes(lower)) {
         return BEHAVIOR_STEP_ACTION_RANDOM_USABLE;
     }
+    if (lower === '__no_action__' || lower === 'no_action') return BEHAVIOR_STEP_ACTION_NO_ACTION;
     return text;
 }
 
@@ -469,7 +471,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 
     const currentFlags = (workingChar.flags && typeof workingChar.flags === 'object') ? workingChar.flags : {};
     const draft = normalizeBehaviorProfileForEditor(currentFlags.behavior_profile);
-    const ownedSkills = getCharacterOwnedSkillsForBehaviorEditor(workingChar);
+    const ownedSkills = cfg.ownedSkills || getCharacterOwnedSkillsForBehaviorEditor(workingChar);
+    const opener = document.activeElement;
     let selectedLoopId = String(draft.initial_loop_id || Object.keys(draft.loops)[0] || '');
     const nodeLayout = {};
     let connectFromLoopId = null;
@@ -494,6 +497,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     function buildOwnedSkillOptions(selectedSkillId) {
         const options = [
             { id: '', name: '(未指定)' },
+            { id: BEHAVIOR_STEP_ACTION_NO_ACTION, name: '(行動しない)' },
             { id: BEHAVIOR_STEP_ACTION_RANDOM_USABLE, name: '(使用可能スキルからランダム)' },
             ...ownedSkills
         ];
@@ -548,9 +552,13 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const overlay = document.createElement('div');
     overlay.id = 'behavior-flow-editor-backdrop';
     overlay.className = 'modal-backdrop';
+    overlay.style.zIndex = '1600';
 
     const content = document.createElement('div');
     content.className = 'modal-content';
+    content.setAttribute('role','dialog');
+    content.setAttribute('aria-modal','true');
+    content.setAttribute('aria-labelledby','behavior-editor-title');
     content.style.boxSizing = 'border-box';
     content.style.maxWidth = '1240px';
     content.style.width = 'min(1240px, calc(100vw - 24px))';
@@ -563,7 +571,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     content.style.background = '#f7fbff';
     content.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h3 style="margin:0; color:#1e4766;">${titleText}</h3>
+            <h3 id="behavior-editor-title" style="margin:0; color:#1e4766;">${titleText}</h3>
             <div style="display:flex; align-items:center; gap:8px;">
                 <span id="behavior-dirty-indicator" style="font-size:0.8em; color:#5a758b;">保存状態: 保存済み</span>
                     <button id="behavior-flow-close-x" style="border:none; background:#dbe9f5; color:#1e4766; padding:6px 10px; border-radius:6px; cursor:pointer; min-width:64px; white-space:nowrap;">閉じる</button>
@@ -975,11 +983,12 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         </div>
         <div class="behavior-editor-footer">
             <button id="behavior-cancel-btn" style="padding:8px 12px; background:#fff; border:1px solid #b9cddd; border-radius:6px; cursor:pointer;">キャンセル</button>
-            <button id="behavior-save-btn" style="padding:8px 12px; background:#2f7fbf; border:none; color:#fff; border-radius:6px; cursor:pointer;">${String(cfg.saveLabel || '保存')}</button>
+            <button id="behavior-save-btn" style="padding:8px 12px; background:#2f7fbf; border:none; color:#fff; border-radius:6px; cursor:pointer;">${escapeBehaviorEditorHtml(cfg.saveLabel || '保存')}</button>
         </div>
     `;
     overlay.appendChild(content);
     document.body.appendChild(overlay);
+    content.querySelector('#behavior-flow-close-x')?.focus();
 
     const enabledEl = content.querySelector('#behavior-enabled');
     const initialEl = content.querySelector('#behavior-initial-loop');
@@ -1029,6 +1038,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             if (!ok) return;
         }
         overlay.remove();
+        opener?.focus({preventScroll:true});
+        cfg.onClose?.();
     };
     content.querySelector('#behavior-flow-close-x')?.addEventListener('click', () => closeModal());
     content.querySelector('#behavior-cancel-btn')?.addEventListener('click', () => closeModal());
@@ -1356,6 +1367,8 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     actionRow.appendChild(select);
                     actionRow.appendChild(delActionBtn);
 
+                    actionsWrap.appendChild(actionRow);
+                    if (coerceBehaviorStepSkillId(actionSkillId) === BEHAVIOR_STEP_ACTION_NO_ACTION) return;
                     const candidatesWrap = document.createElement('div');
                     candidatesWrap.className = 'behavior-target-candidates';
                     actionTargetCandidates.forEach((candidate, candidateIdx) => {
@@ -1446,7 +1459,6 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                     noTargetNote.className = 'behavior-no-target-note';
                     noTargetNote.textContent = '対象不在時: この行動をキャンセル';
                     actionRow.appendChild(noTargetNote);
-                    actionsWrap.appendChild(actionRow);
                 });
                 if (!ownedSkills.length) {
                     const msg = document.createElement('div');
@@ -2205,5 +2217,6 @@ function openBehaviorFlowEditorModal(char, options = {}) {
 /**
  * 設定コンテキストメニューを作成・表示
  */
+global.getLatestCharacterForBehaviorEditor = getLatestCharacterForBehaviorEditor;
 global.openBehaviorFlowEditorModal = openBehaviorFlowEditorModal;
 })(window);

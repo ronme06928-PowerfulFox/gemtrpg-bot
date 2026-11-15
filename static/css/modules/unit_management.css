@@ -161,6 +161,16 @@
 .unit-members, .unit-table { width: 100%; border-collapse: collapse; overflow-wrap: anywhere; }
 .unit-members th, .unit-members td, .unit-table th, .unit-table td { border-bottom: 1px solid var(--cat-edge); padding: 4px; text-align: left; }
 .unit-members { margin-bottom: 6px; }
+.unit-members .unit-row-actions { min-width: max-content; }
+.unit-members [data-path$=".pattern_id"] { max-width: min(22ch, 100%); }
+.unit-pattern-row { padding: 8px 0; border-bottom: 1px solid var(--cat-edge); }
+.unit-pattern-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+.unit-pattern-steps { margin: 4px 0 8px; padding-left: 1.6em; }
+.unit-pattern-missing { color: var(--cat-danger); }
+.unit-pattern-reason { margin-top: 4px !important; text-align: right; }
+@media (max-width: 520px) {
+  .unit-members .unit-row-actions { min-width: 0; }
+}
 .unit-members td:last-child { text-align: right; }
 .unit-table { table-layout: fixed; }
 .unit-table th:first-child { width: 30%; }

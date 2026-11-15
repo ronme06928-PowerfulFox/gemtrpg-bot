@@ -18,6 +18,7 @@ await import('./static/js/master_data/catalog_api.js');
 await import('./static/js/units/api.js');
 await import('./static/js/master_data/glossary.js');
 await import('./static/js/master_data/skill.js');
+await import('./static/js/units/patterns.js');
 await import('./static/js/units/forms.js');
 await import('./static/js/units/views.js');
 const api = UnitApi;
@@ -88,6 +89,26 @@ assert.match(status, /unit-vitals[\s\S]*data-path="hp"[\s\S]*data-path="mp"[\s\S
 assert.match(basic, /type="radio" data-path="visibility"/);
 assert.deepEqual(UnitViews.candidates('collection',collections,{},unit),collections);
 assert.match(UnitViews.candidateList(collections,'続き','collection'), /選択/);
+const original = {id:'BP-1',name:'元',note:'説明',profile:{loops:{a:{steps:[
+  {actions:['Ps-01','missing'],targets:['target_self','target_enemy_random']},
+  {actions:['missing','__NO_ACTION__']},
+]}}}};
+unit.payload.patterns = [original];
+unit.payload.default_pattern_id = 'BP-1';
+assert.match(UnitForms.render('basic',{...context,records:collections}), /GMのみ操作可能/);
+const formation = {kind:'formation',entry_id:'F-001',payload:{type:'enemy',name:'編成',members:[{unit_id:'U-001',pattern_id:'BP-1',count:3}]}};
+unit.entry_id = 'U-001';
+const chart = UnitPatterns.render(unit,[formation],skillRows,true);
+assert.match(chart,/既定[\s\S]*未所持[\s\S]*編成/);
+assert.match(chart,/data-unit-action="pattern-delete"[^>]*disabled/);
+assert.match(UnitForms.render('members',{...context,kind:'formation',row:formation,records:[{...unit,kind:'unit'}]}), /既定（元）[\s\S]*複製して編集/);
+const other = {skills:[{id:'Pb-01'}]};
+const missing = UnitPatterns.missingActions(original.profile,other);
+assert.equal(missing.length,3);
+const converted = UnitPatterns.remap(original.profile,missing,['Pb-01','Pb-01','']);
+assert.deepEqual(converted.loops.a.steps,[{actions:['Pb-01','Pb-01'],targets:['target_self','target_enemy_random']}]);
+assert.deepEqual(original.profile.loops.a.steps[0].actions,['Ps-01','missing']);
+assert.equal(UnitPatterns.create(unit.payload,original).id,'BP-2');
 const record = UnitViews.recordRow({...unit,entry_id:'U-001'},true);
 for (const value of ['U-001','味方','敵','非公開','廃止']) assert.ok(record.includes(value));
 await api.save('formation', 'F-001', {payload: {type: 'enemy'}, base_revision: 3});

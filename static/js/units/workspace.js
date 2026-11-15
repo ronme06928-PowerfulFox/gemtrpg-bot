@@ -2,6 +2,7 @@
   const api = window.UnitApi;
   const forms = window.UnitForms;
   const views = window.UnitViews;
+  const patterns = window.UnitPatterns;
   const {button, badges, sections} = forms;
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
@@ -38,14 +39,30 @@
     const masters = Object.fromEntries(views.master.map(kind => [kind,[]]));
     const state = {author:false, busy:false, kind:'unit', records:[], selected:null, draft:null, section:'basic',
       search:'', collection:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
-      rawConstraints:null, conflict:false, wideConfirm:false};
+      rawConstraints:null, conflict:false, wideConfirm:false, patternAdditions:new Map()};
     let checkTimer, checkToken = 0, dialogFocus;
     const canEdit = () => state.author;
     const current = () => state.records.find(row => row.entry_id === state.selected && row.kind === state.kind);
     const payload = () => state.draft.payload;
     const disabled = flag => flag ? 'disabled' : '';
-    const submitBody = () => ({payload:payload(), visibility:state.draft.visibility,
-      ...(state.selected ? {base_revision:state.draft.revision} : {})});
+    const findUnit = id => state.records.find(row => row.kind === 'unit' && row.entry_id === id);
+    const withPendingPatterns = row => {
+      const added = state.patternAdditions.get(row.entry_id);
+      return row.kind === 'unit' && added ? {...row,payload:{...row.payload,patterns:[...(row.payload.patterns || []),...added]}} : row;
+    };
+    function submitBody() {
+      const body = {payload:payload(),visibility:state.draft.visibility};
+      if (state.selected) body.base_revision = state.draft.revision;
+      if (!state.patternAdditions.size) return body;
+      const additions = [];
+      for (const [unitId, added] of state.patternAdditions) {
+        const selected = added.filter(pattern => payload().members.some(member =>
+          member.unit_id === unitId && member.pattern_id === pattern.id));
+        if (selected.length) additions.push([unitId,{base_revision:findUnit(unitId).revision,patterns:selected}]);
+      }
+      if (additions.length) body.pattern_additions = Object.fromEntries(additions);
+      return body;
+    }
 
     function close() {
       clearTimeout(checkTimer);
@@ -119,7 +136,7 @@
       const position = scroll ? [scroll.scrollTop,get('.unit-section').scrollTop,get('.unit-confirm').scrollTop] : null;
       const sectionBody = state.section === 'history'
         ? (persisted ? history(state.history, {revision:row.revision, restore:canEdit(), button}) : '<p class="cat-caption">保存すると履歴が表示されます。</p>')
-        : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.records});
+        : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.patternAdditions.size ? state.records.map(withPendingPatterns) : state.records});
       detail.innerHTML = `<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
         <div class="unit-editor${state.wideConfirm ? ' is-confirm-wide' : ''}">
@@ -224,6 +241,7 @@
     }
 
     async function selectRow(row, section = 'basic') {
+      state.patternAdditions.clear();
       state.selected = row?.entry_id ?? null;
       state.draft = row ? clone(row) : null;
       state.section = section;
@@ -248,6 +266,7 @@
     }
 
     function startNew(kind, value = forms.defaults(kind)) {
+      state.patternAdditions.clear();
       state.kind = kind;
       state.selected = null;
       state.refs = null;
@@ -285,7 +304,9 @@
       const list = get('.unit-candidates');
       const scroll = get('.unit-candidate-scroll');
       const position = preservePosition ? scroll.scrollTop : 0;
-      list.innerHTML = views.candidateList(views.candidates(source,state.records,masters),
+      const available = views.candidates(source,state.records,masters).filter(row =>
+        source !== 'pattern-target' || row.entry_id !== state.selected);
+      list.innerHTML = views.candidateList(available,
         get('[data-candidate-search]').value,source,category,payload());
       scroll.scrollTop = position;
     }
@@ -294,7 +315,7 @@
       const {source, path} = control.dataset;
       state.picker = {source, path, category:''};
       const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',collection:'分類を選択',
-        'enemy-unit':'敵メンバーを追加','ally-unit':'味方メンバーを追加','enemy-formation':'敵編成を選択','ally-formation':'味方編成を選択'}[source];
+        'enemy-unit':'敵メンバーを追加','ally-unit':'味方メンバーを追加','enemy-formation':'敵編成を選択','ally-formation':'味方編成を選択','pattern-target':'複製先のユニットを選択'}[source];
       showDialog(title,`<label class="cat-field unit-candidate-search">候補検索<input type="search" data-candidate-search placeholder="ID・名称・説明"></label>
         ${source === 'collection' ? button('未分類','candidate','data-id=""') : ''}
         ${source === 'skill' ? `<nav class="unit-candidate-tabs" aria-label="スキル分類">${views.skillTabs('')}</nav>` : ''}
@@ -310,6 +331,7 @@
     function pick(control) {
       const {id} = control.dataset;
       const {source,path} = state.picker;
+      if (source === 'pattern-target') { copyToUnit(id); return; }
       if (source === 'collection') setPath(path,id || null);
       else if (source.endsWith('-formation')) setPath(path,id);
       else if (source.endsWith('-unit')) addRow(path,{unit_id:id,count:1,pattern_id:null});
@@ -359,6 +381,101 @@
 
     const confirm = (title, message, confirmText, defaultFocus) =>
       window.showAppConfirm(message,{title,confirmText,defaultFocus});
+
+    function chart(pattern, unit, apply) {
+      const opener = document.activeElement;
+      const ownedSkills = (unit.skills || []).map(({id}) => ({
+        id, name:patterns.skillName(id,unit,masters.skill),
+      }));
+      panel.inert = true;
+      window.openBehaviorFlowEditorModal({name:unit.name,flags:{behavior_profile:pattern.profile}},{
+        ownedSkills, title:'行動チャート編集', subtitle:unit.name + ' / ' + pattern.name, saveLabel:'適用',
+        onSave:apply, onClose:() => {
+          panel.inert = false;
+          (opener.isConnected ? opener : get('.unit-section'))?.focus({preventScroll:true});
+        },
+      });
+    }
+
+    function addPattern(source) {
+      const pattern = patterns.create(payload(),source);
+      addRow('patterns',pattern);
+      if (!payload().default_pattern_id) setPath('default_pattern_id',pattern.id);
+      update(true);
+    }
+
+    async function patternAction(action, id, control) {
+      if (!patterns.canCreate(payload())) return;
+      if (action === 'pattern-add') { addPattern(); return; }
+      const index = payload().patterns.findIndex(pattern => pattern.id === id);
+      if (index < 0) return;
+      const pattern = payload().patterns[index];
+      if (action === 'pattern-edit') chart(pattern,payload(),profile => {
+        setPath(`patterns.${index}.profile`,profile);
+        update(true);
+      });
+      if (action === 'pattern-default') {
+        setPath('default_pattern_id',id);
+        update(true);
+      }
+      if (action === 'pattern-delete') {
+        if (payload().default_pattern_id === id || patterns.users(state.records,state.selected,id,null).length) return;
+        if (!await confirm('パターンを削除',`「${pattern.name}」を削除しますか？`,'削除','cancel')) return;
+        setPath('patterns',payload().patterns.filter(item => item.id !== id));
+        update(true);
+      }
+      if (action === 'pattern-copy') addPattern(pattern);
+      if (action === 'pattern-copy-to') {
+        openPicker(control);
+        state.picker.pattern = pattern;
+      }
+    }
+
+    function copyToUnit(unitId) {
+      const destination = findUnit(unitId);
+      const source = state.picker.pattern;
+      const missing = patterns.missingActions(source.profile,destination.payload);
+      const choices = (destination.payload.skills || []).map(({id}) =>
+        `<option value="${h(id)}">${h(id)} · ${h(patterns.skillName(id,destination.payload,masters.skill))}</option>`).join('');
+      showDialog('他ユニットへ複製',`<form data-pattern-copy-form>
+        <p>複製先 <strong>${h(destination.payload.name)}</strong></p>
+        ${missing.length ? '<p>未所持スキルの置換先を指定するか、ステップを外してください。</p>' : ''}
+        ${missing.map(({loop,round,action,id}) => `<label class="cat-field">${h(loop)} · ${round + 1}手目 / ${action + 1}枠 · ${h(id)}
+          <select data-pattern-replacement required><option value="">対応を選択</option>
+          ${choices}<option value="drop">ステップを外す</option></select></label>`).join('')}
+        <div class="unit-dialog-actions"><button type="submit" class="cat-button cat-primary">複製先に保存</button></div></form>`);
+      state.patternTransfer = {destination,source,missing};
+    }
+
+    async function savePatternCopy(form) {
+      const {destination,source,missing} = state.patternTransfer;
+      const choices = [...form.querySelectorAll('[data-pattern-replacement]')].map(input => input.value === 'drop' ? '' : input.value);
+      const pattern = patterns.create(destination.payload,source);
+      pattern.profile = patterns.remap(source.profile,missing,choices);
+      const draft = {...destination.payload,patterns:[...(destination.payload.patterns || []),pattern],
+        default_pattern_id:destination.payload.default_pattern_id || pattern.id};
+      const {entry} = await api.save('unit',destination.entry_id,{
+        payload:draft,visibility:destination.visibility,base_revision:destination.revision,
+      });
+      state.records = state.records.map(row => row === destination ? entry : row);
+      closeDialog();
+      notify('複製先のユニットに保存しました。');
+    }
+
+    function copyMemberPattern(index) {
+      const member = payload().members[index];
+      const unit = findUnit(member.unit_id);
+      const unitDraft = withPendingPatterns(unit).payload;
+      const source = unitDraft.patterns.find(item => item.id === (member.pattern_id || unitDraft.default_pattern_id));
+      const pattern = patterns.create(unitDraft,source);
+      chart(pattern,unitDraft,profile => {
+        pattern.profile = profile;
+        const added = state.patternAdditions.get(unit.entry_id) || [];
+        state.patternAdditions.set(unit.entry_id,[...added,pattern]);
+        setPath(`members.${index}.pattern_id`,pattern.id);
+        update(true);
+      });
+    }
 
     function addTag() {
       const input = get('[data-unit-tag-input]');
@@ -525,6 +642,8 @@
       }
       if (action === 'clear-image') { setPath('image',''); update(true); }
       if (action === 'picker') openPicker(control);
+      if (action === 'pattern-copy-member') await copyMemberPattern(index);
+      else if (action.startsWith('pattern-')) await patternAction(action,id,control);
       if (action === 'rename-skill') renameSkill(index);
       if (action === 'reset-skill-name') applySkillName(index,'');
       if (action === 'candidate-category') {
@@ -604,7 +723,8 @@
       catch (error) {
         const conflict = error.status === 409;
         const detail = Object.values(error.errors || {}).flatMap(reason => typeof reason === 'object' ? Object.values(reason) : reason).join(' / ');
-        const message = conflict ? (operation === 'confirm-package' ? '版が変わりました。取り込み内容を再確認してください。'
+        const message = conflict ? (operation === 'copy-pattern' ? '複製先の版が変わりました。再読み込みしてください。'
+          : operation === 'confirm-package' ? '版が変わりました。取り込み内容を再確認してください。'
           : operation === 'delete' ? detail || '削除できません。「再読み込み」で使用状況を確認してください。'
           : '版が変わりました。「再読み込み」で最新の版を確認してください。') : detail || error.message;
         if (conflict && ['save','deprecate','restore'].includes(operation)) {
@@ -675,6 +795,7 @@
       if (!path || !canEdit() || !state.draft || state.busy) return;
       let value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value || 0) : input.value;
       if (path === 'other_lines') value = input.value.split(/\r?\n/).filter(line => line.trim());
+      if (path.endsWith('.pattern_id')) value ||= null;
       if (input.validity.badInput) return;
       if (path === 'behavior.constraints') {
         try {
@@ -692,7 +813,12 @@
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
-      update();
+      const refresh = path.endsWith('.pattern_id');
+      update(refresh);
+      if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});
+      if (path.startsWith('patterns.') && path.endsWith('.name')) {
+        input.closest('.unit-pattern-row').querySelector('.unit-pattern-heading strong').textContent = value || '名称未入力';
+      }
     });
     panel.addEventListener('submit', event => {
       const form = event.target;
@@ -702,6 +828,11 @@
           if (addTag()) update(true);
           get('[data-unit-tag-input]').focus();
         });
+        return;
+      }
+      if (form.matches('[data-pattern-copy-form]')) {
+        event.preventDefault();
+        if (canEdit()) run(() => savePatternCopy(form),'copy-pattern');
         return;
       }
       if (!form.matches('[data-skill-name-form]')) return;

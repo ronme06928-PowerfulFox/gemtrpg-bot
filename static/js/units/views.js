@@ -17,6 +17,7 @@
   }
 
   function candidates(source, records, masters) {
+    if (source === 'pattern-target') return records.filter(row => row.kind === 'unit' && !row.deprecated && window.UnitPatterns.canCreate(row.payload));
     if (source === 'collection') return records.filter(row => row.kind === 'unit_collection');
     if (master.includes(source)) return masters[source].filter(item => !item.deprecated);
     const [side,kind] = source.split('-');
@@ -49,7 +50,7 @@
         plain(p.発動時効果),plain(p.特記),...(p.tags || [])].join(' ').toLowerCase().includes(needle);
     });
     if (!visible.length) return '<p class="cat-empty">該当候補なし</p>';
-    const action = source === 'collection' || source.endsWith('-formation') ? '選択' : '追加';
+    const action = source === 'collection' || source === 'pattern-target' || source.endsWith('-formation') ? '選択' : '追加';
     const used = new Set((draft[masterPaths[source]] || []).map(entry => entry.id || entry));
     const slots = new Map();
     for (const {unit_id} of draft.members || []) slots.set(unit_id,(slots.get(unit_id) || 0) + 1);
@@ -64,7 +65,7 @@
         <span>${row.kind === 'unit' ? group : h(group)}</span>
         <div class="unit-candidate-actions">${used.has(row.entry_id) ? '<span>追加済み</span>' :
           button(action,'candidate',`data-id="${h(row.entry_id)}" aria-label="${h(nameOf(p) || row.entry_id)}を${action}"`,'unit-candidate-add')}
-          ${row.kind === 'unit' ? `<small>編成内 ${slots.get(row.entry_id) || 0} 枠</small>` : ''}</div></header>
+          ${source.endsWith('-unit') ? `<small>編成内 ${slots.get(row.entry_id) || 0} 枠</small>` : ''}</div></header>
         <dl>${detail.filter(([,value]) => skill || value).map(([key,value]) => `<dt>${key}</dt><dd>${h(value || '—')}</dd>`).join('')}</dl></article>`;
     }).join('');
   }

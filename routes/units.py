@@ -97,7 +97,7 @@ def list_references(kind, entry_id):
 def check(kind):
     data = _body()
     errors, warnings = repository.check(kind, data.get("payload"), data.get("visibility", "public"),
-                                         entry_id=data.get("entry_id"))
+                                         entry_id=data.get("entry_id"), pattern_additions=data.get("pattern_additions"))
     return jsonify(errors=errors, warnings=warnings)
 
 
@@ -108,7 +108,8 @@ def save(kind, entry_id=None):
     data = _body()
     row, warnings = repository.save(
         kind, entry_id, data.get("payload"), visibility=data.get("visibility", "public"),
-        base_revision=data.get("base_revision"), actor_user_id=g.authenticated_user.id)
+        base_revision=data.get("base_revision"), actor_user_id=g.authenticated_user.id,
+        pattern_additions=data.get("pattern_additions"))
     return jsonify(entry=repository.entry_json(row), warnings=warnings), (201 if entry_id is None else 200)
 
 

@@ -44,10 +44,16 @@ def next_id(kind, reserved=()):
     return f"{prefix}-{max(numbers, default=0) + 1:0{width}d}"
 
 
-def check(kind, payload, visibility="public", *, entry_id=None):
+def check(kind, payload, visibility="public", *, entry_id=None, pattern_additions=None):
     if entry_id is not None and not isinstance(entry_id, str):
         return {"entry_id": "IDが不正です"}, {}
     current = entries()
+    try:
+        current.update(_formation_pattern_updates(kind, payload, pattern_additions, current))
+    except CatalogValidationError as exc:
+        return exc.errors, {}
+    except CatalogConflictError as exc:
+        return exc.errors, {}
     previous = current.get((kind, entry_id), {}).get("payload")
     errors, warnings, normalized = inspect_payload(kind, payload, visibility, current, previous=previous)
     if not errors and entry_id:
@@ -113,8 +119,43 @@ def write(kind, entry_id, payload, visibility, deprecated, action, actor_user_id
     return row
 
 
-def _validate(kind, key, payload, visibility):
-    resources = entries()
+def _formation_pattern_updates(kind, payload, additions, resources):
+    if additions is None:
+        return {}
+    if (kind != "formation" or not isinstance(payload, dict) or payload.get("type") != "enemy"
+            or not isinstance(additions, dict) or not isinstance(payload.get("members"), list)):
+        raise CatalogValidationError({"patterns": "パターンの複製には敵編成が必要です"})
+    updates = {}
+    for unit_id, addition in additions.items():
+        key = ("unit", unit_id)
+        original = resources.get(key)
+        if original is None or not original["payload"].get("allow_enemy", True):
+            raise CatalogValidationError({unit_id: "複製先の敵ユニットが見つかりません"})
+        base = addition.get("base_revision") if isinstance(addition, dict) else None
+        if type(base) is not int or base != original["revision"]:
+            raise CatalogConflictError(f"{unit_id} の版が変わりました。読み直してください",
+                                       field="base_revision")
+        patterns = addition.get("patterns")
+        selected = {member.get("pattern_id") for member in payload["members"]
+                    if isinstance(member, dict) and member.get("unit_id") == unit_id
+                    and isinstance(member.get("pattern_id"), str)}
+        if not isinstance(patterns, list) or not patterns or any(
+            not isinstance(pattern, dict) or not isinstance(pattern.get("id"), str)
+            or pattern["id"] not in selected for pattern in patterns
+        ):
+            raise CatalogValidationError({unit_id: "複製したパターンを編成の枠で指定してください"})
+        existing = original["payload"].get("patterns", [])
+        draft = {**original["payload"], "patterns": [*existing, *patterns]}
+        errors, _, normalized = inspect_payload("unit", draft, original["visibility"], resources,
+                                                previous=original["payload"])
+        if errors:
+            raise CatalogValidationError({f"{unit_id}.{field}": message for field, message in errors.items()})
+        updates[key] = {**original, "payload": normalized}
+    return updates
+
+
+def _validate(kind, key, payload, visibility, *, resources=None):
+    resources = entries() if resources is None else resources
     previous = resources.get((kind, key), {}).get("payload")
     errors, warnings, normalized = inspect_payload(kind, payload, visibility, resources, previous=previous)
     if not errors and key:
@@ -148,14 +189,22 @@ def dependent_errors(kind, entry_id, payload, resources):
 
 
 @_transaction
-def save(kind, entry_id, payload, *, visibility="public", base_revision=None, actor_user_id=None):
+def save(kind, entry_id, payload, *, visibility="public", base_revision=None, actor_user_id=None,
+         pattern_additions=None):
     lock_writes()
     row = get(kind, entry_id) if entry_id is not None else None
     if entry_id is not None:
         expect_revision(row, base_revision)
     elif base_revision is not None:
         raise CatalogValidationError({"base_revision": "新規作成では指定できません"})
-    payload, warnings = _validate(kind, entry_id, payload, visibility)
+    resources = entries() if pattern_additions is not None else None
+    updates = _formation_pattern_updates(kind, payload, pattern_additions, resources)
+    if resources is not None:
+        resources.update(updates)
+    payload, warnings = _validate(kind, entry_id, payload, visibility, resources=resources)
+    for (_, unit_id), unit in updates.items():
+        write("unit", unit_id, unit["payload"], unit["visibility"], unit["deprecated"],
+              "publish", actor_user_id, row=get("unit", unit_id))
     key = entry_id or next_id(kind)
     row = write(kind, key, payload, visibility, row.deprecated if row else False,
                 "publish", actor_user_id, row=row)
