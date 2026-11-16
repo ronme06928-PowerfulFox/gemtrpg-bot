@@ -1,13 +1,15 @@
 """管理画面の使い方ページの写真を、本物のアプリから撮る（計画60 §5.20 の試作）。
 
 使い方：
-  1. 手元の instance/gemtrpg.db ではない、別のフォルダからアプリを起動する（起動したときのカレントの instance/ が使われる）。
-  2. python scripts/catalog_preview/help/shots.py --base http://127.0.0.1:5000 --db <そのフォルダ>/instance/gemtrpg.db
+  1. DB の写しでアプリを起動する：python app.py --db _local/agent_db/gemtrpg.db
+  2. python scripts/catalog_preview/help/shots.py --base http://127.0.0.1:5000 --db _local/agent_db/gemtrpg.db
+手元の instance/gemtrpg.db は指せない（AGENTS.md「手元のDBを守る」）。
 写真は _local/catalog_preview/help/shots/ に、1280×720 で書く。利用者は制作者とアプリ管理者の両方の印を付けて作る。
 --publish を付けると、使い方ページ用の範囲に切り出して static/help/master_data/ に書く。
 """
 import argparse
 import sqlite3
+import sys
 import uuid
 from functools import partial
 from pathlib import Path
@@ -15,6 +17,8 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT))
+from manager.local_db_guard import is_local_db  # noqa: E402
 OUT = ROOT / "_local" / "catalog_preview" / "help" / "shots"
 PUBLISHED = ROOT / "static" / "help" / "master_data"
 # 試作の「要る所を切り出す」の範囲（1280×720、左・上・幅・高さ）。
@@ -58,6 +62,8 @@ def main():
     parser.add_argument("--db", required=True)
     parser.add_argument("--publish", action="store_true")
     args = parser.parse_args()
+    if is_local_db(args.db):
+        parser.error("手元の instance/gemtrpg.db は指せません。写しを python app.py --db で起動して、その写しを指してください。")
     capture = partial(shot, publish=args.publish)
     login = "help" + uuid.uuid4().hex[:8]
     with sync_playwright() as p:

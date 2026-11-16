@@ -30,6 +30,7 @@ from whitenoise import WhiteNoise # 追加: 静的ファイル配信高速化
 
 # ★ 拡張機能（共有インスタンス）のインポート
 from extensions import db, socketio, all_skill_data, all_buff_data, all_glossary_data
+from manager.local_db_guard import snapshot_local_db  # 読み込むと手元のDBの接続の蓋が付く
 
 # ★ マネージャー（ロジック層）からのインポート
 from manager.data_manager import init_app_data, read_saved_rooms_with_owners
@@ -94,7 +95,12 @@ def _get_cors_origins():
 def _get_database_uri():
     # Local runs must never use DATABASE_URL.  DATABASE_URL belongs to Render.
     if not IS_RENDER:
-        return 'sqlite:///gemtrpg.db'
+        path = os.environ.get('GEMTRPG_DB') or _cli_db_path()
+        if not path:
+            return 'sqlite:///gemtrpg.db'
+        target = os.path.abspath(path)
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        return 'sqlite:///' + target.replace(os.sep, '/')
     # Render must fail closed: a missing or non-PostgreSQL DATABASE_URL would
     # silently boot a separate empty SQLite DB and look like data loss, instead
     # of honoring the local/Render separation guarantee.
@@ -112,6 +118,21 @@ def _get_database_uri():
     # ドライバ（2.1以降の postgresql:// は psycopg v3）や接続文字列の書式で
     # 未導入のドライバが選ばれ起動失敗しないよう、スキームを導入済みドライバ用に揃える。
     return 'postgresql+psycopg2://' + url.split('://', 1)[1]
+
+
+def build_cli_parser():
+    parser = argparse.ArgumentParser()
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument('--pull', action='store_true', help='本番のマスターデータ7種類を手元へ取り込む')
+    parser.add_argument('--db', help='手元のDBの代わりに使う SQLite ファイル（確認用の写し）')
+    return parser
+
+
+def _cli_db_path():
+    # python app.py --db <パス>。既定のアプリは run_cli より先に作られるので、ここで読む。
+    if __name__ != '__main__':
+        return None
+    return build_cli_parser().parse_known_args()[0].db
 
 
 def configure_app(flask_app, config=None):
@@ -157,6 +178,8 @@ def init_extensions(flask_app, cors_origins=None):
 
 def run_startup_tasks(flask_app):
     with flask_app.app_context():
+        if str(flask_app.config.get('SQLALCHEMY_DATABASE_URI') or '').startswith('sqlite:'):
+            snapshot_local_db(db.engine.url.database)
         _configure_local_sqlite(flask_app)
         # 本番の PostgreSQL もローカルの SQLite も、足りない列を起動時に足す。
         print("--- Checking Database Schema ---")
@@ -700,10 +723,7 @@ app = create_app(run_startup=_should_run_startup_on_import()) if _should_create_
 # ==========================================
 
 def run_cli(argv=None):
-    parser = argparse.ArgumentParser()
-    modes = parser.add_mutually_exclusive_group()
-    modes.add_argument('--pull', action='store_true', help='本番のマスターデータ7種類を手元へ取り込む')
-    args = parser.parse_args(argv)
+    args = build_cli_parser().parse_args(argv)
 
     if args.pull:
         if IS_RENDER:

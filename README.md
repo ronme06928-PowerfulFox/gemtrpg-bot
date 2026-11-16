@@ -15,7 +15,7 @@ python -m pip install -r requirements-dev.txt
 python app.py
 ```
 
-ブラウザで `http://127.0.0.1:5000` を開きます。既存の開発環境を使う場合は、その環境を有効にして起動してください。ローカルDBは `instance/gemtrpg.db`、通常の起動ではマスターDBを読み、空の種類だけJSONキャッシュから取り込みます。ローカルではRender環境を示す `RENDER` を設定しません。
+ブラウザで `http://127.0.0.1:5000` を開きます。既存の開発環境を使う場合は、その環境を有効にして起動してください。ローカルDBは `instance/gemtrpg.db`（起動のたびに `instance/backups/` へ写しを3つまで残す。`--db <パス>` で別のファイルを指せる）、通常の起動ではマスターDBを読み、空の種類だけJSONキャッシュから取り込みます。ローカルではRender環境を示す `RENDER` を設定しません。
 
 画像アップロードにはCloudinaryの設定が必要です。Google Sheetsの認証設定は不要です。設定項目は[F01のRender環境変数と運用手順](manuals/implemented/F01_Operations_Manual.md)を参照し、`.env`や認証JSONはGitに追加しないでください。
 

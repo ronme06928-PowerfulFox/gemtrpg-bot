@@ -817,7 +817,11 @@ sessionには `user_id`、`auth_version`、必要最小限の状態だけを置�
 
 ## 6. 環境分離方針
 
-- ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db` を使用。
+- ローカル環境: `DATABASE_URL` を無視し `sqlite:///gemtrpg.db`（`instance/gemtrpg.db`）を使用。`python app.py --db <パス>` または環境変数 `GEMTRPG_DB` で別の SQLite ファイルを指せる（確認用の写し）。
+- 手元のDBの保護（`manager/local_db_guard.py`、2026-11-16）：
+  - エージェントのプロセス（環境変数 `CLAUDECODE`・`AI_AGENT`・`CODEX_` で始まる名前のどれか）から `instance/gemtrpg.db` を開くと、SQLAlchemy の接続の時点で `RuntimeError` にする。ユーザーが自分で開くときだけ `GEMTRPG_ALLOW_LOCAL_DB=1` で解除できる。
+  - `instance/gemtrpg.db` で起動するたび、起動時の移行の前に `instance/backups/gemtrpg_<日時>.db` へ写しを取り、新しい3つを残す。
+  - 手順は AGENTS.md「手元のDBを守る」。
 - ローカルSQLiteは起動時に WAL・`busy_timeout` に加えて外部キー制約（`PRAGMA foreign_keys = ON`）を有効にする。SQLiteは既定で外部キーを検査しないため、有効にしないとルームやユーザーを削除しても `ON DELETE CASCADE` が働かず、関連行が孤立する。本番PostgreSQLは常に検査する。
 - Render本番: `DATABASE_URL` 未設定または非PostgreSQLなら **起動失敗（fail-fast）**。PostgreSQLのURLはスキームを `postgresql+psycopg2://` へ正規化して使う。`requirements.txt` のDBドライバは `psycopg2-binary` のみであり、SQLAlchemy 2.1以降で `postgresql://` の既定ドライバがpsycopg（v3）に変わったことや、接続文字列の書式によって未導入のドライバが選ばれて起動失敗することを防ぐ。
 - `requirements.txt` は間接依存まで含めて全パッケージを `==` で固定する。Renderの新規ビルドは未固定の依存を最新版で入れるため、ローカルでテストしていない版が本番に入る（2026-10-15、未固定だったSQLAlchemy本体に2.1.4が入り起動失敗した）。固定値は全件テストが通るローカル環境の版と一致させ、依存を上げるときは Part 3 §7 の手順に従う。

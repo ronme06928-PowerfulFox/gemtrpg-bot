@@ -37,7 +37,7 @@
 7. 演出の一覧は `npm run gallery` で `/_local/fx_gallery/fx_gallery.html` を作る。本番のバンドルには入らない。
 8. 解決パネルの見比べ用HTMLは `npm run resolve-preview` で作る。本番のバンドルには入らない。
 9. 演出の試作の見比べ用HTMLは `npm run fx-proto` で作る（攻撃は `/_local/fx_proto/slash_proto.html`、宝石の加護と戦闘の終わりは `/_local/fx_proto/pr5_proto.html`）。本番のバンドルには入らない。
-10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html`（計画60 §5.3）と `/_local/catalog_preview/ui_revision.html`（見やすさの改修、計画60 §6-3）を作る。PR60-19 の試作は `node scripts/catalog_preview/pr19/build.mjs` で `/_local/catalog_preview/pr19/compare.html` を作る（本物の管理画面のコードを、本物の API の返事を写した偽物のサーバーで動かす）。PR60-21 の試作は `node scripts/catalog_preview/pr21/build.mjs` で作り、`python scripts/catalog_preview/pr21/serve.py` を動かして `http://127.0.0.1:8766/` で見る（威力の計算は本物）。PR60-22 の試作は `node scripts/catalog_preview/pr22/build.mjs` で `/_local/catalog_preview/pr22/index.html` を作る（`?as=author` で制作者の見え方）。PR60-24 の試作は `node scripts/catalog_preview/pr24/build.mjs` で `/_local/catalog_preview/pr24/index.html` を作り、作った文章が元の効果に戻るかを `node scripts/catalog_preview/pr24/measure.mjs` で数える。管理画面の使い方ページの試作は、`python scripts/catalog_preview/help/shots.py --db <別フォルダの instance/gemtrpg.db>` で本物のアプリから写真を撮り（別のフォルダから起動したアプリが要る）、`node scripts/catalog_preview/help/build.mjs` で `/_local/catalog_preview/help/index.html` を作る。本番のバンドルには入らない。
+10. マスターデータの管理画面の見比べ用HTMLは `npm run catalog-preview` で `/_local/catalog_preview/catalog_preview.html`（計画60 §5.3）と `/_local/catalog_preview/ui_revision.html`（見やすさの改修、計画60 §6-3）を作る。PR60-19 の試作は `node scripts/catalog_preview/pr19/build.mjs` で `/_local/catalog_preview/pr19/compare.html` を作る（本物の管理画面のコードを、本物の API の返事を写した偽物のサーバーで動かす）。PR60-21 の試作は `node scripts/catalog_preview/pr21/build.mjs` で作り、`python scripts/catalog_preview/pr21/serve.py` を動かして `http://127.0.0.1:8766/` で見る（威力の計算は本物）。PR60-22 の試作は `node scripts/catalog_preview/pr22/build.mjs` で `/_local/catalog_preview/pr22/index.html` を作る（`?as=author` で制作者の見え方）。PR60-24 の試作は `node scripts/catalog_preview/pr24/build.mjs` で `/_local/catalog_preview/pr24/index.html` を作り、作った文章が元の効果に戻るかを `node scripts/catalog_preview/pr24/measure.mjs` で数える。管理画面の使い方ページの試作は、`python scripts/catalog_preview/help/shots.py --db <写しのDB>` で本物のアプリから写真を撮り（同じ写しを `python app.py --db` で起動したアプリが要る）、`node scripts/catalog_preview/help/build.mjs` で `/_local/catalog_preview/help/index.html` を作る。本番のバンドルには入らない。
 11. メインメニューと専用の管理画面（権限・密度・配色）の試作は `node scripts/ui_layout_proto/build.mjs` で `/_local/ui_layout_proto/index.html` を作る（UI 基盤計画 §7.2）。本番のバンドルには入らない。
 
 ```bash
@@ -90,6 +90,22 @@ python app.py --pull    # 本番の公開APIからマスターデータ7種類�
 
 本番は gunicorn + eventlet（`gunicorn_config.py`, worker=1）。`/healthz` はスピンダウン防止/死活監視用の軽量エンドポイント。
 
+## 手元のDBを守る（エージェント向け・最重要）
+
+手元の `instance/gemtrpg.db` はユーザーのデータ。エージェントは開かない（起動・確認・スクリプト・テストのどれでも）。起動時の移行が走ると元に戻せない。
+
+- 確認用のアプリは、DB の写しを `--db` で指して起動する。カレントのフォルダを移すやり方は使わない（相対の `sqlite:///gemtrpg.db` は読み込んだ `app.py` の `instance/` に解決されるので、カレントでは守れない）。
+
+```bash
+python app.py --db _local/agent_db/gemtrpg.db   # 無ければ空のDBを作り、マスターデータはJSONキャッシュから取り込む
+```
+
+- スクリプトから `create_app` を呼ぶときは、環境変数 `GEMTRPG_DB=<写しのパス>` を付けるか、`config={"SQLALCHEMY_DATABASE_URI": ...}` で写しを指す。
+- 写しは `_local/agent_db/` に置き、確認が済んだら消す。手元の DB から写しを作るときは、ファイルを読んでコピーするだけにする（`sqlite3` で手元の DB に書き込まない）。
+- `.claude/launch.json` の `gemtrpg` は `_local/agent_db/gemtrpg.db` を使う。手元の DB で起動する設定を足さない。
+- 仕組みの蓋：エージェントのプロセス（環境変数 `CLAUDECODE`・`AI_AGENT`・`CODEX_` で始まる名前のどれか）から手元の DB を開こうとすると、接続の時点でエラーになる（`manager/local_db_guard.py`）。止まったら写しを指し直す。ユーザー専用の解除 `GEMTRPG_ALLOW_LOCAL_DB=1` をエージェントは使わない。
+- もう一つの蓋：手元の DB で起動するたび、移行の前に `instance/backups/` へ写しを取る（新しい3つを残す）。
+
 ## 状態管理・永続化の注意
 
 - ルーム状態の真実は **メモリ上の `active_room_states`**。DB はその永続化。
@@ -99,7 +115,7 @@ python app.py --pull    # 本番の公開APIからマスターデータ7種類�
 ## マスターデータ管理画面の使い方
 
 - 管理画面を直したら、使い方ページ（`static/help/master_data.html`）と写真（`static/help/master_data/`）も直す。
-- 別フォルダの確認用DBでアプリを起動し、`python scripts/catalog_preview/help/shots.py --db <確認用の instance/gemtrpg.db> --publish` で撮り直す。`static/help/master_data/` に出力された写真の切り出し範囲を確認する。
+- 確認用の DB の写しを `python app.py --db <写し>` で起動し、`python scripts/catalog_preview/help/shots.py --db <同じ写し> --publish` で撮り直す。`static/help/master_data/` に出力された写真の切り出し範囲を確認する。
 
 ## 確認用の出力の片付け
 
