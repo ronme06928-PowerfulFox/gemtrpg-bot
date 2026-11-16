@@ -1,4 +1,4 @@
-/* 計画60 §6-3 見やすさの改修の試作。決まり3：文字4.5:1以上、枠3:1以上。 */
+/* 計画60 PR60-16〜19 見やすさの改修の試作。決まり3：文字4.5:1以上、枠3:1以上。 */
 :root {
   --rv-text: #1e293b; --rv-sub: #4b5563; --rv-line: #d5dce6; --rv-edge: #7b8798;
   --rv-bg: #ffffff; --rv-soft: #f5f7fa; --rv-primary: #1d4ed8; --rv-primary-soft: #e8efff;

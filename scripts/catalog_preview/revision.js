@@ -1,4 +1,4 @@
-// 計画60 §6-3 管理画面の見やすさ改修の試作。案A（今の3列を整える）と案B（上のタブと節の目次）を見比べる。
+// 計画60 PR60-16〜19 管理画面の見やすさ改修の試作。案A（今の3列を整える）と案B（上のタブと節の目次）を見比べる。
 const { catalogs, schemas } = __CATALOG_PREVIEW__;
 
 const KINDS = [
@@ -38,7 +38,7 @@ const state = {
 
 const root = document.getElementById('catalog-preview');
 root.innerHTML = `
-  <header class="rv-heading"><p class="rv-eyebrow">計画60 §6-3 · 見やすさの改修の試作</p><h1>管理画面の見比べ</h1>
+  <header class="rv-heading"><p class="rv-eyebrow">計画60 PR60-16〜19 · 見やすさの改修の試作</p><h1>管理画面の見比べ</h1>
   <p>どちらの案にも、決まり2〜4・6〜9（札・コントラスト・操作の重み・内部名を出さない・候補から選ぶ・未保存の確かめ・外を押せば閉じる）を共通で入れています。違いは並べ方です。</p></header>
   <div class="rv-controls">
     <div class="rv-seg" role="group" aria-label="案">${[['A', '案A 今の3列を整える'], ['B', '案B 上のタブと節の目次']].map(([key, label]) => `<button type="button" data-plan="${key}">${label}</button>`).join('')}</div>

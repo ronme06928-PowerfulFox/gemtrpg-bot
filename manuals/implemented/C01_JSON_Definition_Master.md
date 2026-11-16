@@ -853,7 +853,7 @@ python scripts/skill_catalog_tool.py lint
 
 アイテム（item/I-・3件）、特殊パッシブ（passive/Pa-・8件）、輝化スキル（radiance/S-・9件）、召喚テンプレート（summon/U-・3件）もcatalog_entriesを正本とする。各種類が空の場合だけ種類別キャッシュから履歴付きで取り込む。公開APIの辞書の形はキャッシュと同じで、前3種はid、召喚はbaseNameを配信時に付ける。管理用payloadにはIDを含めない。
 
-項目は計画60 §5.13の定義に従う。名前は必須。itemはdescription/flavor/consumable/usable/round_limit/effect、passiveはcost/description/flavor/effect、radianceは同項目にduration/granted_tag_idsを持つ。summonは現行キャッシュの19項目を型付きで持つ。効果のオブジェクトの内容と戦闘処理は変更しない。
+項目は `manager/catalog/kinds.py` の `KINDS` の定義に従う。名前は必須。itemはdescription/flavor/consumable/usable/round_limit/effect、passiveはcost/description/flavor/effect、radianceは同項目にduration/granted_tag_idsを持つ。summonは現行キャッシュの19項目を型付きで持つ。効果のオブジェクトの内容と戦闘処理は変更しない。
 
 召喚テンプレートの項目は次のとおり。
 

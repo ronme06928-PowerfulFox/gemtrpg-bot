@@ -1,4 +1,4 @@
-/* 管理画面の使い方ページの試作（計画60 §5.20）。色は管理画面（master_data.css）の --cat-* にそろえる。 */
+/* 管理画面の使い方ページの試作（計画60 PR60-25）。色は管理画面（master_data.css）の --cat-* にそろえる。 */
 :root {
   --text: #1e293b; --sub: #4b5563; --edge: #d6dee8; --control: #7b8798; --soft: #f5f7fa; --bg: #ffffff;
   --primary: #1d4ed8; --primary-soft: #e8efff; --warn: #8a4b00; --warn-soft: #fff4dc;

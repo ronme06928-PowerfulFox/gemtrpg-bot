@@ -1,4 +1,4 @@
-// 管理画面の使い方ページの試作を組み立てる：node scripts/catalog_preview/help/build.mjs（計画60 §5.20）
+// 管理画面の使い方ページの試作を組み立てる：node scripts/catalog_preview/help/build.mjs（計画60 PR60-25）
 // content.html（本文の下書き）を、見やすさの案を切り替えられる1枚のページにして /_local/catalog_preview/help/index.html に書く。
 // 写真は scripts/catalog_preview/help/shots.py で本物のアプリから撮り、/_local/catalog_preview/help/shots/ に置く。
 import { readFile, mkdir, writeFile } from 'node:fs/promises';

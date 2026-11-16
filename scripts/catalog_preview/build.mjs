@@ -23,10 +23,10 @@ for (const [kind, cache] of Object.entries(caches)) {
   data.catalogs[kind] = JSON.parse(await read(`data/cache/${cache}_cache.json`));
 }
 const fonts = (await read('static/index.html')).match(/<link[^>]+href="https:\/\/fonts\.(?:googleapis|gstatic)\.com[^>]*>/g).join('\n');
-// catalog_preview.html：計画60 §5.3 の試作（Phase 2 の UI）。ui_revision.html：§6-3 見やすさの改修の見比べ。
+// catalog_preview.html：計画60 の試作（Phase 2 の UI）。ui_revision.html：見やすさの改修（PR60-16〜19）の見比べ。
 const pages = [
   { entry: 'page.js', title: 'マスターデータ管理画面 · 計画60プレビュー', bodyClass: 'cat-page', styles: ['static/dist/app.bundle.css', 'scripts/catalog_preview/page.css'], output: 'catalog_preview.html' },
-  { entry: 'revision.js', title: '管理画面の見比べ · 計画60 §6-3', bodyClass: 'rv-page', styles: ['scripts/catalog_preview/revision.css'], output: 'ui_revision.html' },
+  { entry: 'revision.js', title: '管理画面の見比べ · 計画60 PR60-16〜19', bodyClass: 'rv-page', styles: ['scripts/catalog_preview/revision.css'], output: 'ui_revision.html' },
 ];
 for (const page of pages) {
   const result = await build({
