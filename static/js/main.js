@@ -892,6 +892,9 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         }
         window.AppLoading.step('盤面を準備中');
         battleState = initialState;
+        // 盤面は保管場所の状態を優先して描くので、前のルームの駒を残さない。
+        window.BoardPresentationCoordinator?.resetForRoom();
+        window.BattleStore?.resetForRoom(initialState);
         currentRoomName = roomName;
         socket.emit('join_room', {
             room: currentRoomName,

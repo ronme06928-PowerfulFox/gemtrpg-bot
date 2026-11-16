@@ -10,51 +10,55 @@ const _battleVerbose = () => (typeof window !== 'undefined' && !!window.BATTLE_D
 const _battleLog = (...args) => { if (_battleVerbose()) console.log(...args); };
 const _battleDebug = (...args) => { if (_battleVerbose()) console.debug(...args); };
 
+// 初期状態（ルームに入るたびにここから作り直す）
+function createInitialState() {
+    return {
+        characters: [],
+        active_match: null,
+        timeline: [],
+        logs: [],
+        round: 0,
+        turn_char_id: null,
+        turn_entry_id: null,
+        room_name: null,
+        phase: 'select',
+        slots: {},
+        intents: {},
+        redirects: [],
+        resolveTrace: [],
+        resolveView: {
+            status: 'idle',
+            phase: null,
+            stepTotal: 0,
+            stepDone: 0,
+            currentStep: null,
+            recentSteps: []
+        },
+        resolveReady: false,
+        resolveReadyInfo: null,
+        resolvePresentation: null,
+        room_id: null,
+        battle_id: null,
+        selectedSlotId: null,
+        targetSelectMode: false,
+        battleError: null,
+        usableSkillIds: {},
+        compareCalcBySlot: {},
+        declare: {
+            sourceSlotId: null,
+            targetSlotId: null,
+            targetType: 'single_slot',
+            lastSingleTargetSlotId: null,
+            skillId: null,
+            mode: 'idle',
+            calc: null
+        }
+    };
+}
+
 class BattleStore {
     constructor() {
-        // 初期状態
-        this._state = {
-            characters: [],
-            active_match: null,
-            timeline: [],
-            logs: [],
-            round: 0,
-            turn_char_id: null,
-            turn_entry_id: null,
-            room_name: null,
-            phase: 'select',
-            slots: {},
-            intents: {},
-            redirects: [],
-            resolveTrace: [],
-            resolveView: {
-                status: 'idle',
-                phase: null,
-                stepTotal: 0,
-                stepDone: 0,
-                currentStep: null,
-                recentSteps: []
-            },
-            resolveReady: false,
-            resolveReadyInfo: null,
-            resolvePresentation: null,
-            room_id: null,
-            battle_id: null,
-            selectedSlotId: null,
-            targetSelectMode: false,
-            battleError: null,
-            usableSkillIds: {},
-            compareCalcBySlot: {},
-            declare: {
-                sourceSlotId: null,
-                targetSlotId: null,
-                targetType: 'single_slot',
-                lastSingleTargetSlotId: null,
-                skillId: null,
-                mode: 'idle',
-                calc: null
-            }
-        };
+        this._state = createInitialState();
         this._listeners = new Set();
         this._initialized = false;
         this._debugLastLogAt = 0;
@@ -101,6 +105,15 @@ class BattleStore {
         this._syncToLegacy();
         this._notify();
         _battleLog('📦 BattleStore: Initialized');
+    }
+
+    /**
+     * 別のルームに入る時、前のルームの状態を残さずに作り直す。
+     * @param {Object} roomState - 新しいルームの状態
+     */
+    resetForRoom(roomState) {
+        this._state = createInitialState();
+        this.initialize(roomState);
     }
 
     /**

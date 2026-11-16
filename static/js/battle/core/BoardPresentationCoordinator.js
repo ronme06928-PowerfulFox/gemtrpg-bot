@@ -88,6 +88,12 @@ export class BoardPresentationCoordinator {
         return true;
     }
 
+    // 別のルームに入る時、前のルームの演出の固定と保留を捨てる。
+    resetForRoom() {
+        this._locks.clear();
+        this._pendingState = null;
+    }
+
     freeze(reason) {
         if (reason) this._locks.add(reason);
     }
