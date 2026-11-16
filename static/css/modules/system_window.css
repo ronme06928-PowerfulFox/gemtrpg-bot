@@ -10,6 +10,7 @@
 
 .system-window.setting {
   background-image: var(--ui-tex);
+  background-attachment: local;
   border: 1.5px solid var(--ui-gold);
   box-shadow: inset 0 0 0 3px var(--ui-bg),
     inset 0 0 0 4px color-mix(in srgb, var(--ui-gold) 55%, transparent),

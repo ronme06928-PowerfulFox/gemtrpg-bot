@@ -9,6 +9,9 @@ function applySystemWindow(panel, theme = appSurfaceTheme()) {
   panel.classList.add('setting');
   panel.insertAdjacentHTML('afterbegin', '<span class="setting-corners" aria-hidden="true">' +
     '<i class="prong tl"></i><i class="prong tr"></i><i class="prong bl"></i><i class="prong br"></i></span>');
+  // The texture scrolls with the content; the prongs stay on the window's corners.
+  const corners = panel.querySelector(':scope > .setting-corners');
+  panel.addEventListener('scroll', () => { corners.style.translate = `0 ${panel.scrollTop}px`; }, {passive: true});
   addSystemWindowHeadingMark(panel.querySelector('h1, h2, h3'));
 }
 

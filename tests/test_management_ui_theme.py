@@ -222,3 +222,27 @@ error.children.at(-1).click();
 assert.equal(stack.children.length, 0);
 """], cwd=CSS.parents[2], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
+
+
+def test_marble_texture_scrolls_and_prongs_stay_on_corners():
+    import subprocess
+
+    css = re.sub(r"/\*.*?\*/", "", (CSS / "system_window.css").read_text(encoding="utf-8"), flags=re.S)
+    assert re.search(r"\.system-window\.setting\s*\{[^}]*background-attachment:\s*local", css)
+    result = subprocess.run(["node", "-e", r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const corners = {style: {}};
+const listeners = {};
+const panel = {
+  dataset: {}, scrollTop: 0, classList: {add() {}},
+  insertAdjacentHTML() {}, querySelector: selector => selector.includes('setting-corners') ? corners : null,
+  addEventListener: (type, handler) => { listeners[type] = handler; },
+};
+vm.runInNewContext(fs.readFileSync('static/js/common/system_window.js', 'utf8') + '\napplySystemWindow(panel, "marble");', {panel, window: {}, document: {}});
+panel.scrollTop = 240;
+listeners.scroll();
+assert.equal(corners.style.translate, '0 240px');
+"""], cwd=CSS.parents[2], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
