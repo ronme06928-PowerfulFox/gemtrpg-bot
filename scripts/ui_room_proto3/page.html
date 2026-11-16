@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ルームの試作 第3回</title>
+<link rel="stylesheet" href="common_ui.css">
+<link rel="stylesheet" href="marble.css">
+<link rel="stylesheet" href="setting.css">
+<style>
+body { margin: 0; font-family: "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif; font-size: 14px; background: #2a2d36; color: #e9e6dd; }
+.bar { position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: center; padding: 10px 16px; background: #15171e; border-bottom: 1px solid #555; }
+.bar b { font-weight: 600; margin-right: 6px; }
+.bar label { margin-right: 8px; white-space: nowrap; }
+.wrap { padding: 16px; }
+.stage { width: 1280px; height: 800px; transform-origin: top left; }
+.stage-box { overflow: hidden; }
+.screen { position: relative; width: 1280px; height: 800px; overflow: hidden; display: grid; grid-template: 64px 1fr / 72px 1fr 352px; font-size: 13px; }
+/* 夜色の枠 */
+.night-bg { color: var(--ui-text); background: var(--ui-bg); background-image: var(--ui-tex); }
+header.top { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; padding: 0 24px; border-bottom: 1px solid var(--ui-gold); }
+header.top h1 { margin: 0; font: 600 22px var(--ui-head-font); letter-spacing: .04em; }
+header.top .room { margin-left: auto; padding: 5px 14px; border-radius: 999px; color: var(--ui-focus); background: var(--ui-primary-soft); font-weight: 600; }
+.dock { display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 12px 0; border-right: 1px solid var(--ui-gold); }
+.dock span { display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid var(--ui-control); border-radius: 8px; background: var(--ui-soft); font-size: 18px; }
+.board { position: relative; background: var(--ui-page) url("images/bg.png") center / cover no-repeat; }
+.token { position: absolute; width: 92px; text-align: center; }
+.token img { width: 92px; height: 92px; object-fit: contain; background: rgb(255 255 255 / .85); border: 3px solid; border-radius: 10px; }
+.token.ally img { border-color: #007bff; } .token.enemy img { border-color: #dc3545; }
+.token em { display: inline-block; margin-top: 2px; padding: 1px 8px; font-style: normal; font-weight: 700; color: #fff; background: #111a; border-radius: 6px; }
+.token .bars { display: flex; gap: 3px; justify-content: center; margin-top: 3px; font-size: 11px; font-weight: 700; }
+.token .bars i { font-style: normal; padding: 0 5px; border-radius: 4px; color: #fff; }
+.side { display: flex; flex-direction: column; border-left: 1px solid var(--ui-gold); min-height: 0; }
+.ctrl { padding: 10px; display: grid; gap: 8px; border-bottom: 1px solid var(--ui-gold); }
+.ctrl .row { display: flex; gap: 6px; }
+.ctrl .row > * { flex: 1; }
+.status { padding: 6px 10px; border: 1px solid var(--ui-line); border-radius: 6px; background: var(--ui-soft); font-size: 12px; color: var(--ui-sub); }
+.status b { display: block; color: var(--ui-text); font-size: 13px; }
+/* 操作ボタンの役目の色（論点9） */
+.op { --gem: var(--gem-quartz); font: inherit; font-weight: 700; padding: 7px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; justify-content: center; white-space: nowrap; }
+.op .ic { font-size: 11px; }
+.op.go { --gem: var(--gem-emerald); } .op.end { --gem: var(--gem-topaz); } .op.danger { --gem: var(--gem-ruby); } .op.prep { --gem: var(--gem-sapphire); } .op.log { --gem: var(--gem-quartz); }
+[data-btn="outline"] .op { color: var(--gem); background: color-mix(in srgb, var(--gem) 14%, var(--ui-bg)); border: 1px solid var(--gem); }
+[data-btn="outline"] .op.danger { border-style: dashed; }
+[data-btn="fill"] .op { color: #15120b; background: var(--gem); border: 1px solid color-mix(in srgb, var(--gem) 60%, #000); box-shadow: inset 0 1px 0 rgb(255 255 255 / .35); }
+[data-btn="fill"] .op.log, [data-btn="fill"] .op.prep { color: var(--gem); background: color-mix(in srgb, var(--gem) 14%, var(--ui-bg)); border: 1px solid var(--gem); box-shadow: none; }
+[data-btn="fill"] .op.danger { background: transparent; color: var(--gem); border: 1px dashed var(--gem); box-shadow: none; }
+.tabs { display: flex; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--ui-gold); }
+.tabs span { display: inline-flex; gap: 5px; align-items: center; padding: 3px 10px; border: 1px solid var(--ui-control); border-radius: 999px; font-size: 12px; }
+.tabs span.on { color: var(--ui-focus); border-color: var(--ui-focus); background: var(--ui-primary-soft); }
+.chat { flex: 1; overflow: hidden; padding: 10px 12px; color: var(--ui-text); background: var(--ui-bg); background-image: var(--ui-tex); line-height: 1.6; }
+.chat p { margin: 0 0 6px; } .chat b { color: var(--ui-primary); } .chat .sys { color: var(--ui-sub); font-size: 12px; }
+.input { display: flex; border-top: 1px solid var(--ui-gold); }
+.input span { flex: 1; padding: 10px; color: var(--ui-sub); }
+.input button { font: inherit; font-weight: 700; padding: 0 18px; color: var(--ui-on-primary); background: var(--ui-primary); border: 0; }
+/* 紙の宣言パネル */
+.declare { position: absolute; left: 92px; top: 76px; width: 400px; padding: 14px; color: var(--ui-text); background: var(--ui-bg); background-image: var(--ui-tex); border-radius: 6px; }
+.declare h3, .win h3 { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 20px var(--ui-head-font); }
+.declare h3 .btn-set { margin-left: auto; font-size: 13px; }
+.field { display: grid; grid-template-columns: 70px 1fr; gap: 8px; align-items: center; margin: 8px 0; }
+.field span { padding: 6px 10px; background: var(--ui-input-bg); border: 1px solid var(--ui-control); border-radius: 4px; }
+.chips { display: flex; gap: 6px; margin: 8px 0; }
+.chips i { font-style: normal; padding: 2px 10px; border-radius: 999px; font-size: 12px; border: 1px solid var(--ui-line); background: var(--ui-soft); }
+/* 大理石の窓 */
+.veil { position: absolute; inset: 0; background: rgb(8 10 18 / .45); }
+.win { position: absolute; color: var(--ui-text); background: var(--ui-bg); background-image: var(--ui-tex); background-size: 720px 720px; border-radius: 4px; }
+.win.char { left: 310px; top: 70px; width: 660px; height: 690px; padding: 18px 22px; }
+.win h3 .tools { margin-left: auto; display: flex; gap: 8px; font-family: inherit; font-size: 15px; color: var(--ui-sub); }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.stats div { padding: 10px; text-align: center; background: color-mix(in srgb, var(--ui-soft) 75%, transparent); border: 1px solid var(--ui-line); border-radius: 4px; }
+.stats small { display: block; color: var(--ui-sub); font-weight: 700; font-size: 11px; }
+.stats strong { font-size: 22px; } .hp { color: #1f7a3a; } .mp { color: #1f5aa8; } .fp { color: #9a6a00; }
+.params { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.params span { display: flex; justify-content: space-between; padding: 6px 10px; background: var(--ui-input-bg); border: 1px solid var(--ui-line); border-radius: 3px; }
+.sec { display: flex; align-items: center; gap: 8px; margin: 0; font: 600 15px var(--ui-head-font); }
+.buff { padding: 8px 10px; border: 1px solid var(--ui-line); border-radius: 3px; background: var(--ui-input-bg); }
+.buff i { font-style: normal; font-size: 11px; padding: 1px 6px; margin-right: 4px; border-radius: 4px; color: var(--ui-warn); background: var(--ui-warn-soft); }
+.skills { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.skills span { padding: 6px 10px; border: 1px solid var(--ui-line); border-radius: 3px; background: var(--ui-input-bg); }
+.skills small { display: block; color: var(--ui-sub); }
+.win.confirm { left: 450px; top: 280px; width: 380px; padding: 18px 20px; }
+.win.confirm p { margin: 10px 0 16px; line-height: 1.7; }
+.win.confirm .acts { display: flex; justify-content: flex-end; gap: 8px; }
+.toasts { position: absolute; right: 368px; bottom: 16px; display: grid; gap: 8px; width: 300px; }
+.toast { position: relative; padding: 10px 12px 10px 14px; color: var(--ui-text); background: var(--ui-bg); background-image: var(--ui-tex); border-left: 4px solid var(--ui-add); border-radius: 4px; box-shadow: var(--ui-shadow-float); }
+.toast.err { border-left-color: var(--ui-danger); }
+.toast b { display: block; font-size: 13px; }
+.toast .x { position: absolute; top: 6px; right: 8px; color: var(--ui-sub); }
+[hidden] { display: none !important; }
+.notes { max-width: 1280px; margin: 14px 0 0; line-height: 1.7; color: #d6d2c6; }
+</style>
+</head>
+<body>
+<div class="bar">
+  <span><b>場面</b>
+    <label><input type="radio" name="scene" value="declare" checked> 宣言と知らせ</label>
+    <label><input type="radio" name="scene" value="char"> キャラの窓</label>
+    <label><input type="radio" name="scene" value="confirm"> 確認の窓</label></span>
+  <span><b>ボタンの色</b>
+    <label><input type="radio" name="btn" value="outline" checked> 案1 縁と文字</label>
+    <label><input type="radio" name="btn" value="fill"> 案2 進行と終了は塗り</label></span>
+  <span><b>大理石</b>
+    <label><input type="radio" name="marble" value="white" checked> 白（灰の筋）</label>
+    <label><input type="radio" name="marble" value="ivory"> 象牙（金茶の筋）</label></span>
+  <span><b>台座の飾り</b>
+    <label><input type="radio" name="orn" value="soft" checked> 控えめ</label>
+    <label><input type="radio" name="orn" value="bold"> はっきり</label></span>
+</div>
+<div class="wrap">
+<div class="stage-box"><div class="stage" id="stage">
+<div class="screen" id="screen" data-btn="outline" data-orn="soft">
+  <header class="top night-bg" data-theme="night"><h1>ジェムリアTRPGダイスボット</h1><span class="room">現在のルーム: 遺跡の見張り台</span><span>ミレイ (GM)</span></header>
+  <nav class="dock night-bg" data-theme="night"><span>🖼️</span><span>🎲</span><span>📝</span><span>📚</span><span>♪</span><span>➕</span><span>📦</span><span>⚔️</span></nav>
+  <main class="board" data-theme="night">
+    <div class="token ally" style="left:120px;top:250px"><img src="images/ally1.png" alt=""><em>リュカ</em><div class="bars"><i style="background:#28a745">HP 31</i><i style="background:#4a90d9">MP 15</i></div></div>
+    <div class="token ally" style="left:250px;top:380px"><img src="images/ally2.png" alt=""><em>ミレイ</em><div class="bars"><i style="background:#28a745">HP 27</i><i style="background:#4a90d9">MP 22</i></div></div>
+    <div class="token enemy" style="left:560px;top:230px"><img src="images/enemy1.png" alt=""><em>遺跡の番兵</em><div class="bars"><i style="background:#28a745">HP 31</i><i style="background:#4a90d9">MP 15</i></div></div>
+    <div class="token enemy" style="left:640px;top:410px"><img src="images/enemy2.png" alt=""><em>影の斥候</em><div class="bars"><i style="background:#28a745">HP 27</i><i style="background:#4a90d9">MP 16</i></div></div>
+  </main>
+  <aside class="side night-bg" data-theme="night">
+    <div class="ctrl">
+      <div class="row"><div class="status"><b>戦闘中</b>ラウンド 2・宣言フェイズ</div><button class="op log" style="flex:.7">戦闘記録</button></div>
+      <div class="row"><button class="op go"><span class="ic">▶</span>R開始</button><button class="op end"><span class="ic">■</span>R終了</button></div>
+      <div class="row"><button class="op go"><span class="ic">⚔</span>戦闘突入</button><button class="op end"><span class="ic">⚑</span>戦闘終結</button></div>
+      <div class="row"><button class="op prep">保存</button><button class="op prep">待機列</button><button class="op danger"><span class="ic">⟲</span>リセット</button></div>
+      <div class="row"><button class="op log">戦闘モード: PvP</button></div>
+    </div>
+    <div class="tabs"><span class="on" data-gem="topaz">すべて</span><span data-gem="sapphire">会話</span><span data-gem="quartz">システム</span><span data-gem="amethyst">履歴</span></div>
+    <div class="chat" data-theme="paper">
+      <p class="sys">ミレイ が入室しました。</p>
+      <p><b>ミレイ:</b> 入口に残った足跡は四つ。奥へ向かった三人分と、入口を見張るように横を向いた一人分がある。床の石に泥が残っているから、通ったのはついさっきだと思う。灯りを落として、右手の壁に沿って進もう。</p>
+      <p><b>リュカ:</b> 了解。私は最後尾に付いて退路を見ておく。水音が近づいたらいったん止まって、合図を待って。</p>
+      <p><b>ミレイ:</b> 2d6+3 → (6+4)+3 = <strong>13</strong></p>
+      <p class="sys">ラウンド 2 を開始しました。</p>
+    </div>
+    <div class="input" data-theme="night"><span>チャットまたは /roll コマンド</span><button>送信</button></div>
+  </aside>
+
+  <section class="declare setting" data-theme="paper" data-scene="declare">
+    <h3><span class="bz" data-gem="sapphire"></span>味方宣言<button class="btn-set is-primary">宣言</button></h3>
+    <div class="clasp"></div>
+    <div class="field"><label>使用者</label><span>セナ #1</span></div>
+    <div class="field"><label>対象</label><span>遺跡の番兵 #1 (SPD:4)</span></div>
+    <div class="field"><label>スキル</label><span>[Ps-01] 斬撃</span></div>
+    <div class="chips"><i>物理</i><i>射程:近接</i><i>属性:斬撃</i></div>
+    <p style="margin:6px 0 0">威力レンジ 8〜9 ／ コマンド 6+1d3+1d0</p>
+  </section>
+  <div class="toasts" data-scene="declare" data-theme="marble">
+    <div class="toast" data-theme="marble"><b>保存しました</b>ルームの状態を保存しました。</div>
+    <div class="toast err" data-theme="marble"><b>宣言できません</b>対象がまだ選ばれていません。<span class="x">✕</span></div>
+  </div>
+
+  <div class="veil" data-scene="char" hidden></div>
+  <section class="win char setting" data-theme="marble" data-scene="char" hidden>
+    <h3><span class="bz" data-gem="amethyst"></span>リュカ<span class="tools">⚙ ✕</span></h3>
+    <div class="clasp"></div>
+    <div class="stats"><div><small>HP</small><strong class="hp">31</strong> / 42</div><div><small>MP</small><strong class="mp">15</strong> / 24</div><div><small>FP</small><strong class="fp">8</strong></div></div>
+    <p class="sec" style="margin-top:14px"><span class="bz" data-gem="quartz"></span>パラメーター</p>
+    <div class="clasp"></div>
+    <div class="params"><span>五感<b>3</b></span><span>採取<b>0</b></span><span>本能<b>0</b></span><span>鑑定<b>0</b></span><span>対話<b>0</b></span><span>尋問<b>0</b></span><span>諜報<b>0</b></span><span>窃取<b>0</b></span><span>隠密<b>0</b></span></div>
+    <p class="sec" style="margin-top:14px"><span class="bz" data-gem="emerald"></span>特殊効果・バフ</p>
+    <div class="clasp"></div>
+    <div class="buff"><b>出血遅延</b><br><i>Bu-08</i><i>残り2R</i></div>
+    <p class="sec" style="margin-top:14px"><span class="bz" data-gem="ruby"></span>スキル</p>
+    <div class="clasp"></div>
+    <div class="skills"><span><small>Ps-01</small>斬撃</span><span><small>Ps-04</small>薙ぎ払い</span></div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px"><button class="btn-set">閉じる</button><button class="btn-set is-primary">保存</button></div>
+  </section>
+
+  <div class="veil" data-scene="confirm" hidden></div>
+  <section class="win confirm setting" data-theme="marble" data-scene="confirm" hidden>
+    <h3><span class="bz" data-gem="ruby"></span>キャラクターの削除</h3>
+    <div class="clasp"></div>
+    <p>「影の斥候」を盤面から削除しますか？<br>この操作は元に戻せません。</p>
+    <div class="acts"><button class="btn-set is-primary">キャンセル</button><button class="btn-set is-danger">削除</button></div>
+  </section>
+  <div class="toasts" data-scene="confirm" hidden data-theme="marble">
+    <div class="toast" data-theme="marble"><b>保存しました</b>ルームの状態を保存しました。</div>
+  </div>
+</div>
+</div></div>
+<div class="notes" id="notes"></div>
+</div>
+<script>
+const gemSvg = () => '<svg class="bezel" viewBox="0 0 24 24" aria-hidden="true"><path class="claw" d="M12 .6l2 3.2h-4zM23.4 12l-3.2 2v-4zM12 23.4l-2-3.2h4zM.6 12l3.2-2v4z"/><circle class="rim" cx="12" cy="12" r="8.2"/><path class="stone" d="M12 5.2l5.6 4.3-2.1 7.3H8.5L6.4 9.5z"/><path class="facet" d="M12 5.2l-2 4.3h4zM6.4 9.5h11.2M10 9.5l-1.5 7.3M14 9.5l1.5 7.3"/></svg>';
+const claspSvg = '<svg viewBox="0 0 16 10" aria-hidden="true"><path class="claw" d="M8 .5l3.5 4.5L8 9.5 4.5 5zM0 4.4h3v1.2H0zM13 4.4h3v1.2h-3z"/></svg>';
+document.querySelectorAll('.bz').forEach(el => { el.style.setProperty('--gem', `var(--gem-${el.dataset.gem})`); el.innerHTML = gemSvg(); });
+document.querySelectorAll('.tabs span').forEach(el => { el.style.setProperty('--gem', `var(--gem-${el.dataset.gem})`); el.insertAdjacentHTML('afterbegin', gemSvg()); });
+document.querySelectorAll('.clasp').forEach(el => { el.innerHTML = claspSvg; });
+document.querySelectorAll('.setting').forEach(el => ['tl', 'tr', 'bl', 'br'].forEach(c => { const i = document.createElement('i'); i.className = `prong ${c}`; el.append(i); }));
+const screen = document.getElementById('screen');
+const notes = {
+  declare: '宣言パネルとチャットは紙と金、右下の知らせは紙の上に開く。操作ボタンは役目ごとの宝石の色：進行＝エメラルド（▶⚔）、終了＝トパーズ（■⚑）、危険＝ルビー（⟲・破線）、準備＝サファイア、記録＝水晶。',
+  char: 'システムの窓は大理石の白。角の爪・見出しの宝石の台座・中央に留め具のある区切り・角を落としたボタンが「宝飾の台座」の飾り。4つの角の爪は形をわずかに変えている。',
+  confirm: '確認の窓と知らせも大理石の白。危険な操作（削除）は赤い文字、Enter で動くのは印の付いたキャンセル側（E02 Part 16）。'
+};
+function apply() {
+  const v = n => document.querySelector(`input[name=${n}]:checked`).value;
+  const scene = v('scene');
+  screen.dataset.btn = v('btn'); screen.dataset.orn = v('orn');
+  document.querySelectorAll('[data-theme="marble"]').forEach(el => el.dataset.marble = v('marble'));
+  document.querySelectorAll('[data-scene]').forEach(el => el.hidden = el.dataset.scene !== scene);
+  document.getElementById('notes').textContent = notes[scene];
+}
+document.querySelectorAll('.bar input').forEach(el => el.addEventListener('change', apply));
+function fit() { const w = Math.min(1, (document.documentElement.clientWidth - 32) / 1280); const st = document.getElementById('stage'); st.style.transform = `scale(${w})`; st.parentElement.style.height = `${800 * w}px`; }
+addEventListener('resize', fit); fit(); apply();
+</script>
+</body>
+</html>

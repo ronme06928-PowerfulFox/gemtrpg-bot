@@ -1,0 +1,30 @@
+/* 大理石の白（システムの窓と知らせ）。UI計画 §7.4 論点7。値は案。 */
+[data-theme="marble"] {
+  --ui-text: #262b36;
+  --ui-sub: #5a6170;
+  --ui-bg: #f6f5f1;
+  --ui-soft: #ebe9e3;
+  --ui-line: #cfcdc6;
+  --ui-control: #7a808c;
+  --ui-focus: #1f4fa3;
+  --ui-primary: #1f4fa3;
+  --ui-primary-soft: #e3e9f4;
+  --ui-on-primary: #ffffff;
+  --ui-danger: #9c2318;   --ui-danger-soft: #f6e1dc;
+  --ui-warn: #7a4a00;     --ui-warn-soft: #f4e6c4;
+  --ui-add: #1f5c33;      --ui-add-soft: #dcebd6;
+  --ui-gold: #a68a4a;
+  --ui-gold-strong: #7d6326;
+  --ui-input-bg: #fbfaf7;
+  --ui-head-font: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+  --ui-shadow-float: 0 12px 30px rgba(20, 24, 34, .38);
+  --gem-quartz: #4f6d84; --gem-diamond: #6c8aa3; --gem-topaz: #b06a17; --gem-emerald: #1b7a54; --gem-ruby: #ad2840;
+  --gem-sapphire: #1f4fa3; --gem-amethyst: #71479e; --gem-citrine: #97760a; --gem-onyx: #2c2f36;
+  --ui-tex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720'%3E%3Cfilter id='v' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0042 .0155' numOctaves='6' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 .30 0 0 0 0 .31 0 0 0 0 .34 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 0 0 0 0 0 .04 .30 .04 0 0 0 0 0 0 0 0 0'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cfilter id='c' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .55 0 0 0 0 .58 0 0 0 .09 -.02'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
+}
+[data-theme="marble"][data-marble="ivory"] {
+  --ui-bg: #f5f0e4;
+  --ui-soft: #ebe3d2;
+  --ui-line: #d5cab1;
+  --ui-tex: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='720'%3E%3Cfilter id='v' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.0042 .0155' numOctaves='6' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 .62 0 0 0 0 .5 0 0 0 0 .26 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='table' tableValues='0 0 0 0 0 0 0 0 0 .06 .44 .06 0 0 0 0 0 0 0 0 0'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Cfilter id='c' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.006' numOctaves='3' seed='3'/%3E%3CfeColorMatrix values='0 0 0 0 .6 0 0 0 0 .52 0 0 0 0 .38 0 0 0 .08 -.02'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23c)'/%3E%3Crect width='100%25' height='100%25' filter='url(%23v)'/%3E%3C/svg%3E");
+}

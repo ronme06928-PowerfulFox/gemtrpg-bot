@@ -105,21 +105,98 @@ def capture_queue(page, directory):
 
 
 
-def set_theme(page, mode, *, tokens=False, gems=False):
-    page.evaluate("""({mode, tokens, gems}) => {
-        const night = mode === 'night';
-        document.body.toggleAttribute('data-gem-marks', night && gems);
-        if (night) document.body.dataset.theme = 'night';
-        else delete document.body.dataset.theme;
-        if (night && tokens) document.body.dataset.tokenPalette = 'night';
-        else delete document.body.dataset.tokenPalette;
+def set_theme(page, mode, *, tokens=False, gems=False, wear="none"):
+    page.evaluate("""({mode, tokens, gems, wear}) => {
+        const preview = mode === 'night';
+        const {body} = document;
+        const room = document.querySelector('#main-app-container');
+        room.toggleAttribute('data-room-preview', preview);
+        if (preview) {
+            body.dataset.theme = 'night';
+            body.dataset.previewWear = wear;
+        } else {
+            delete body.dataset.theme;
+            delete body.dataset.previewWear;
+        }
+        body.toggleAttribute('data-preview-gems', preview && gems);
+        if (preview && tokens) body.dataset.tokenPalette = 'night';
+        else delete body.dataset.tokenPalette;
         for (const surface of document.querySelectorAll(
-          '#visual-log-area, .book-modal-backdrop, .glossary-catalog-backdrop, .declare-skill-detail')) {
-            if (night) surface.dataset.theme = 'paper';
+          '#visual-log-area, .book-modal-backdrop, .glossary-catalog-backdrop, .room-notices')) {
+            if (preview) surface.dataset.theme = 'paper';
             else delete surface.dataset.theme;
         }
-        for (const notice of document.querySelectorAll('.room-notices')) notice.hidden = !night;
-    }""", {"mode": mode, "tokens": tokens, "gems": gems})
+        for (const window of document.querySelectorAll(
+          '#char-modal-backdrop, #item-modal-backdrop, #room-settings-modal-backdrop, .app-dialog-backdrop, #char-settings-context-menu')) {
+            if (preview) window.dataset.theme = 'paper';
+            else delete window.dataset.theme;
+            window.classList.toggle('room-paper', preview);
+        }
+        for (const tab of document.querySelectorAll('#visual-chat-area .filter-btn')) tab.dataset.previewGem = 'tab';
+        const heading = document.querySelector('#char-modal-backdrop .detail-header h2');
+        if (heading) heading.dataset.previewGem = 'heading';
+        document.querySelector('#main-app-container > header').dataset.wearEdge = '';
+        document.querySelector('#visual-chat-area .log-header').dataset.wearEdge = '';
+        const window = document.querySelector('#char-modal-backdrop > .modal-content');
+        if (window) window.dataset.wearWindow = '';
+        for (const notice of document.querySelectorAll('.room-notices')) notice.hidden = !preview;
+    }""", {"mode": mode, "tokens": tokens, "gems": gems, "wear": wear})
+
+
+def check_contrast(page):
+    """Check the colors of the reading and control surfaces affected by these overlays."""
+    results = page.evaluate(r"""() => {
+        const lum = rgb => {
+            const v = rgb.match(/[\d.]+/g).slice(0, 3).map(Number).map(x => x / 255);
+            return v.reduce((sum, x, i) => sum + [0.2126, 0.7152, 0.0722][i] *
+                (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4), 0);
+        };
+        const pairs = [
+            ['#visual-log-area', 'color', '#visual-log-area', 4.5],
+            ['#visual-chat-input', 'color', '#visual-chat-input', 4.5],
+            ['#visual-chat-input', 'borderTopColor', '#visual-chat-input', 3],
+            ['#visual-chat-send', 'color', '#visual-chat-send', 4.5],
+            ['#char-modal-backdrop .buff-name', 'color', '#char-modal-backdrop .buff-summary', 4.5],
+            ['#rs-description', 'color', '#rs-description', 4.5],
+            ['#app-dialog-title', 'color', '.app-dialog-modal', 4.5],
+            ['#app-dialog-confirm', 'color', '#app-dialog-confirm', 4.5],
+            ['.room-notice strong', 'color', '.room-notice', 4.5],
+        ];
+        return pairs.flatMap(([fg, property, bg, min]) => {
+            const from = document.querySelector(fg), to = document.querySelector(bg);
+            if (!from?.getClientRects().length || !to?.getClientRects().length) return [];
+            const colors = [getComputedStyle(from)[property], getComputedStyle(to).backgroundColor];
+            const [dark, light] = colors.map(lum).sort((a, b) => a - b);
+            return [[fg, property, (light + 0.05) / (dark + 0.05), min]];
+        });
+    }""")
+    for selector, property_name, ratio, minimum in results:
+        assert ratio >= minimum, (selector, property_name, round(ratio, 2), minimum)
+    assert results, "No visible contrast pairs were measured"
+    return results
+
+
+def capture_wear(page, directory, name):
+    for width in WIDTHS:
+        page.set_viewport_size({"width": width, "height": HEIGHT})
+        if name == "c":
+            panel = page.locator("#char-modal-backdrop > .modal-content")
+            panel.evaluate("node => node.scrollTop = 0")
+            bounds = panel.bounding_box()
+            clip = {"x": round(bounds["x"]) - 5, "y": round(bounds["y"]) - 4, "width": 315, "height": 170}
+        else:
+            clip = {"x": width - 355, "y": 12, "width": 343, "height": 281}
+        reference = None
+        for wear in ("none", "light", "medium"):
+            set_theme(page, "night", gems=True, wear=wear)
+            contrast = check_contrast(page)
+            if reference is None:
+                reference = contrast
+            assert reference == contrast, "Wear changed text or control contrast"
+            image_name = f"{name}-wear-{wear}"
+            screenshot(page, directory, image_name, width)
+            page.screenshot(path=directory / f"{image_name}-{width}-detail.png", clip=clip, animations="disabled")
+    set_theme(page, "current")
 
 
 def frame_board(page):
@@ -138,10 +215,13 @@ def capture_pair(page, directory, name, *, variant=None):
         page.set_viewport_size({"width": width, "height": HEIGHT})
         if name in ("b-board", "b-declare"):
             frame_board(page)
-        for mode in ("current", "night"):
+        modes = ("night",) if name in ("b-board", "c-title") else ("current", "night")
+        for mode in modes:
             set_theme(page, mode)
             if name in ("a", "b-board", "b-declare", "b-resolve"):
                 page.locator("#visual-log-area").evaluate("(el) => el.scrollTop = 0")
+            if mode == "night":
+                check_contrast(page)
             screenshot(page, directory, f"{name}-{mode}", width)
         if variant:
             set_theme(page, "night", tokens=variant == "tokens", gems=variant == "gems")
@@ -207,12 +287,15 @@ def capture_windows(page, directory):
         "(el) => el.scrollTop = Math.max(0, el.querySelector('.detail-buff-accordion-list').offsetTop - 290)"
     )
     capture_pair(page, directory, "c-character")
+    character.locator(".modal-content").evaluate("node => node.scrollTop = 0")
+    capture_pair(page, directory, "c-title", variant="gems")
+    capture_wear(page, directory, "c")
     page.evaluate("closeCharacterModal()")
 
     page.evaluate("openItemModal(); showItemList('pc-0')")
     items = page.locator("#item-modal-backdrop")
     expect(items.locator(".item-card").first).to_be_visible()
-    capture_pair(page, directory, "c-items", variant="gems")
+    capture_pair(page, directory, "c-items")
     items.locator(".close-btn").click()
 
     page.evaluate("openSkillDetailModal('Ps-01', '斬撃')")
@@ -220,6 +303,14 @@ def capture_windows(page, directory):
     expect(book.locator(".book-reading-body")).to_be_visible()
     capture_pair(page, directory, "c-skill")
     book.locator(".book-modal-close").click()
+
+    page.evaluate("""() => openRoomSettingsModal({
+        name: currentRoomName, your_role: 'owner', description: '遺跡入口の調査と見張りの交代',
+        recruitment_status: '参加者募集中',
+    }, {refreshLobby: false})""")
+    expect(page.locator("#rs-description")).to_be_visible()
+    capture_pair(page, directory, "c-room")
+    page.locator("#rs-cancel").click()
 
 
 def capture_notices(page, directory):
@@ -235,6 +326,7 @@ def capture_notices(page, directory):
         void showAppAlert('遭遇名が空です。名前を入力してから保存してください。', {title: '保存できません'});
     }""")
     expect(page.locator("#app-dialog-title")).to_have_text("保存できません")
+    page.locator("#app-dialog-backdrop").evaluate("node => node.dataset.paperError = ''")
     capture_pair(page, directory, "d-error")
     page.locator("#app-dialog-confirm").click()
 
@@ -253,7 +345,8 @@ def capture_notices(page, directory):
 
 
 def capture_prototype(page, directory, room):
-    page.add_style_tag(path=Path(__file__).with_name("night.css"))
+    for stylesheet in ("night.css", "wear.css"):
+        page.add_style_tag(path=Path(__file__).with_name(stylesheet))
     expect(page.locator(".exploration-tachie")).to_have_count(4)
     lines = [
         "入口に残った足跡は四つ。奥へ向かった三人分と、入口を見張るように横を向いた一人分がある。"
@@ -264,7 +357,9 @@ def capture_prototype(page, directory, room):
     for line in lines:
         emit(page, "request_chat", {"message": line})
     expect(page.locator("#visual-log-area")).to_contain_text("2d6+3 →")
+    expect(page.locator(".fx-chat-dice-slot")).to_have_count(0)
     capture_pair(page, directory, "a")
+    capture_wear(page, directory, "a")
     capture_windows(page, directory)
     capture_battle(page, directory, room)
     capture_notices(page, directory)
@@ -273,13 +368,18 @@ def capture_prototype(page, directory, room):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:5000")
+    parser.add_argument("--out", type=Path, default=ROOT / "_local/ui_room_night_proto/shots")
     parser.add_argument("--queue-only", type=Path, help="待機列と登場位置の比較用写真の出力先")
     args = parser.parse_args()
-    output = args.queue_only or ROOT / "_local/ui_room_night_proto/shots"
+    output = args.queue_only or args.out
     output.mkdir(parents=True, exist_ok=True)
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(channel="chrome")
         page = browser.new_page(base_url=args.base, viewport={"width": 1280, "height": HEIGHT})
+        page.route("**/*", lambda route: route.abort() if (
+            route.request.resource_type in {"font", "image", "stylesheet"}
+            and not route.request.url.startswith(args.base + "/")
+        ) else route.continue_())
         room = prepare_room(page, args.base, queue_only=bool(args.queue_only))
         if args.queue_only:
             capture_queue(page, output)

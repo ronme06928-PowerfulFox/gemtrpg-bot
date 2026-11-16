@@ -1,0 +1,120 @@
+/* Alpha masks define the marks; all visible colors come from the active theme. */
+[data-preview-wear] {
+  --ui-wear-line: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 960 7' preserveAspectRatio='none'%3E%3Cpath d='M0 3L47 2 98 3 174 2 228 3 257 3 257 4 173 4 93 5 42 4 0 5ZM268 3L321 2 399 3 448 2 513 3 512 4 440 5 375 4 313 4 268 5ZM521 4L589 2 627 2 694 3 756 2 756 4 703 5 624 4 587 4 521 5ZM773 3L829 3 867 2 910 3 960 2 960 4 916 5 857 4 822 5 773 4Z'/%3E%3C/svg%3E");
+  --ui-wear-scratches: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 780 36' preserveAspectRatio='none'%3E%3Cpath d='M4 2L28 6 13 3ZM96 5L111 2 101 5ZM176 1L197 4 190 4ZM302 3L328 7 320 5ZM492 6L519 3 510 3ZM658 3L678 8 671 5ZM751 1L776 5 765 2ZM51 32L77 35 70 33ZM224 35L242 30 235 34ZM381 31L409 34 399 32ZM566 33L583 29 579 32ZM702 35L736 30 721 34Z'/%3E%3C/svg%3E");
+}
+[data-preview-wear="light"] {
+  --ui-wear-line-strength: .62;
+  --ui-wear-edge-strength: .32;
+  --ui-wear-scratch-strength: .32;
+  --ui-wear-corner: 0 4px, 4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%;
+}
+[data-preview-wear="medium"] {
+  --ui-wear-line-strength: .85;
+  --ui-wear-edge-strength: .72;
+  --ui-wear-scratch-strength: .55;
+  --ui-wear-corner: 0 7px, 3px 4px, 8px 0, calc(100% - 10px) 0, calc(100% - 3px) 3px, 100% 8px,
+    100% calc(100% - 8px), calc(100% - 3px) calc(100% - 3px), calc(100% - 8px) 100%, 7px 100%, 0 calc(100% - 8px);
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge] {
+  position: relative;
+  border-color: transparent !important;
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge]::before,
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge]::after {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset-inline: 0;
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge]::before {
+  bottom: -3px;
+  height: 7px;
+  background: var(--ui-gold-strong);
+  mask: var(--ui-wear-line) 0 0 / 100% 100% no-repeat;
+  opacity: var(--ui-wear-line-strength);
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge]::after {
+  bottom: 1px;
+  height: 17px;
+  background: var(--ui-sub);
+  mask: var(--ui-wear-scratches) 0 0 / 100% 100% no-repeat;
+  opacity: var(--ui-wear-scratch-strength);
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-edge] {
+  background-image:
+    radial-gradient(ellipse 19% 8px at 16% 0, color-mix(in srgb, var(--ui-control) 17%, transparent), transparent),
+    radial-gradient(ellipse 26% 10px at 78% 100%, color-mix(in srgb, var(--ui-ally) 12%, transparent), transparent),
+    var(--ui-tex) !important;
+}
+
+/* Paper weathering only touches the perimeter outside the content padding. */
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-window] {
+  position: relative;
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-window]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  padding: 8px;
+  pointer-events: none;
+  border-radius: inherit;
+  background:
+    radial-gradient(ellipse 105px 23px at 8% 0%, var(--ui-gold), transparent),
+    radial-gradient(ellipse 45px 54px at 0 5%, var(--ui-warn), transparent),
+    radial-gradient(ellipse 84px 9px at 27% 0, var(--ui-primary-soft), transparent),
+    radial-gradient(ellipse 16px 110px at 0 29%, var(--ui-gold), transparent),
+    radial-gradient(ellipse 13px 89px at 100% 77%, var(--ui-gold), transparent),
+    radial-gradient(ellipse 135px 19px at 82% 100%, var(--ui-gold), transparent),
+    conic-gradient(from 44deg at 3% 2%, transparent 0deg 4deg, var(--ui-warn) 4deg 6deg,
+      var(--ui-input-bg) 6deg 12deg, transparent 12deg) top left / 80px 15px no-repeat;
+  mask: linear-gradient(currentColor 0 0) content-box, linear-gradient(currentColor 0 0);
+  mask-composite: exclude;
+  opacity: var(--ui-wear-edge-strength);
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-window]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(137deg, var(--ui-gold-strong) 0 4px, var(--ui-bg) 5px 7px, transparent 8px) top left / 13px 12px no-repeat,
+    linear-gradient(312deg, var(--ui-gold-strong) 0 3px, var(--ui-bg) 4px 6px, transparent 7px) bottom right / 11px 9px no-repeat,
+    linear-gradient(90deg, var(--ui-gold-strong) 0 9%, transparent 9% 10%, var(--ui-gold) 10% 36%,
+      transparent 36% 38%, var(--ui-gold-strong) 38% 60%, var(--ui-gold) 60% 77%, transparent 77% 80%,
+      var(--ui-gold) 80%) top left / 100% 2px no-repeat;
+  opacity: var(--ui-wear-line-strength);
+}
+[data-preview-wear]:not([data-preview-wear="none"]) [data-wear-window] {
+  /* Wear the paper outline without clipping the window's content. */
+  clip-path: polygon(var(--ui-wear-corner));
+}
+
+/* The decoration has a fixed footprint; glyphs and control text never shift between wear levels. */
+[data-preview-gems] [data-preview-gem]::before {
+  content: "";
+  display: inline-block;
+  width: .63em;
+  height: .63em;
+  margin-inline-end: .58em;
+  background: linear-gradient(140deg, var(--ui-gem-facet), transparent 55%), var(--gem-sapphire);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+[data-preview-gems] [data-preview-gem="heading"]::before {
+  background-color: var(--gem-amethyst);
+}
+[data-preview-gems][data-preview-wear]:not([data-preview-wear="none"]) [data-preview-gem]::before {
+  background-image:
+    linear-gradient(68deg, transparent 39%, var(--ui-gem-facet) 43%, transparent 49%),
+    radial-gradient(ellipse at 21% 18%, var(--ui-gem-facet), transparent 74%);
+  opacity: .88;
+  clip-path: polygon(46% 0, 76% 25%, 100% 54%, 54% 100%, 0 52%, 21% 24%);
+}
+[data-preview-gems][data-preview-wear]:not([data-preview-wear="none"]) [data-preview-gem]:nth-child(2n)::before {
+  clip-path: polygon(57% 4%, 100% 43%, 52% 94%, 9% 64%, 7% 49%);
+}
+[data-preview-gems][data-preview-wear="medium"] [data-preview-gem]:nth-child(3n)::before,
+[data-preview-gems][data-preview-wear="medium"] [data-preview-gem="heading"]::before {
+  opacity: .74;
+  clip-path: polygon(44% 2%, 65% 16%, 96% 52%, 58% 98%, 23% 80%, 3% 44%);
+}
