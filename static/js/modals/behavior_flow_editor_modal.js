@@ -567,13 +567,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     content.style.overflowY = 'auto';
     content.style.overflowX = 'hidden';
     content.style.padding = '16px';
-    content.style.border = '1px solid #cfe1f1';
-    content.style.background = '#f7fbff';
     content.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-            <h3 id="behavior-editor-title" style="margin:0; color:#1e4766;">${titleText}</h3>
+            <h3 id="behavior-editor-title" style="margin:0;">${titleText}</h3>
             <div style="display:flex; align-items:center; gap:8px;">
-                <span id="behavior-dirty-indicator" style="font-size:0.8em; color:#5a758b;">保存状態: 保存済み</span>
+                <span id="behavior-dirty-indicator" style="font-size:0.8em; color:var(--ui-sub);">保存状態: 保存済み</span>
                     <button id="behavior-flow-close-x" style="border:none; background:#dbe9f5; color:#1e4766; padding:6px 10px; border-radius:6px; cursor:pointer; min-width:64px; white-space:nowrap;">閉じる</button>
             </div>
         </div>
@@ -987,6 +985,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         </div>
     `;
     overlay.appendChild(content);
+    applySystemWindow(content);
     document.body.appendChild(overlay);
     content.querySelector('#behavior-flow-close-x')?.focus();
 
@@ -1680,7 +1679,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 return;
             }
             if (draft.loops[newId]) {
-                alert('同名のループIDが既に存在します。');
+                window.showAppNotice('同名のループIDが既に存在します。', {kind: 'error'});
                 e.target.value = selectedLoopId;
                 return;
             }
@@ -1720,7 +1719,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
         });
         editorEl.querySelector('#behavior-loop-delete-btn')?.addEventListener('click', async () => {
             if (loopIds().length <= 1) {
-                alert('最低1つのループは必要です。');
+                window.showAppNotice('最低1つのループは必要です。', {kind: 'error'});
                 return;
             }
             if (!await window.showAppConfirm(`ループ「${selectedLoopId}」を削除しますか？`, {
@@ -2188,7 +2187,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 if (handled === false) return;
             } catch (e) {
                 const msg = (e && e.message) ? String(e.message) : '保存に失敗しました。';
-                alert(msg);
+                window.showAppNotice(msg, {kind: 'error'});
                 return;
             }
             clearDirty();

@@ -78,12 +78,11 @@
       if (!modal.open) modal.showModal();
     }
 
-    function close(returnToCaller = false) {
+    function close() {
       placement?.close();
       listeners.forEach(([event, handler]) => connection.off(event, handler));
       modal.remove();
       active = null;
-      if (returnToCaller) options.onClose?.();
     }
     active = close;
 
@@ -265,7 +264,7 @@
       if (screen === 'confirm') cancelPlacement();
       else if (screen === 'battle-start') { screen = 'battle-result'; render(); }
       else if (screen === 'save-check' || screen === 'remove') { screen = 'queue'; render(); }
-      else close(true);
+      else close();
     });
 
     modal.addEventListener('input', event => {
@@ -296,7 +295,7 @@
       const {action, id, kind, index} = control.dataset;
       const row = entries.find(entry => entry.id === id);
       setStatus('');
-      if (action === 'close') return close(true);
+      if (action === 'close') return close();
       if (action === 'new') return edit();
       if (action === 'edit') return edit(row);
       if (action === 'deploy') return begin(row);
@@ -364,7 +363,7 @@
         modal.close();
         screen = 'placement';
         placement = window.openEncounterPlacement(preview, {
-          confirm(position) {
+          confirm: (position) => {
             center = position;
             screen = 'confirm-loading';
             requestPreview();

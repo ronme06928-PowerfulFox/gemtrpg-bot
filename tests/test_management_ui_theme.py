@@ -8,7 +8,7 @@ import pytest
 CSS = Path(__file__).resolve().parents[1] / "static" / "css" / "modules"
 
 
-@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css", "paper_screens.css", "room_theme.css"])
+@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css", "paper_screens.css", "room_theme.css", "system_window.css"])
 def test_workspace_colors_use_tokens(filename):
     source = re.sub(r"/\*.*?\*/", "", (CSS / filename).read_text(encoding="utf-8"), flags=re.S)
     values = re.findall(r"(?:[;{])\s*[\w-]+\s*:\s*([^;}]+)", source)
@@ -126,5 +126,99 @@ assert.equal(room.dataset.theme, 'night');
 vm.runInContext("exitRoomTo('rooms');", context);
 assert.equal(room.style.display, 'none');
 assert.equal(room.dataset.theme, undefined);
+"""], cwd=CSS.parents[2], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr
+
+
+def test_marble_palette():
+    root = CSS.parents[2]
+    prototype = (root / "scripts/ui_room_proto3/marble.css").read_text(encoding="utf-8")
+    ivory = prototype[prototype.index('[data-theme="marble"][data-marble="ivory"]'):]
+    expected = _theme_tokens(prototype, "marble") | _theme_tokens(
+        ivory.replace('[data-theme="marble"][data-marble="ivory"]', '[data-theme="marble"]'), "marble"
+    )
+    tokens = _app_theme("marble")
+    assert all(tokens[key] == value for key, value in expected.items())
+    for ink, surface, minimum in [
+        ("text", "bg", 4.5), ("text", "input-bg", 4.5), ("sub", "soft", 4.5),
+        ("control", "bg", 3), ("control", "soft", 3), ("control", "input-bg", 3),
+        ("danger", "danger-soft", 4.5), ("warn", "warn-soft", 4.5), ("add", "add-soft", 4.5),
+        ("danger", "bg", 4.5), ("warn", "bg", 4.5), ("add", "bg", 4.5),
+        ("on-primary", "primary", 4.5),
+    ]:
+        low, high = sorted(_luminance(tokens["--ui-" + name][1:]) for name in (ink, surface))
+        assert (high + .05) / (low + .05) >= minimum, (ink, surface)
+
+
+def test_desktop_has_no_native_dialog_calls():
+    js = CSS.parents[1] / "js"
+    native = re.compile(r"(?<![\w.])(?:(?:window|globalThis|self)\s*\.\s*)?(?:alert|confirm|prompt)\s*\(")
+    assert not [(file, native.findall(source)) for file in js.rglob("*.js")
+                if native.search(source := file.read_text(encoding="utf-8"))]
+
+
+def test_system_window_scope():
+    js = CSS.parents[1] / "js"
+    for path, surface in [
+        ("main.js", "app-dialog-modal"),
+        ("main.js", "room-settings-modal"),
+        ("modals.js", "char-modal-backdrop"),
+        ("item_modal.js", "item-modal-backdrop"),
+        ("visual/visual_combat_session.js", "combat-history-modal"),
+        ("visual/visual_combat_session.js", "combat-conclusion-modal"),
+    ]:
+        source = (js / path).read_text(encoding="utf-8")
+        assert re.search(re.escape(surface) + r"[\s\S]{0,13000}?applySystemWindow\(", source), path
+    theme = (js / "common/system_window.js").read_text(encoding="utf-8")
+    assert 'panel.dataset.theme = theme' in theme
+    assert "'night' ? 'marble' : 'paper'" in theme
+    modals = (js / "modals.js").read_text(encoding="utf-8")
+    skill = modals.split("overlay.className = 'modal-backdrop book-modal-backdrop'", 1)[1]
+    assert "applySystemWindow" not in skill.split("document.body.appendChild(overlay);", 1)[0]
+    dock = (js / "action_dock.js").read_text(encoding="utf-8")
+    glossary = dock.split("function openGlossaryCatalog", 1)[-1].split("document.body.appendChild(backdrop);", 1)[0]
+    assert "data-theme=\"marble\"" not in glossary
+
+
+def test_app_notice_lifetime_and_scope():
+    import subprocess
+
+    result = subprocess.run(["node", "-e", r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+class Element {
+  constructor() { this.dataset = {}; this.children = []; }
+  append(...children) { for (const child of children) { child.parent = this; this.children.push(child); } }
+  remove() { this.parent.children = this.parent.children.filter(item => item !== this); }
+  setAttribute() {}
+  addEventListener(_, callback) { this.click = callback; }
+}
+const body = new Element();
+let inRoom = true;
+const timers = new Map();
+let nextTimer = 0;
+const window = {};
+const document = {
+    body, createElement: () => new Element(),
+    getElementById: () => ({dataset: {theme: inRoom ? 'night' : 'paper'}}),
+};
+vm.runInNewContext(fs.readFileSync('static/js/common/system_window.js', 'utf8'), {
+  document, window, setTimeout: callback => { timers.set(++nextTimer, callback); return nextTimer; },
+  clearTimeout: id => timers.delete(id),
+});
+window.showAppNotice('saved', {kind: 'success'});
+const stack = body.children[0];
+assert.equal(stack.children[0].dataset.theme, 'marble');
+const timer = [...timers.values()][0];
+timer();
+assert.equal(stack.children.length, 0);
+inRoom = false;
+window.showAppNotice('failed', {kind: 'error'});
+const error = stack.children[0];
+assert.equal(error.dataset.theme, 'paper');
+assert.equal(timers.size, 0);
+error.children.at(-1).click();
+assert.equal(stack.children.length, 0);
 """], cwd=CSS.parents[2], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

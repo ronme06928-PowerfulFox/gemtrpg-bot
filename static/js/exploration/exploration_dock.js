@@ -45,7 +45,7 @@ if (!window.ExplorationDock) {
             if (typeof openQuickEditModal === 'function') {
                 openQuickEditModal();
             } else {
-                alert("ステータス編集機能が見つかりません");
+                window.showAppNotice("ステータス編集機能が見つかりません", {kind: 'error'});
             }
         });
         dock.appendChild(quickEditBtn);
@@ -55,7 +55,7 @@ if (!window.ExplorationDock) {
             if (typeof openGlossaryCatalogModal === 'function') {
                 openGlossaryCatalogModal();
             } else {
-                alert("用語図鑑機能が見つかりません");
+                window.showAppNotice("用語図鑑機能が見つかりません", {kind: 'error'});
             }
         });
         dock.appendChild(glossaryBtn);
@@ -96,7 +96,7 @@ if (!window.ExplorationDock) {
             if (typeof openCharLoadModal === 'function') {
                 openCharLoadModal();
             } else {
-                alert("キャラクター読み込み機能が見つかりません");
+                window.showAppNotice("キャラクター読み込み機能が見つかりません", {kind: 'error'});
             }
         });
         dock.appendChild(loadCharBtn);
@@ -106,7 +106,7 @@ if (!window.ExplorationDock) {
             if (typeof toggleStagingAreaOverlay === 'function') {
                 toggleStagingAreaOverlay();
             } else {
-                alert("未配置キャラクター機能が見つかりません");
+                window.showAppNotice("未配置キャラクター機能が見つかりません", {kind: 'error'});
             }
         });
         dock.appendChild(stagingBtn);
@@ -155,7 +155,7 @@ if (!window.ExplorationDock) {
                 });
             }, 'background'); // ★ 背景モード
         } else {
-            alert("画像ピッカーが見つかりません");
+            window.showAppNotice("画像ピッカーが見つかりません", {kind: 'error'});
         }
     }
 
@@ -185,48 +185,48 @@ if (!window.ExplorationDock) {
         // キャラクター選択 -> 技能選択 -> 難易度設定 -> ロール
         const modalHtml = `
             <div id="exp-roll-modal" class="modal-backdrop" style="display:flex;">
-                <div class="modal-content" style="width:450px; border-radius:12px; border:none; box-shadow:0 10px 25px rgba(0,0,0,0.5); overflow:hidden; padding:0; display:flex; flex-direction:column;">
+                <div class="modal-content" style="width:450px; border-radius:12px; overflow:hidden; padding:0; display:flex; flex-direction:column;">
 
-                    <div class="modal-header" style="background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%); color: white; padding: 15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <div class="modal-header" style="padding: 15px 20px; display:flex; justify-content:space-between; align-items:center;">
                         <div style="display:flex; align-items:center;">
-                            <span style="font-size: 1.5em; margin-right: 10px;">🎲</span>
+                            <span data-heading-icon style="font-size: 1.5em; margin-right: 10px;">🎲</span>
                             <h3 style="margin:0; font-size: 1.2em;">探索判定</h3>
                         </div>
-                        <button id="exp-roll-close" style="border:none; background:rgba(255,255,255,0.2); color:white; width: 30px; height: 30px; border-radius: 50%; cursor:pointer; font-size:1.2em; display:flex; align-items:center; justify-content:center;">×</button>
+                        <button id="exp-roll-close" style="width: 30px; height: 30px; border-radius: 50%; cursor:pointer; font-size:1.2em; display:flex; align-items:center; justify-content:center;">×</button>
                     </div>
 
-                    <div style="padding: 25px; background: #fff;">
+                    <div style="padding: 25px;">
 
                         <div style="margin-bottom:20px;">
-                            <label style="display:block; font-weight:bold; color:#555; margin-bottom:5px;">キャラクター</label>
-                            <select id="exp-roll-char-select" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background:#f9f9f9; font-size:1em;">
+                            <label style="display:block; font-weight:bold; color:var(--ui-sub); margin-bottom:5px;">キャラクター</label>
+                            <select id="exp-roll-char-select" style="width:100%; padding:10px; border:1px solid var(--ui-control); border-radius:6px; background:var(--ui-input-bg); font-size:1em;">
                                 <!-- Options populated by JS -->
                             </select>
                         </div>
 
                         <div style="margin-bottom:20px;">
-                            <label style="display:block; font-weight:bold; color:#555; margin-bottom:5px;">使用技能</label>
-                            <select id="exp-roll-skill-select" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; background:#f9f9f9; font-size:1em;">
+                            <label style="display:block; font-weight:bold; color:var(--ui-sub); margin-bottom:5px;">使用技能</label>
+                            <select id="exp-roll-skill-select" style="width:100%; padding:10px; border:1px solid var(--ui-control); border-radius:6px; background:var(--ui-input-bg); font-size:1em;">
                                 ${EXPLORATION_PARAMS.map(p => `<option value="${p}">${p}</option>`).join('')}
                             </select>
                         </div>
 
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-bottom:25px;">
                             <div>
-                                <label style="display:block; font-weight:bold; color:#555; margin-bottom:5px;">ダイス数</label>
+                                <label style="display:block; font-weight:bold; color:var(--ui-sub); margin-bottom:5px;">ダイス数</label>
                                 <input type="number" id="exp-roll-dice-count" value="2" min="1" max="10"
-                                    style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-weight:bold; text-align:center; font-size:1.1em;">
+                                    style="width:100%; padding:10px; border:1px solid var(--ui-control); border-radius:6px; font-weight:bold; text-align:center; font-size:1.1em;">
                             </div>
                             <div>
-                                <label style="display:block; font-weight:bold; color:#555; margin-bottom:5px;">目標値 (任意)</label>
+                                <label style="display:block; font-weight:bold; color:var(--ui-sub); margin-bottom:5px;">目標値 (任意)</label>
                                 <input type="number" id="exp-roll-difficulty" value="0" min="0" placeholder="なし"
-                                    style="width:100%; padding:10px; border:1px solid #ddd; border-radius:6px; font-weight:bold; text-align:center; font-size:1.1em;">
+                                    style="width:100%; padding:10px; border:1px solid var(--ui-control); border-radius:6px; font-weight:bold; text-align:center; font-size:1.1em;">
                             </div>
                         </div>
 
-                        <div style="display:flex; justify-content: flex-end; gap: 10px; border-top: 1px solid #eee; padding-top: 20px;">
-                            <button id="exp-roll-cancel" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer; color:#555;">キャンセル</button>
-                            <button id="exp-roll-execute" style="padding: 10px 25px; border: none; background: linear-gradient(to bottom, #8e44ad, #9b59b6); color: white; border-radius: 6px; cursor: pointer; font-weight:bold; box-shadow: 0 4px 6px rgba(142, 68, 173, 0.3);">判定を実行</button>
+                        <div style="display:flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--ui-line); padding-top: 20px;">
+                            <button id="exp-roll-cancel" class="btn-set">キャンセル</button>
+                            <button id="exp-roll-execute" class="btn-set is-primary">判定を実行</button>
                         </div>
                     </div>
                 </div>
@@ -235,6 +235,7 @@ if (!window.ExplorationDock) {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
         const modal = document.getElementById('exp-roll-modal');
+        applySystemWindow(modal.querySelector('.modal-content'));
         const charSelect = document.getElementById('exp-roll-char-select');
 
         // キャラクターリスト設定
@@ -276,8 +277,6 @@ if (!window.ExplorationDock) {
 
         // ボタンのホバーエフェクト
         const closeBtn = document.getElementById('exp-roll-close');
-        closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(255,255,255,0.4)';
-        closeBtn.onmouseleave = () => closeBtn.style.background = 'rgba(255,255,255,0.2)';
 
         document.getElementById('exp-roll-execute').onclick = () => {
             const charId = charSelect.value;
@@ -286,7 +285,7 @@ if (!window.ExplorationDock) {
             const difficulty = document.getElementById('exp-roll-difficulty').value;
 
             if (!charId || charSelect.disabled) {
-                alert("キャラクターを選択してください");
+                window.showAppNotice("キャラクターを選択してください", {kind: 'error'});
                 return;
             }
 
@@ -305,7 +304,7 @@ if (!window.ExplorationDock) {
 
             // バリデーション
             if (diceCount < 1) {
-                alert("ダイス数は1以上である必要があります");
+                window.showAppNotice("ダイス数は1以上である必要があります", {kind: 'error'});
                 return;
             }
 
@@ -335,7 +334,7 @@ if (!window.ExplorationDock) {
         });
 
         if (chars.length === 0) {
-            alert("追加できるキャラクターがいません（全員配置済みか、キャラがいません）");
+            window.showAppNotice("追加できるキャラクターがいません（全員配置済みか、キャラがいません）", {kind: 'error'});
             return;
         }
 
@@ -358,6 +357,7 @@ if (!window.ExplorationDock) {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
 
         const modal = document.getElementById('exp-add-modal');
+        applySystemWindow(modal.querySelector('.modal-content'));
         modal.querySelectorAll('.tachie-select-item').forEach(item => {
             item.onclick = () => {
                 const charId = item.dataset.id;

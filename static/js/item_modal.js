@@ -56,8 +56,6 @@ function openItemModal() {
     header.className = 'modal-header';
     header.id = 'item-modal-header';
     header.style.cssText = `
-        background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%);
-        color: white;
         padding: 15px 20px;
         display: flex;
         justify-content: space-between;
@@ -68,9 +66,6 @@ function openItemModal() {
         <h3 style="margin: 0; font-size: 1.2em;">🎒 アイテム使用</h3>
         <div class="modal-controls" style="display: flex; gap: 12px;">
             <button class="window-control-btn minimize-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
                 width: 36px;
                 height: 36px;
                 border-radius: 6px;
@@ -80,9 +75,6 @@ function openItemModal() {
                 transition: background 0.2s;
             " title="最小化">−</button>
             <button class="window-control-btn close-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
                 width: 36px;
                 height: 36px;
                 border-radius: 6px;
@@ -103,6 +95,7 @@ function openItemModal() {
 
     modalContent.appendChild(header);
     modalContent.appendChild(body);
+    applySystemWindow(modalContent);
     backdrop.appendChild(modalContent);
     document.body.appendChild(backdrop);
 
@@ -154,7 +147,7 @@ function showCharacterList() {
     body.innerHTML = '';
 
     if (!battleState || !battleState.characters) {
-        body.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">キャラクターがいません</div>';
+        body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ui-sub);">キャラクターがいません</div>';
         return;
     }
 
@@ -166,12 +159,12 @@ function showCharacterList() {
     });
 
     if (myChars.length === 0) {
-        body.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">あなたのキャラクターがいません</div>';
+        body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ui-sub);">あなたのキャラクターがいません</div>';
         return;
     }
 
     const title = document.createElement('div');
-    title.style.cssText = 'padding: 10px 15px; background: #f0f8ff; border-bottom: 2px solid #3498db; margin-bottom: 10px;';
+    title.style.cssText = 'padding: 10px 15px; background: var(--ui-soft); border-bottom: 2px solid var(--ui-primary); margin-bottom: 10px;';
     title.innerHTML = '<strong>キャラクターを選択してください</strong>';
     body.appendChild(title);
 
@@ -183,7 +176,7 @@ function showCharacterList() {
             justify-content: space-between;
             align-items: center;
             padding: 12px 15px;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid var(--ui-line);
             cursor: pointer;
             transition: background 0.2s;
         `;
@@ -203,17 +196,17 @@ function showCharacterList() {
         row.innerHTML = `
             <div>
                 <div style="font-weight: bold; margin-bottom: 3px;">${char.name}</div>
-                <div style="font-size: 0.85em; color: #666;">
+                <div style="font-size: 0.85em; color: var(--ui-sub);">
                     HP: ${char.hp}/${char.maxHp} | アイテム: ${totalItems}個 (${itemCount}種類)
                 </div>
             </div>
-            <div style="color: ${isDead ? '#999' : '#3498db'}; font-size: 1.2em;">
+            <div style="color: ${isDead ? 'var(--ui-sub)' : 'var(--ui-primary)'}; font-size: 1.2em;">
                 ${isDead ? '✖' : '▶'}
             </div>
         `;
 
         if (!isDead) {
-            row.onmouseenter = () => { row.style.background = '#f0f8ff'; };
+            row.onmouseenter = () => { row.style.background = 'var(--ui-soft)'; };
             row.onmouseleave = () => { row.style.background = 'white'; };
             row.onclick = () => showItemList(char.id);
         }
@@ -236,9 +229,6 @@ function showItemList(charId) {
     header.innerHTML = `
         <div style="display: flex; align-items: center; gap: 12px;">
             <button class="back-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
                 width: 40px;
                 height: 40px;
                 border-radius: 6px;
@@ -253,9 +243,6 @@ function showItemList(charId) {
         </div>
         <div class="modal-controls" style="display: flex; gap: 12px;">
             <button class="window-control-btn minimize-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
                 width: 36px;
                 height: 36px;
                 border-radius: 6px;
@@ -265,9 +252,6 @@ function showItemList(charId) {
                 transition: background 0.2s;
             " title="最小化">−</button>
             <button class="window-control-btn close-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: none;
-                color: white;
                 width: 36px;
                 height: 36px;
                 border-radius: 6px;
@@ -313,7 +297,7 @@ function showItemList(charId) {
     const itemIds = Object.keys(inventory);
 
     if (itemIds.length === 0) {
-        body.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">アイテムを所持していません</div>';
+        body.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ui-sub);">アイテムを所持していません</div>';
         return;
     }
 
@@ -329,8 +313,8 @@ function showItemList(charId) {
         const card = document.createElement('div');
         card.className = 'item-card';
         card.style.cssText = `
-            background: white;
-            border: 1px solid #ddd;
+            background: var(--ui-bg);
+            border: 1px solid var(--ui-control);
             border-radius: 8px;
             padding: 15px;
             margin-bottom: 12px;
@@ -346,15 +330,15 @@ function showItemList(charId) {
         const titleDiv = document.createElement('div');
         titleDiv.innerHTML = `
             <div style="font-weight: bold; font-size: 1.1em; margin-bottom: 3px;">${itemData.name}</div>
-            <div style="font-size: 0.85em; color: #666;">所持数: ${quantity}個</div>
+            <div style="font-size: 0.85em; color: var(--ui-sub);">所持数: ${quantity}個</div>
         `;
 
         const useBtn = document.createElement('button');
         useBtn.textContent = '使用';
         useBtn.className = 'item-use-btn';
         useBtn.style.cssText = `
-            background: #27ae60;
-            color: white;
+            background: var(--ui-primary);
+            color: var(--ui-on-primary);
             border: none;
             border-radius: 5px;
             padding: 8px 20px;
@@ -363,7 +347,7 @@ function showItemList(charId) {
             transition: background 0.2s;
         `;
         useBtn.onmouseenter = () => { useBtn.style.background = '#229954'; };
-        useBtn.onmouseleave = () => { useBtn.style.background = '#27ae60'; };
+        useBtn.onmouseleave = () => { useBtn.style.background = 'var(--ui-primary)'; };
         useBtn.onclick = () => openUseItemConfirm(char.id, itemId);
 
         headerRow.appendChild(titleDiv);
@@ -371,12 +355,12 @@ function showItemList(charId) {
 
         const descDiv = document.createElement('div');
         descDiv.className = 'item-description';
-        descDiv.style.cssText = 'font-size: 0.9em; color: #555; margin-top: 8px; line-height: 1.4;';
+        descDiv.style.cssText = 'font-size: 0.9em; color: var(--ui-text); margin-top: 8px; line-height: 1.4;';
         descDiv.textContent = itemData.description || '(説明なし)';
 
         const flavorDiv = document.createElement('div');
         flavorDiv.className = 'item-flavor';
-        flavorDiv.style.cssText = 'font-size: 0.85em; color: #888; font-style: italic; margin-top: 5px;';
+        flavorDiv.style.cssText = 'font-size: 0.85em; color: var(--ui-sub); font-style: italic; margin-top: 5px;';
         flavorDiv.textContent = itemData.flavor || '';
 
         card.appendChild(headerRow);
@@ -426,15 +410,15 @@ function openUseItemConfirm(charId, itemId) {
 
         allies.forEach(target => {
             const radio = document.createElement('div');
-            radio.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+            radio.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid var(--ui-line);';
             radio.innerHTML = `
                 <label style="cursor: pointer; display: flex; align-items: center; gap: 10px;">
                     <input type="radio" name="item-target" value="${target.id}" style="cursor: pointer;">
                     <span>${target.name} (HP: ${target.hp}/${target.maxHp})</span>
                 </label>
             `;
-            radio.onmouseenter = () => { radio.style.background = '#f0f8ff'; };
-            radio.onmouseleave = () => { radio.style.background = 'white'; };
+            radio.onmouseenter = () => { radio.style.background = 'var(--ui-soft)'; };
+            radio.onmouseleave = () => { radio.style.background = ''; };
             radio.onclick = (e) => {
                 if (e.target.tagName !== 'INPUT') {
                     radio.querySelector('input').checked = true;
@@ -458,29 +442,29 @@ function openUseItemConfirm(charId, itemId) {
         confirmBody.innerHTML = `
             <div style="margin-bottom: 10px;">${itemData.description}</div>
             <div style="margin-bottom: 10px; font-weight: bold;">対象:</div>
-            <div style="padding: 10px; background: #f9f9f9; border-radius: 5px;">
+            <div style="padding: 10px; background: var(--ui-soft); border-radius: 5px;">
                 ${targets.map(t => t.name).join(', ')}
             </div>
         `;
     }
 
     const confirmFooter = document.createElement('div');
-    confirmFooter.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px; padding: 15px; border-top: 1px solid #eee;';
+    confirmFooter.style.cssText = 'display: flex; justify-content: flex-end; gap: 10px; padding: 15px; border-top: 1px solid var(--ui-line);';
 
     const cancelBtn = document.createElement('button');
     cancelBtn.textContent = 'キャンセル';
-    cancelBtn.style.cssText = 'padding: 8px 20px; background: #95a5a6; color: white; border: none; border-radius: 5px; cursor: pointer;';
+    cancelBtn.className = 'btn-set';
     cancelBtn.onclick = () => confirmBackdrop.remove();
 
     const executeBtn = document.createElement('button');
     executeBtn.textContent = '使用';
-    executeBtn.style.cssText = 'padding: 8px 20px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;';
+    executeBtn.className = 'btn-set is-primary';
     executeBtn.onclick = () => {
         let targetId = null;
         if (targetType === 'single') {
             const selected = confirmBody.querySelector('input[name="item-target"]:checked');
             if (!selected) {
-                alert('対象を選択してください');
+                window.showAppNotice('対象を選択してください', {kind: 'error'});
                 return;
             }
             targetId = selected.value;
@@ -503,6 +487,7 @@ function openUseItemConfirm(charId, itemId) {
     confirmContent.appendChild(confirmBody);
     confirmContent.appendChild(confirmFooter);
     confirmBackdrop.appendChild(confirmContent);
+    applySystemWindow(confirmContent);
     document.body.appendChild(confirmBackdrop);
 
     confirmBackdrop.addEventListener('click', (e) => {

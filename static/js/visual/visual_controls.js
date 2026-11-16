@@ -282,6 +282,11 @@ window.setupBattleTokenDrag = function () {
     });
 }
 
+let closeAttackTargetingNotice;
+function exitAttackTargetingOnEscape(event) {
+    if (event.key === 'Escape') window.exitAttackTargetingMode();
+}
+
 /**
  * Enter Attack Targeting Mode
  */
@@ -291,22 +296,8 @@ window.enterAttackTargetingMode = function (attackerId) {
     window.attackTargetingState.isTargeting = true;
     window.attackTargetingState.attackerId = attackerId;
 
-    const toast = document.createElement('div');
-    toast.className = 'visual-toast info';
-    toast.textContent = "攻撃対象を選択してください（対象をクリック）";
-    toast.id = 'targeting-toast';
-    toast.style.cssText = 'position:absolute; top:10%; left:50%; transform:translateX(-50%); padding:10px 20px; background:rgba(0,0,0,0.8); color:white; border-radius:20px; z-index:2000; pointer-events:none;';
-
-    const viewport = document.getElementById('map-viewport') || document.body;
-    viewport.appendChild(toast);
-
-    const escHandler = (e) => {
-        if (e.key === 'Escape') {
-            exitAttackTargetingMode();
-            document.removeEventListener('keydown', escHandler);
-        }
-    };
-    document.addEventListener('keydown', escHandler);
+    closeAttackTargetingNotice = window.showAppNotice('攻撃対象を選択してください（対象をクリック）');
+    document.addEventListener('keydown', exitAttackTargetingOnEscape);
 
     if (typeof renderVisualMap === 'function') renderVisualMap();
 };
@@ -320,8 +311,9 @@ window.exitAttackTargetingMode = function () {
     window.attackTargetingState.isTargeting = false;
     window.attackTargetingState.attackerId = null;
 
-    const toast = document.getElementById('targeting-toast');
-    if (toast) toast.remove();
+    closeAttackTargetingNotice?.();
+    closeAttackTargetingNotice = null;
+    document.removeEventListener('keydown', exitAttackTargetingOnEscape);
 
     if (typeof renderVisualMap === 'function') renderVisualMap();
 };

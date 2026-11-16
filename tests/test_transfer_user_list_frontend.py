@@ -13,7 +13,7 @@ const [mode, emptyFlag] = process.argv.slice(1);
 const empty = emptyFlag === 'True';
 const list = {children: [], appendChild(child) {this.children.push(child);}};
 function element() {
-  return {style: {}, appendChild() {}, remove() {},
+  return {style: {}, dataset: {}, classList: {add() {}}, appendChild() {}, remove() {},
     querySelector(selector) {return selector === '#user-list-container' ? list : {};}};
 }
 const urls = [], emitted = [];
@@ -24,6 +24,7 @@ const context = {console, document: {getElementById() {return null;}, createElem
   showAppConfirm: async () => true, socket: {emit(...args) {emitted.push(args);}}};
 context.window = context;
 vm.createContext(context);
+vm.runInContext(fs.readFileSync('static/js/common/system_window.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('static/js/visual/visual_map.js', 'utf8'), context);
 (async () => {
   context.openTransferOwnershipModal('C', mode);

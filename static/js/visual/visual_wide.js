@@ -32,32 +32,33 @@ window.openVisualWideDeclarationModal = function () {
 
         const typeColor = char.type === 'ally' ? '#007bff' : '#dc3545';
         listHtml += `
-            <div style="padding: 10px; border-bottom: 1px solid #eee; display:flex; align-items:center;">
+            <div style="padding: 10px; border-bottom: 1px solid var(--ui-line); display:flex; align-items:center;">
                 <input type="checkbox" class="visual-wide-check" value="${char.id}" style="transform:scale(1.3); margin-right:15px;">
                 <span style="font-weight:bold; color:${typeColor}; font-size:1.1em;">${char.name}</span>
-                <span style="margin-left:auto; color:#666;">SPD: ${char.totalSpeed || char.speedRoll || 0}</span>
+                <span style="margin-left:auto; color:var(--ui-sub);">SPD: ${char.totalSpeed || char.speedRoll || 0}</span>
             </div>
         `;
     });
 
-    if (!listHtml) listHtml = '<div style="padding:15px; color:#666;">広域スキルを所持するキャラクターがいません</div>';
+    if (!listHtml) listHtml = '<div style="padding:15px; color:var(--ui-sub);">広域スキルを所持するキャラクターがいません</div>';
 
     backdrop.innerHTML = `
         <div class="modal-content" style="width: 500px; padding: 0;">
-            <div style="padding: 15px; background: #6f42c1; color: white; border-radius: 8px 8px 0 0;">
+            <div style="padding: 15px; border-bottom: 1px solid var(--ui-line); border-radius: 8px 8px 0 0;">
                 <h3 style="margin:0;">⚡ 広域攻撃予約 (Visual)</h3>
             </div>
             <div style="padding: 20px; max-height: 60vh; overflow-y: auto;">
                 <p>今ラウンド、広域攻撃を行うキャラクターを選択してください。<br>
                 ※GMまたは全員が確認ボタンを押すと確定します。</p>
-                <div style="border: 1px solid #ddd; border-radius: 4px;">${listHtml}</div>
+                <div style="border: 1px solid var(--ui-line); border-radius: 4px;">${listHtml}</div>
             </div>
-            <div style="padding: 15px; background: #f8f9fa; text-align: right; border-radius: 0 0 8px 8px;">
-                <button id="visual-wide-confirm" class="duel-btn primary" style="width:100%;">決定 (確認)</button>
+            <div style="padding: 15px; background: var(--ui-soft); text-align: right; border-radius: 0 0 8px 8px;">
+                <button id="visual-wide-confirm" class="btn-set is-primary" style="width:100%;">決定 (確認)</button>
             </div>
         </div>
     `;
 
+    applySystemWindow(backdrop.querySelector('.modal-content'));
     document.body.appendChild(backdrop);
     const confirmBtn = document.getElementById('visual-wide-confirm');
     confirmBtn.onclick = () => {

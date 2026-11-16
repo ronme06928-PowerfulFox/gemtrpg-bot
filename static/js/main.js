@@ -60,106 +60,29 @@ function escapeDialogText(value) {
 
 let dismissAppDialog;
 
-function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, validate = null, defaultFocus } = {}) {
+function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, validate = null, defaultFocus, danger = false } = {}) {
     return new Promise((resolve) => {
         dismissAppDialog?.();
         const opener = document.activeElement;
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
-        // ルームの外と、紙と金の画面の中から開いた窓は紙と金にする（E02 Part 16）。
-        const inRoom = document.getElementById('main-app-container')?.style.display === 'block';
-        if (!inRoom || opener?.closest?.('[data-theme="paper"], .cat-workspace')) overlay.dataset.theme = 'paper';
+        overlay.dataset.theme = appSurfaceTheme();
         overlay.className = 'modal-backdrop app-dialog-backdrop';
         overlay.innerHTML = `
             <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
-                <style>
-                    [data-theme="paper"] .app-dialog-modal {
-                        background-color: var(--ui-bg); background-image: var(--ui-tex);
-                        border-color: var(--ui-gold);
-                        box-shadow: var(--ui-shadow-float);
-                    }
-                    [data-theme="paper"] .app-dialog-title { font-family: var(--ui-head-font); }
-                    [data-theme="paper"] .app-dialog-input {
-                        background: var(--ui-input-bg);
-                        color: var(--ui-text);
-                        box-shadow: var(--ui-shadow-input);
-                    }
-                    [data-theme="paper"] .app-dialog-actions button {
-                        border: 1px solid var(--ui-gold-strong);
-                        box-shadow: var(--ui-inset), var(--ui-shadow-button);
-                    }
-                    .app-dialog-modal {
-                        width: min(420px, calc(100vw - 28px));
-                        padding: 22px;
-                        border-radius: 16px;
-                        border: 1px solid rgba(30, 45, 54, 0.18);
-                        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.22);
-                    }
-                    .app-dialog-title {
-                        margin: 0 0 10px;
-                        font-size: 1.18rem;
-                        color: var(--ui-text, #173f36);
-                    }
-                    .app-dialog-message {
-                        white-space: pre-wrap;
-                        line-height: 1.65;
-                        color: var(--ui-text, #34443f);
-                    }
-                    .app-dialog-input {
-                        width: 100%;
-                        box-sizing: border-box;
-                        margin-top: 14px;
-                        padding: 10px 12px;
-                        border: 1px solid var(--ui-control, #b8c9c2);
-                        border-radius: 10px;
-                        font-size: 1rem;
-                    }
-                    .app-dialog-error {
-                        min-height: 1.2em;
-                        margin-top: 8px;
-                        color: var(--ui-danger, #b42318);
-                        font-size: 0.9rem;
-                    }
-                    .app-dialog-actions {
-                        display: flex;
-                        justify-content: flex-end;
-                        gap: 10px;
-                        margin-top: 18px;
-                    }
-                    .app-dialog-actions button {
-                        border: none;
-                        border-radius: 999px;
-                        padding: 9px 18px;
-                        cursor: pointer;
-                        font-weight: 700;
-                    }
-                    .app-dialog-actions button:focus {
-                        outline: 2px solid var(--ui-focus, #173f36);
-                        outline-offset: 3px;
-                    }
-                    .app-dialog-cancel {
-                        background: var(--ui-soft, #e6ece9);
-                        background-image: var(--ui-gloss, none);
-                        color: var(--ui-text, #25352f);
-                    }
-                    .app-dialog-confirm {
-                        background: var(--ui-primary, #d97732);
-                        background-image: var(--ui-primary-gloss, none);
-                        color: var(--ui-on-primary, white);
-                    }
-                </style>
                 <h3 id="app-dialog-title" class="app-dialog-title">${escapeDialogText(title)}</h3>
                 <div class="app-dialog-message">${escapeDialogText(message)}</div>
                 ${mode === 'prompt' ? `<input id="app-dialog-input" class="app-dialog-input" value="${escapeDialogText(defaultValue)}" placeholder="${escapeDialogText(placeholder)}">` : ''}
-                <div id="app-dialog-error" class="app-dialog-error"></div>
+                <div id="app-dialog-error" class="app-dialog-error" aria-live="polite"></div>
                 <div class="app-dialog-actions">
-                    ${mode === 'alert' ? '' : `<button id="app-dialog-cancel" class="app-dialog-cancel" type="button">${escapeDialogText(cancelText)}</button>`}
-                    <button id="app-dialog-confirm" class="app-dialog-confirm" type="button">${escapeDialogText(confirmText)}</button>
+                    ${mode === 'alert' ? '' : `<button id="app-dialog-cancel" class="app-dialog-cancel btn-set" type="button">${escapeDialogText(cancelText)}</button>`}
+                    <button id="app-dialog-confirm" class="app-dialog-confirm btn-set ${danger ? 'is-danger' : 'is-primary'}" type="button">${escapeDialogText(confirmText)}</button>
                 </div>
             </div>
         `;
 
+        applySystemWindow(overlay.querySelector('.app-dialog-modal'), overlay.dataset.theme);
         const input = overlay.querySelector('#app-dialog-input');
         const error = overlay.querySelector('#app-dialog-error');
         const cancelButton = overlay.querySelector('#app-dialog-cancel');
@@ -225,7 +148,8 @@ function showAppConfirm(message, options = {}) {
         title: options.title || '確認',
         message,
         mode: 'confirm',
-        defaultFocus: options.defaultFocus,
+        defaultFocus: options.defaultFocus || (options.danger ? 'cancel' : undefined),
+        danger: options.danger ?? (options.defaultFocus === 'cancel'),
         confirmText: options.confirmText || '実行',
         cancelText: options.cancelText || 'キャンセル',
     });
@@ -665,14 +589,15 @@ function openInRoomSettingsChooser() {
     const isGm = currentUserAttribute === 'GM';
     const backdrop = document.createElement('div');
     backdrop.id = 'settings-chooser-backdrop';
-    backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:9999;';
+    backdrop.className = 'modal-backdrop room-settings-backdrop';
     backdrop.innerHTML = `
-        <div style="background:#fff; border-radius:10px; padding:20px; width:min(320px,92vw); box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+        <div class="modal-content settings-chooser-modal">
             <h3 style="margin:0 0 14px;">設定</h3>
-            <button id="chooser-user" class="portal-settings-button" style="display:block; width:100%; margin-bottom:10px;">⚙️ ユーザー設定</button>
-            ${isGm ? '<button id="chooser-room" class="portal-settings-button" style="display:block; width:100%; margin-bottom:10px; background:#e0e0ff;">🏠 ルーム設定</button>' : ''}
-            <button id="chooser-cancel" class="portal-settings-button" style="display:block; width:100%; background:#eee; color:#333;">閉じる</button>
+            <button id="chooser-user" class="btn-set" style="display:block; width:100%; margin-bottom:10px;">⚙️ ユーザー設定</button>
+            ${isGm ? '<button id="chooser-room" class="btn-set" style="display:block; width:100%; margin-bottom:10px;">🏠 ルーム設定</button>' : ''}
+            <button id="chooser-cancel" class="btn-set" style="display:block; width:100%;">閉じる</button>
         </div>`;
+    applySystemWindow(backdrop.querySelector('.settings-chooser-modal'));
     document.body.appendChild(backdrop);
     const close = () => backdrop.remove();
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
@@ -684,15 +609,15 @@ function openInRoomSettingsChooser() {
 
 // 現在入室中のルームのルーム設定モーダルを開く（ロビーへは戻らない）。
 async function openCurrentRoomSettings() {
-    if (!currentRoomName) { showAppAlert('ルーム情報を取得できませんでした。', { title: 'エラー' }); return; }
+    if (!currentRoomName) { window.showAppNotice('ルーム情報を取得できませんでした。', {kind: 'error'}); return; }
     try {
         const response = await fetchWithSession('/list_rooms');
         const data = await response.json();
         const info = (data.rooms || []).find(r => r.name === currentRoomName);
-        if (!info) { showAppAlert('ルーム情報が見つかりませんでした。', { title: 'エラー' }); return; }
+        if (!info) { window.showAppNotice('ルーム情報が見つかりませんでした。', {kind: 'error'}); return; }
         openRoomSettingsModal(info, { refreshLobby: false });
     } catch (error) {
-        showAppAlert(error.message, { title: 'エラー' });
+        window.showAppNotice(error.message, {kind: 'error'});
     }
 }
 
@@ -705,7 +630,7 @@ function openRoomSettingsModal(info, opts = {}) {
     document.getElementById('room-settings-modal-backdrop')?.remove();
     const backdrop = document.createElement('div');
     backdrop.id = 'room-settings-modal-backdrop';
-    backdrop.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:9999;';
+    backdrop.className = 'modal-backdrop room-settings-backdrop';
 
     const visOptions = ['hidden', 'listed', 'closed'].map(v => {
         const label = { hidden: '非公開(hidden)', listed: '公開(listed)', closed: '締切(closed)' }[v];
@@ -714,7 +639,7 @@ function openRoomSettingsModal(info, opts = {}) {
     }).join('');
 
     backdrop.innerHTML = `
-        <div style="background:#fff; border-radius:10px; padding:20px; width:min(460px,92vw); max-height:88vh; overflow:auto; box-shadow:0 8px 24px rgba(0,0,0,0.2);">
+        <div class="modal-content room-settings-modal">
             <h3 style="margin:0 0 12px;">ルーム情報: ${esc(info.name)}</h3>
             <label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
             <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
@@ -723,17 +648,19 @@ function openRoomSettingsModal(info, opts = {}) {
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナー・管理者のみ変更可)'}</label>
             <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
             ${isOwner ? `
-            <div style="margin-top:14px; padding-top:12px; border-top:1px solid #eee;">
-                <div style="font-weight:bold; margin-bottom:6px;">参加コード <span style="font-weight:normal; color:#888;">(${info.requires_code ? '設定済み' : '未設定'})</span></div>
-                <button id="rs-set-code" type="button" style="margin-right:6px;">設定 / 再発行</button>
-                <button id="rs-clear-code" type="button" ${info.requires_code ? '' : 'disabled'}>失効</button>
+            <div class="clasp" aria-hidden="true"><i></i></div>
+            <div>
+                <div style="font-weight:bold; margin-bottom:6px;">参加コード <span style="font-weight:normal; color:var(--ui-sub);">(${info.requires_code ? '設定済み' : '未設定'})</span></div>
+                <button id="rs-set-code" class="btn-set" type="button" style="margin-right:6px;">設定 / 再発行</button>
+                <button id="rs-clear-code" class="btn-set is-danger" type="button" ${info.requires_code ? '' : 'disabled'}>失効</button>
             </div>` : ''}
             <div id="rs-message" class="auth-message" style="margin-top:10px;"></div>
             <div style="margin-top:14px; text-align:right;">
-                <button id="rs-cancel" type="button" style="margin-right:6px;">閉じる</button>
-                <button id="rs-save" type="button">保存</button>
+                <button id="rs-cancel" class="btn-set" type="button" style="margin-right:6px;">閉じる</button>
+                <button id="rs-save" class="btn-set is-primary" type="button">保存</button>
             </div>
         </div>`;
+    applySystemWindow(backdrop.querySelector('.room-settings-modal'));
     document.body.appendChild(backdrop);
 
     const msg = backdrop.querySelector('#rs-message');
@@ -814,12 +741,12 @@ async function joinRoomWithCode(roomName, requiresCode) {
         });
         const data = await response.json();
         if (!response.ok) {
-            showAppAlert(data.error || 'ルーム参加に失敗しました', { title: 'エラー' });
+            window.showAppNotice(data.error || 'ルーム参加に失敗しました', {kind: 'error'});
             return;
         }
         joinRoom(roomName, null, null, data.role || 'player');
     } catch (error) {
-        showAppAlert(error.message, { title: 'エラー' });
+        window.showAppNotice(error.message, {kind: 'error'});
     }
 }
 
@@ -859,13 +786,13 @@ async function createNewRoom() {
             window.currentUserAttribute = currentUserAttribute;
             joinRoom(payload.room_name, result.state, { role: 'GM', gmPin: payload.gm_pin });
         } else if (response.status === 409) {
-            showAppAlert(`ルーム名「${payload.room_name}」は既に使用されています。`, { title: 'エラー' });
+            window.showAppNotice(`ルーム名「${payload.room_name}」は既に使用されています。`, {kind: 'error'});
         } else {
             throw new Error(result.error || 'ルームの作成に失敗しました');
         }
     } catch (error) {
         console.error('Error creating room:', error);
-        showAppAlert(`ルーム作成に失敗しました: ${error.message}`, { title: 'エラー' });
+        window.showAppNotice(`ルーム作成に失敗しました: ${error.message}`, {kind: 'error'});
     }
 }
 
@@ -897,11 +824,11 @@ async function deleteRoom(roomName) {
         });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || '不明なエラー');
-        showAppAlert(`ルーム「${roomName}」を削除しました。`, { title: 'ルーム削除' });
+        window.showAppNotice(`ルーム「${roomName}」を削除しました。`, {kind: 'success'});
         showRoomPortal();
     } catch (error) {
         console.error('Error deleting room:', error);
-        showAppAlert(`ルームの削除に失敗しました: ${error.message}`, { title: 'エラー' });
+        window.showAppNotice(`ルームの削除に失敗しました: ${error.message}`, {kind: 'error'});
     }
 }
 
@@ -988,7 +915,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
 
     } catch (error) {
         console.error('Error joining room:', error);
-        showAppAlert(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`, { title: 'エラー' });
+        window.showAppNotice(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`, {kind: 'error'});
         showRoomPortal();
     }
 }

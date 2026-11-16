@@ -368,7 +368,7 @@
       } else closeDialog();
     }
 
-    const confirm = (title, message, confirmText, defaultFocus) =>
+    const askConfirmation = (title, message, confirmText, defaultFocus) =>
       window.showAppConfirm(message,{title,confirmText,defaultFocus});
 
     function chart(pattern, unit, apply) {
@@ -409,7 +409,7 @@
       }
       if (action === 'pattern-delete') {
         if (payload().default_pattern_id === id || patterns.users(state.records,state.selected,id,null).length) return;
-        if (!await confirm('パターンを削除',`「${pattern.name}」を削除しますか？`,'削除','cancel')) return;
+        if (!await askConfirmation('パターンを削除',`「${pattern.name}」を削除しますか？`,'削除','cancel')) return;
         setPath('patterns',payload().patterns.filter(item => item.id !== id));
         update(true);
       }
@@ -662,7 +662,7 @@
       if (['deprecate','delete','restore'].includes(action)) {
         if (!await canLeave()) return;
         const label = control.textContent;
-        if (!await confirm(label,`${current().payload.name} を「${label}」しますか？`,label,
+        if (!await askConfirmation(label,`${current().payload.name} を「${label}」しますか？`,label,
           action === 'delete' ? 'cancel' : 'confirm')) return;
         const base_revision = state.draft.revision;
         if (action === 'deprecate') {

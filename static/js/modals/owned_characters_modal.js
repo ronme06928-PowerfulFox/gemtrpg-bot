@@ -403,7 +403,7 @@
                         if (!resp.ok) throw new Error('削除に失敗しました。');
                         await loadList();
                     } catch (err) {
-                        global.showAppAlert(err.message || String(err), { title: 'エラー' });
+                        window.showAppNotice(err.message || String(err), {kind: 'error'});
                     }
                 });
             });

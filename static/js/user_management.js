@@ -168,7 +168,7 @@ async function showUserDetails(userId, userName) {
         document.getElementById('close-user-details').onclick = () => overlay.remove();
 
     } catch (e) {
-        showAppAlert(e.message, { title: 'エラー' });
+        window.showAppNotice(e.message, {kind: 'error'});
     }
 }
 // ▲▲▲ 追加ここまで ▲▲▲
@@ -198,7 +198,7 @@ async function deleteUser(userId) {
         }
         loadUserList();
     } catch(e) {
-        showAppAlert('削除失敗: ' + e.message, { title: 'エラー' });
+        window.showAppNotice('削除失敗: ' + e.message, {kind: 'error'});
     }
 }
 
@@ -230,10 +230,10 @@ async function openTransferModal(fromId, fromName) {
     }).then(res => res.json())
       .then(data => {
           if (data.error) throw new Error(data.error);
-          showAppAlert(data.message, { title: '所有権移動' });
+          window.showAppNotice(data.message, {kind: 'success'});
           loadUserList();
       })
-      .catch(e => showAppAlert('譲渡失敗: ' + e.message, { title: 'エラー' }));
+      .catch(e => window.showAppNotice('譲渡失敗: ' + e.message, {kind: 'error'}));
 }
 
 async function toggleUserManagementAdmin(userId, enabled) {
@@ -257,7 +257,7 @@ async function toggleUserManagementAdmin(userId, enabled) {
         if (!res.ok) throw new Error(data.error || '更新に失敗しました');
         loadUserList();
     } catch (e) {
-        showAppAlert('管理権限の更新失敗: ' + e.message, { title: 'エラー' });
+        window.showAppNotice('管理権限の更新失敗: ' + e.message, {kind: 'error'});
     }
 }
 
@@ -274,6 +274,6 @@ async function toggleCatalogAuthor(userId, enabled) {
     if (!response.ok) throw new Error(data.error || '更新に失敗しました');
     await loadUserList();
   } catch (error) {
-    showAppAlert('制作者の更新失敗: ' + error.message, { title: 'エラー' });
+    window.showAppNotice('制作者の更新失敗: ' + error.message, {kind: 'error'});
   }
 }

@@ -63,6 +63,12 @@ function openUserSettingsModal(allowAttributeChange = false) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 
     const backdrop = document.getElementById('user-settings-modal-backdrop');
+    if (appSurfaceTheme() === 'marble') {
+        delete backdrop.dataset.theme;
+        const panel = backdrop.querySelector('.user-settings-modal');
+        panel.classList.remove('paper-dialog');
+        applySystemWindow(panel);
+    }
     const updateBtn = document.getElementById('modal-user-update-btn');
     const recoveryBtn = document.getElementById('modal-recovery-regenerate-btn');
     const adminGrantBtn = document.getElementById('modal-admin-grant-btn');
@@ -133,6 +139,7 @@ function openUserSettingsModal(allowAttributeChange = false) {
 
     recoveryBtn?.addEventListener('click', async () => {
         const ok = await window.showAppConfirm('復旧コードを再発行します。古い復旧コードは使えなくなります。', {
+            danger: true,
             title: '復旧コード再発行',
             confirmText: '再発行',
         });
@@ -244,6 +251,7 @@ function openUserListModal() {
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+    applySystemWindow(document.querySelector('#user-list-modal-backdrop > .modal-content'));
     const backdrop = document.getElementById('user-list-modal-backdrop');
     backdrop.querySelector('.modal-close-btn').addEventListener('click', () => backdrop.remove());
     backdrop.addEventListener('click', (e) => {
@@ -480,7 +488,7 @@ function renderCharacterCard(char) {
         const colorStyle = config ? `color: ${config.color}; font-weight:bold;` : '';
         statesHtml += `<div class="detail-buff-item" style="${colorStyle}">${normalizedName}: ${s.value}</div>`;
     });
-    if (!statesHtml) statesHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
+    if (!statesHtml) statesHtml = '<span style="color:var(--ui-sub); font-size:0.9em;">なし</span>';
 
     // --- Buffs (Flavor Text Handling Fix) ---
     const fissureView = buildFissureDetailView(char);
@@ -495,15 +503,15 @@ function renderCharacterCard(char) {
         && summonRemainingRounds > 0
     ) {
         specialBuffsHtml += `
-            <details class="detail-buff-item" style="border: 1px solid #ffc078; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
+            <details class="detail-buff-item" style="border: 1px solid #ffc078; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: var(--ui-bg);">
                 <summary style="background: #fff3bf; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
                     <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
                         <span>召喚継続</span>
-                        <span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${summonRemainingRounds}R</span>
+                        <span class="buff-duration-badge" style="background:var(--ui-sub); color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${summonRemainingRounds}R</span>
                     </div>
-                    <span style="font-size: 0.8em; color: #666;">▼</span>
+                    <span style="font-size: 0.8em; color: var(--ui-sub);">▼</span>
                 </summary>
-                <div style="padding: 10px; background: #fff; border-top: 1px solid #ffe8a1;">
+                <div style="padding: 10px; background: var(--ui-bg); border-top: 1px solid #ffe8a1;">
                     <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">この召喚体はラウンド終了時に残り継続ラウンドが減少し、0で消滅します。</div>
                 </div>
             </details>
@@ -624,13 +632,13 @@ function renderCharacterCard(char) {
             let durationHtml = "";
             const sourceBadgeId = String(buffCatalogId || '').trim();
             if (sourceBadgeId) {
-                durationHtml += `<span class="buff-source-badge" style="background:#495057; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.72em; margin-left:4px; white-space: nowrap;">src:${sourceBadgeId}</span>`;
+                durationHtml += `<span class="buff-source-badge" style="background:#495057; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.72em; margin-left:4px; white-space: nowrap;">src:${sourceBadgeId}</span>`;
             }
 
             // 1. 持続ラウンド表示 (無限(-1)の場合は非表示)
             if (durationVal !== null && durationVal !== undefined && !isNaN(durationVal)) {
                 if (durationVal > 0 && durationVal < 99) {
-                    durationHtml += `<span class="buff-duration-badge" style="background:#666; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${durationVal}R</span>`;
+                    durationHtml += `<span class="buff-duration-badge" style="background:var(--ui-sub); color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:8px; white-space: nowrap;">残り${durationVal}R</span>`;
                 }
                 // -1 (無限) の場合は何も追加しない
             }
@@ -646,13 +654,13 @@ function renderCharacterCard(char) {
             const isSpeedModBuff = (speedBuffId === 'Bu-11' || speedBuffId === 'Bu-12');
             if (isSpeedModBuff) {
                 if (delayVal > 0) {
-                    durationHtml += `<span class="buff-speed-state-badge" style="background:#d63384; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">予約中(${delayVal}R)</span>`;
+                    durationHtml += `<span class="buff-speed-state-badge" style="background:#d63384; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">予約中(${delayVal}R)</span>`;
                 } else {
-                    durationHtml += `<span class="buff-speed-state-badge" style="background:#198754; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">適用中</span>`;
+                    durationHtml += `<span class="buff-speed-state-badge" style="background:#198754; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">適用中</span>`;
                 }
             }
             if (delayVal > 0) {
-                durationHtml += `<span class="buff-delay-badge" style="background:#d63384; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">発動まで${delayVal}R</span>`;
+                durationHtml += `<span class="buff-delay-badge" style="background:#d63384; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.8em; margin-left:4px; white-space: nowrap;">発動まで${delayVal}R</span>`;
             }
 
             specialBuffsHtml += `
@@ -682,7 +690,7 @@ function renderCharacterCard(char) {
             const radianceData = (window.radianceSkillData && window.radianceSkillData[pid]) ? window.radianceSkillData[pid] : null;
             const pData = passiveData || radianceData || null;
             const badgeText = passiveData ? 'パッシブ' : (radianceData ? '輝化' : '特殊');
-            const badgeColor = passiveData ? '#6a1b9a' : (radianceData ? '#0b7285' : '#666');
+            const badgeColor = passiveData ? '#6a1b9a' : (radianceData ? '#0b7285' : 'var(--ui-sub)');
 
             // データがなくてもIDだけは表示する
             const name = pData ? pData.name : pid;
@@ -690,24 +698,24 @@ function renderCharacterCard(char) {
             const flavor = pData ? pData.flavor : "";
 
             specialBuffsHtml += `
-                <details class="detail-buff-item" style="border: 1px solid #e0cffc; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: #fff;">
+                <details class="detail-buff-item" style="border: 1px solid #e0cffc; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: var(--ui-bg);">
                     <summary style="background: #f3e5f5; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
                         <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
                             <span style="color: ${badgeColor};">★ ${name}</span>
-                            <span style="background:${badgeColor}; color:#fff; padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">${badgeText}</span>
+                            <span style="background:${badgeColor}; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">${badgeText}</span>
                         </div>
-                        <span style="font-size: 0.8em; color: #666;">▼</span>
+                        <span style="font-size: 0.8em; color: var(--ui-sub);">▼</span>
                     </summary>
-                    <div style="padding: 10px; background: #fff; border-top: 1px solid #e0cffc;">
+                    <div style="padding: 10px; background: var(--ui-bg); border-top: 1px solid #e0cffc;">
                         <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${markupToHtml(desc)}</div>
-                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed #eee; margin-top: 5px; padding-top: 5px;">${markupToHtml(flavor)}</div>` : ''}
+                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed var(--ui-line); margin-top: 5px; padding-top: 5px;">${markupToHtml(flavor)}</div>` : ''}
                     </div>
                 </details>
             `;
         });
     }
 
-    if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:#999; font-size:0.9em;">なし</span>';
+    if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:var(--ui-sub); font-size:0.9em;">なし</span>';
 
     // --- Skills ---
     let skillsHtml = '';
@@ -747,7 +755,7 @@ function renderCharacterCard(char) {
                 toggleHtml = `
                     <label class="skill-visibility-checkbox" onclick="event.stopPropagation();" style="font-size:0.8em; display:flex; align-items:center; cursor:pointer; margin-left:auto;">
                         <input type="checkbox" class="skill-public-toggle" data-skill-id="${skillId}" ${checked}>
-                        <span style="margin-left:2px; font-weight:normal; color:#555;">公開</span>
+                        <span style="margin-left:2px; font-weight:normal; color:var(--ui-text);">公開</span>
                     </label>
                 `;
             }
@@ -759,7 +767,7 @@ function renderCharacterCard(char) {
             skillItems.push(`
                 <div class="${itemClass}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-is-granted="${isGranted ? '1' : '0'}" data-grant-mode="${escAttr(grantMode)}" data-grant-rounds="${Number.isFinite(remainingRounds) ? remainingRounds : ''}" data-grant-uses="${Number.isFinite(remainingUses) ? remainingUses : ''}">
                     <div style="display:flex; flex-direction:column; overflow:hidden;">
-                        <span style="font-size:0.75em; color:#888;">${skillId}</span>
+                        <span style="font-size:0.75em; color:var(--ui-sub);">${skillId}</span>
                         <span style="font-weight:bold; font-size:0.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${skillName}</span>
                     </div>
                     ${isGranted ? '<span style="background:#ffe08a; color:#5a4300; border:1px solid #f3c34a; border-radius:10px; font-size:0.72em; padding:1px 6px; margin-right:6px; white-space:nowrap;">付与</span>' : ''}
@@ -770,7 +778,7 @@ function renderCharacterCard(char) {
         if (skillItems.length > 0) {
             skillsHtml = `<div class="char-skills-grid">${skillItems.join('')}</div>`;
         } else {
-            skillsHtml = `<div style="color:#999; font-size:0.9em;">なし</div>`;
+            skillsHtml = `<div style="color:var(--ui-sub); font-size:0.9em;">なし</div>`;
         }
     }
 
@@ -791,10 +799,10 @@ function renderCharacterCard(char) {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border: 1px solid #eee;
+                border: 1px solid var(--ui-line);
                 padding: 6px 10px;
                 border-radius: 4px;
-                background: #fff;
+                background: var(--ui-bg);
                 cursor: pointer;
                 transition: background 0.2s;
             }
@@ -803,9 +811,9 @@ function renderCharacterCard(char) {
                 border-color: #baddff;
             }
             .char-skill-item.hidden {
-                background: #f9f9f9;
+                background: var(--ui-soft);
                 opacity: 0.7;
-                border: 1px dashed #ccc;
+                border: 1px dashed var(--ui-control);
             }
             .char-skill-item.granted {
                 background: #fff8dc;
@@ -827,14 +835,14 @@ function renderCharacterCard(char) {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                border: 1px solid #ddd;
+                border: 1px solid var(--ui-control);
                 padding: 6px 10px;
                 border-radius: 4px;
-                background: #f9f9f9;
+                background: var(--ui-soft);
                 font-size: 0.9em;
             }
             .param-label {
-                color: #555;
+                color: var(--ui-text);
                 font-weight: bold;
             }
             .param-value {
@@ -850,7 +858,7 @@ function renderCharacterCard(char) {
                 font-weight: 700;
                 letter-spacing: 0.1em;
                 text-transform: uppercase;
-                color: #555;
+                color: var(--ui-text);
                 padding-left: 8px;
                 border-left: 3px solid var(--accent-gold, #c8a84b);
                 line-height: 1.6;
@@ -860,7 +868,7 @@ function renderCharacterCard(char) {
                 flex: 1;
                 text-align: center;
                 padding: 12px 10px 10px;
-                background: #fff;
+                background: var(--ui-bg);
                 border: 1px solid #e8e8e8;
                 border-top: 3px solid #e8e8e8;
                 border-radius: 6px;
@@ -872,7 +880,7 @@ function renderCharacterCard(char) {
             .detail-stat-label {
                 display: block;
                 font-size: 0.72em;
-                color: #888;
+                color: var(--ui-sub);
                 font-weight: 700;
                 text-transform: uppercase;
                 letter-spacing: 0.08em;
@@ -982,7 +990,7 @@ function renderCharacterCard(char) {
             }
             .buff-body {
                 padding: 10px 12px;
-                background: #fff;
+                background: var(--ui-bg);
             }
             .buff-desc-row {
                 font-weight: 600;
@@ -1008,34 +1016,35 @@ function renderCharacterCard(char) {
 
     return `
         ${inlineStyle}
-        <div class="char-detail-modal-content" data-char-id="${charIdAttr}" style="padding:10px; width:650px; max-width:90vw;">
-            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid #eee;">
+        <div class="char-detail-modal-content" data-char-id="${charIdAttr}">
+            <div class="detail-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; padding-bottom:14px; ">
                 <div class="character-detail-identity">
                     <h2 style="margin:0; font-size:1.6em; font-weight:800; border-left:5px solid ${char.color}; padding-left:12px; letter-spacing:0; line-height:1.3;">${char.name}</h2>
                     ${characterTagsHtml}
                 </div>
                 <div style="display:flex; gap:15px; align-items:center;">
-                    <button class="modal-settings-btn" id="modal-settings-trigger" style="background:none; border:none; font-size:1.5em; cursor:pointer; color:#555;" title="設定">⚙</button>
-                    <button class="modal-close-btn" style="background:none; border:none; font-size:2em; cursor:pointer; color:#888; line-height:1;">&times;</button>
+                    <button class="modal-settings-btn" id="modal-settings-trigger" style="background:none; border:none; font-size:1.5em; cursor:pointer; color:var(--ui-text);" title="設定">⚙</button>
+                    <button class="modal-close-btn" style="background:none; border:none; font-size:2em; cursor:pointer; color:var(--ui-sub); line-height:1;">&times;</button>
                 </div>
             </div>
 
+            <div class="clasp" aria-hidden="true"><i></i></div>
             <div id="char-image-preview" style="text-align:center; ${char.image ? '' : 'display: none;'} margin-bottom:15px;">
-                <img id="char-preview-img" src="${char.image || ''}" style="max-height: 120px; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                <img id="char-preview-img" src="${char.image || ''}" style="max-height: 120px; border: 1px solid var(--ui-control); border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             </div>
 
             <div class="detail-stat-grid" style="display:flex; gap:10px; margin-bottom:20px;">
                 <div class="detail-stat-box hp-box">
                     <span class="detail-stat-label">HP</span>
-                    <span class="detail-stat-val" style="color:var(--color-hp, #28a745);">${char.hp} <span class="detail-stat-max">/ ${char.maxHp}</span></span>
+                    <span class="detail-stat-val" style="color:var(--ui-add);">${char.hp} <span class="detail-stat-max">/ ${char.maxHp}</span></span>
                 </div>
                 <div class="detail-stat-box mp-box">
                     <span class="detail-stat-label">MP</span>
-                    <span class="detail-stat-val" style="color:var(--color-mp, #4a90d9);">${char.mp} <span class="detail-stat-max">/ ${char.maxMp}</span></span>
+                    <span class="detail-stat-val" style="color:var(--ui-primary);">${char.mp} <span class="detail-stat-max">/ ${char.maxMp}</span></span>
                 </div>
                 <div class="detail-stat-box fp-box">
                     <span class="detail-stat-label">FP</span>
-                    <span class="detail-stat-val" style="color:var(--color-fp, #e0b84a);">${fpVal}</span>
+                    <span class="detail-stat-val" style="color:var(--ui-warn);">${fpVal}</span>
                 </div>
             </div>
 
@@ -1054,12 +1063,12 @@ function renderCharacterCard(char) {
             </div>
 
             <div class="detail-section" style="margin-bottom:20px;">
-                <details open style="border: 1px solid #eee; border-radius: 4px;">
-                    <summary style="background: #f8f9fa; padding: 10px; cursor: pointer; font-weight: bold; font-size: 1.1em; outline: none; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+                <details open style="border: 1px solid var(--ui-line); border-radius: 4px;">
+                    <summary style="background: var(--ui-soft); padding: 10px; cursor: pointer; font-weight: bold; font-size: 1.1em; outline: none; display: flex; justify-content: space-between; align-items: center; user-select: none;">
                         <span>Skills</span>
-                        <span style="font-size: 0.8em; color: #666;">▼</span>
+                        <span style="font-size: 0.8em; color: var(--ui-sub);">▼</span>
                     </summary>
-                    <div style="padding: 10px; background: #fff;">
+                    <div style="padding: 10px; background: var(--ui-bg);">
                         ${skillsHtml}
                     </div>
                 </details>
@@ -1083,6 +1092,7 @@ function openCharacterModal(charId) {
     // Call the single unified renderer
     modalContent.innerHTML = renderCharacterCard(char);
 
+    applySystemWindow(modalContent);
     modalBackdrop.appendChild(modalContent);
     document.body.appendChild(modalBackdrop);
     modalBackdrop.addEventListener('click', (e) => {
@@ -1631,6 +1641,8 @@ function openCharLoadModal() {
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
+    const panel = document.querySelector('#char-load-modal-backdrop > .modal-content');
+    applySystemWindow(panel);
     const backdrop = document.getElementById('char-load-modal-backdrop');
     const body = document.getElementById('char-load-modal-body');
     const isGMUser = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
@@ -1660,6 +1672,7 @@ function openCharLoadModal() {
                 </button>
             </div>
         `;
+        if (panel.dataset.theme === 'marble') addSystemWindowHeadingMark(body.querySelector('h2'));
         body.querySelector('#char-load-choice-ally')?.addEventListener('click', () => renderJsonStep('ally'));
         body.querySelector('#char-load-choice-enemy')?.addEventListener('click', () => renderJsonStep('enemy'));
     };
@@ -1721,6 +1734,7 @@ function openCharLoadModal() {
             ${debugHtml}
         `;
 
+        if (panel.dataset.theme === 'marble') addSystemWindowHeadingMark(body.querySelector('h2'));
         const jsonInput = body.querySelector('#modal-char-json-input');
         const resultMsg = body.querySelector('#modal-load-result-msg');
         const fileInput = body.querySelector('#modal-char-json-file-input');
@@ -1824,13 +1838,13 @@ function openResetTypeModal(callback) {
 
     overlay.innerHTML = `
         <div class="modal-content" style="width: 450px; padding: 25px;">
-            <h3 style="margin-top: 0; color: #dc3545; border-bottom: 2px solid #eee; padding-bottom: 10px;">
+            <h3 style="margin-top: 0; color: var(--ui-danger); border-bottom: 2px solid var(--ui-line); padding-bottom: 10px;">
                 戦闘リセット設定
             </h3>
 
             <div style="margin-bottom: 20px;">
-                <h4 style="margin: 0 0 10px 0; color: #555;">ステータスリセットの対象</h4>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8f9fa; padding: 15px; border-radius: 4px; border: 1px solid #dee2e6;">
+                <h4 style="margin: 0 0 10px 0; color: var(--ui-text);">ステータスリセットの対象</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: var(--ui-soft); padding: 15px; border-radius: 4px; border: 1px solid var(--ui-line);">
                     <label style="cursor: pointer; display: flex; align-items: center;">
                         <input type="checkbox" id="reset-opt-hp" checked> <span style="margin-left: 5px;">HP全快</span>
                     </label>
@@ -1847,33 +1861,34 @@ function openResetTypeModal(callback) {
                         <input type="checkbox" id="reset-opt-buffs" checked> <span style="margin-left: 5px;">バフ・特殊状態リセット</span>
                     </label>
                 </div>
-                <div style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                <div style="font-size: 0.85em; color: var(--ui-sub); margin-top: 5px;">
                     ※「バフリセット」は初期所持バフ（パッシブ由来など）を除き削除します。
                 </div>
             </div>
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <button id="reset-status-exec-btn" class="room-action-btn" style="padding: 12px; background-color: #ffc107; color: #333; font-weight: bold; border: 1px solid #e0a800;">
+                <button id="reset-status-exec-btn" class="btn-set is-danger">
                     上記の内容でステータスのみリセット
                 </button>
 
-                <button id="reset-logs-exec-btn" class="room-action-btn" style="padding: 10px; background-color: #17a2b8; color: white; font-weight: bold;">
+                <button id="reset-logs-exec-btn" class="btn-set is-danger">
                     ログのみリセット
                 </button>
 
                 <hr style="width: 100%; border: 0; border-top: 1px solid #ddd; margin: 15px 0;">
 
-                <button id="reset-full-exec-btn" class="room-action-btn danger" style="padding: 10px; background-color: #dc3545; color: white; font-weight: bold;">
+                <button id="reset-full-exec-btn" class="btn-set is-danger">
                     ⚠️ 完全リセット (全キャラ削除・初期化)
                 </button>
             </div>
 
             <div style="margin-top: 20px; text-align: right;">
-                <button id="reset-cancel-btn" style="padding: 8px 16px; border: 1px solid #ccc; background: #fff; border-radius: 4px; cursor: pointer;">キャンセル</button>
+                <button id="reset-cancel-btn" class="btn-set">キャンセル</button>
             </div>
         </div>
     `;
 
+    applySystemWindow(overlay.querySelector('.modal-content'));
     document.body.appendChild(overlay);
 
     const closeFunc = () => overlay.remove();

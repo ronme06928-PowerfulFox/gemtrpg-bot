@@ -33,7 +33,7 @@
         // リロード時の "再表示" は populateWideMatchPanel 等で行われるため、
         // ここで弾いても同期表示や再表示には影響しない。
         if (!isOwner && !isGM) {
-            alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
+            window.showAppNotice("キャラクターの所有者またはGMのみがマッチを開始できます。", {kind: 'error'});
             return;
         }
 
@@ -48,7 +48,7 @@
             .map(function (c) { return c.id; });
 
         if (defenderIds.length === 0) {
-            alert('防御対象のキャラクターがいません');
+            window.showAppNotice('防御対象のキャラクターがいません', {kind: 'error'});
             return;
         }
 
@@ -674,7 +674,7 @@
                 var skillId = select ? select.value : '';
 
                 if (!skillId) {
-                    alert('スキルを選択してください');
+                    window.showAppNotice('スキルを選択してください', {kind: 'error'});
                     return;
                 }
 
@@ -816,7 +816,7 @@
                 var localData = wideMatchLocalState.defenders[defId];
 
                 if (!localData || !localData.skillId || !localData.command) {
-                    alert('先に計算を実行してください');
+                    window.showAppNotice('先に計算を実行してください', {kind: 'error'});
                     return;
                 }
 
@@ -849,7 +849,7 @@
                                         if (resDiv) {
                                             resDiv.innerHTML = '<span style="color:#dc3545;font-weight:bold;">⚠️ ' + type + '不足 (必要:' + val + ')</span>';
                                         } else {
-                                            alert(type + "が不足しています (必要:" + val + ", 現在:" + current + ")");
+                                            window.showAppNotice(type + "が不足しています (必要:" + val + ", 現在:" + current + ")", {kind: 'error'});
                                         }
                                         return; // 中断
                                     }
@@ -1249,7 +1249,7 @@
             attackerCalcBtn.onclick = function () {
                 var skillId = attackerSkillSelect ? attackerSkillSelect.value : '';
                 if (!skillId) {
-                    alert('スキルを選択してください');
+                    window.showAppNotice('スキルを選択してください', {kind: 'error'});
                     return;
                 }
 
@@ -1280,7 +1280,7 @@
                                         current = found ? parseInt(found.value || 0) : 0;
                                     }
                                     if (current < val) {
-                                        alert(type + 'が不足しています (必要:' + val + ', 現在:' + current + ')');
+                                        window.showAppNotice(type + 'が不足しています (必要:' + val + ', 現在:' + current + ')', {kind: 'error'});
                                         return;
                                     }
                                 }
@@ -1424,7 +1424,7 @@
                 var command = wideMatchLocalState.attackerCommand;
 
                 if (!skillId || !command) {
-                    alert('先に計算を実行してください');
+                    window.showAppNotice('先に計算を実行してください', {kind: 'error'});
                     return;
                 }
 
@@ -1445,7 +1445,7 @@
                                 if (costType === 'FP') currentVal = attacker.fp || 0;
                                 else if (costType === 'MP') currentVal = attacker.mp || 0;
                                 if (currentVal < costValue) {
-                                    alert(costType + 'が不足しています。必要: ' + costValue + ', 現在: ' + currentVal);
+                                    window.showAppNotice(costType + 'が不足しています。必要: ' + costValue + ', 現在: ' + currentVal, {kind: 'error'});
                                     return;
                                 }
                             }
@@ -1499,7 +1499,7 @@
             executeBtn.onclick = function () {
                 // Double-check permission
                 if (!canControlCharacter(matchData.attacker_id)) {
-                    alert('GMまたは攻撃者の所有者のみがマッチを実行できます。');
+                    window.showAppNotice('GMまたは攻撃者の所有者のみがマッチを実行できます。', {kind: 'error'});
                     return;
                 }
 

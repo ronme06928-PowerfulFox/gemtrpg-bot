@@ -51,16 +51,8 @@ window.setupVisualSocketHandlers = function () {
     const now = Date.now();
     const repeated = now - lastMoveDeniedAt < 3000;
     lastMoveDeniedAt = now;
-    if (repeated || document.getElementById('move-denied-toast')) return;
-
-    const toast = document.createElement('div');
-    toast.id = 'move-denied-toast';
-    toast.className = 'visual-toast info';
-    toast.textContent = 'このキャラクターを操作する権限がありません';
-    toast.setAttribute('role', 'status');
-    toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); max-width:calc(100vw - 32px); padding:10px 20px; background:rgba(0,0,0,0.85); color:white; border-radius:20px; z-index:30000; pointer-events:none;';
-    document.body.appendChild(toast);
-    setTimeout(() => toast.remove(), 3000);
+    if (repeated) return;
+    window.showAppNotice('このキャラクターを操作する権限がありません', {kind: 'error'});
   };
   registerSocketHandler('move_denied', showCharacterOperationDenied);
   registerSocketHandler('character_operation_denied', showCharacterOperationDenied);
@@ -1019,7 +1011,7 @@ window.setupVisualSocketHandlers = function () {
         }
     });
     registerSocketHandler('match_error', (data) => {
-        alert(data.error || '\u30de\u30c3\u30c1\u3092\u958b\u59cb\u3067\u304d\u307e\u305b\u3093\u3002');
+        window.showAppNotice(data.error || '\u30de\u30c3\u30c1\u3092\u958b\u59cb\u3067\u304d\u307e\u305b\u3093\u3002', {kind: 'error'});
     });
 
     registerSocketHandler('match_modal_closed', () => {
@@ -1061,7 +1053,7 @@ window.setupVisualSocketHandlers = function () {
             const descArea = document.getElementById('v-wide-attacker-desc');
 
             if (data.error) {
-                alert(data.final_command || "\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f");
+                window.showAppNotice(data.final_command || "\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f", {kind: 'error'});
             }
             if (cmdInput && declareBtn) {
                 if (data.error) {
@@ -1123,7 +1115,7 @@ window.setupVisualSocketHandlers = function () {
 
         if (data.prefix && (data.prefix.startsWith('immediate_') || data.prefix.startsWith('gem_'))) {
             if (data.error) {
-                alert(data.final_command || "\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f");
+                window.showAppNotice(data.final_command || "\u30a8\u30e9\u30fc\u304c\u767a\u751f\u3057\u307e\u3057\u305f", {kind: 'error'});
             }
             return;
         }
@@ -1160,28 +1152,7 @@ window.setupVisualSocketHandlers = function () {
                 // Trigger change event to update description
                 select.dispatchEvent(new Event('change'));
 
-                // Feedback
-                const status = document.getElementById(`duel-${side}-status`);
-                if (status) {
-                    // Create visual indicator
-                    const badge = document.createElement('div');
-                    badge.textContent = "AI Suggest";
-                    badge.className = "visual-toast success"; // Reuse style if exists, or inline
-                    badge.style.cssText = "position: absolute; top: -30px; left: 0; background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.8em; opacity: 0; transition: opacity 0.3s;";
-
-                    // Append to side wrapper
-                    const wrapper = document.getElementById(`duel-side-${side}`);
-                    if (wrapper) {
-                        wrapper.style.position = 'relative';
-                        wrapper.appendChild(badge);
-                        // Animate
-                        requestAnimationFrame(() => badge.style.opacity = 1);
-                        setTimeout(() => {
-                            badge.style.opacity = 0;
-                            setTimeout(() => badge.remove(), 300);
-                        }, 2000);
-                    }
-                }
+                window.showAppNotice('AIの提案を反映しました。', {kind: 'success'});
             }
         }
     });

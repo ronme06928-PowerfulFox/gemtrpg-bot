@@ -88,8 +88,6 @@ button.dock-icon {
 }
 
 .immediate-modal .modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
     padding: 15px 20px;
     border-radius: 8px 8px 0 0;
     display: flex;
@@ -100,14 +98,6 @@ button.dock-icon {
 .immediate-modal .modal-header h3 {
     margin: 0;
     font-size: 1.3em;
-}
-
-.immediate-modal .modal-header .window-control-btn {
-    color: rgba(255, 255, 255, 0.8);
-}
-
-.immediate-modal .modal-header .window-control-btn:hover {
-    color: white;
 }
 
 .immediate-modal .modal-body {
@@ -218,13 +208,9 @@ button.dock-icon {
     max-height: 85vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-    background: var(--bg-light);
 }
 
 .qe-modal-header {
-    background: linear-gradient(135deg, var(--bg-dark) 0%, var(--bg-dark-mid) 100%);
-    color: var(--text-on-dark);
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
@@ -255,8 +241,6 @@ button.dock-icon {
 
 .qe-close-btn {
     border: none;
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -267,13 +251,12 @@ button.dock-icon {
     justify-content: center;
     transition: background 0.2s;
 }
-.qe-close-btn:hover { background: rgba(255, 255, 255, 0.4); }
+
 
 .qe-modal-body {
     overflow-y: auto;
     flex: 1;
     padding: 20px;
-    background: var(--bg-light);
 }
 .qe-modal-body::-webkit-scrollbar { width: 8px; }
 .qe-modal-body::-webkit-scrollbar-track { background: transparent; }

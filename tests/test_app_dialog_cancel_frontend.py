@@ -44,4 +44,5 @@ def test_alert_dialog_and_paper_theme():
     dialog = _body("function openAppDialog", "function showAppConfirm")
     assert "mode === 'alert'" in dialog
     # ルームの外では紙と金にする。
-    assert "main-app-container" in dialog and "overlay.dataset.theme = 'paper'" in dialog
+    assert "overlay.dataset.theme = appSurfaceTheme()" in dialog
+    assert "applySystemWindow" in dialog

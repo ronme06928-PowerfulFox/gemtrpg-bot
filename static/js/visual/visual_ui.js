@@ -411,7 +411,6 @@ window.openVisualLogHistoryModal = function () {
                     border: 1px solid rgba(36, 48, 56, 0.16);
                     border-radius: 14px;
                     box-shadow: 0 24px 80px rgba(0, 0, 0, 0.28);
-                    background: #f7f5ef;
                 }
                 .visual-log-history-header {
                     display: flex;
@@ -420,26 +419,26 @@ window.openVisualLogHistoryModal = function () {
                     gap: 14px;
                     padding: 18px 20px 14px;
                     border-bottom: 1px solid rgba(72, 58, 35, 0.12);
-                    background: linear-gradient(180deg, #fffaf0 0%, #f3efe4 100%);
+                    background: var(--ui-soft);
                 }
                 .visual-log-history-title {
                     margin: 0;
                     font-size: 1.22rem;
-                    color: #2b2d2f;
+                    color: var(--ui-sub);
                     letter-spacing: 0;
                 }
                 .visual-log-history-subtitle {
                     margin-top: 4px;
                     font-size: 0.86rem;
-                    color: #6f6a60;
+                    color: var(--ui-sub);
                 }
                 .visual-log-history-close {
                     width: 34px;
                     height: 34px;
-                    border: 1px solid #c7beb0;
+                    border: 1px solid var(--ui-control);
                     border-radius: 8px;
-                    background: #fff;
-                    color: #342f29;
+                    background: var(--ui-bg);
+                    color: var(--ui-sub);
                     font-size: 1.15rem;
                     cursor: pointer;
                 }
@@ -450,17 +449,17 @@ window.openVisualLogHistoryModal = function () {
                     align-items: center;
                     padding: 14px 20px;
                     border-bottom: 1px solid rgba(72, 58, 35, 0.1);
-                    background: #fbfaf6;
+                    background: var(--ui-bg);
                 }
                 .visual-log-history-input,
                 .visual-log-history-select {
                     box-sizing: border-box;
                     width: 100%;
                     height: 40px;
-                    border: 1px solid #c8c0b5;
+                    border: 1px solid var(--ui-control);
                     border-radius: 8px;
-                    background: #fff;
-                    color: #2f3437;
+                    background: var(--ui-bg);
+                    color: var(--ui-sub);
                     padding: 0 12px;
                     font-size: 0.95rem;
                 }
@@ -479,30 +478,31 @@ window.openVisualLogHistoryModal = function () {
                     height: 30px;
                     padding: 0 10px;
                     border-radius: 999px;
-                    background: #e8e2d5;
-                    color: #4c463d;
+                    background: var(--ui-soft);
+                    color: var(--ui-sub);
                     font-size: 0.85rem;
                     font-weight: 700;
                 }
                 .visual-log-history-export {
                     height: 34px;
-                    border: 1px solid #a77135;
+                    border: 1px solid var(--ui-control);
                     border-radius: 8px;
-                    background: #b8722e;
-                    color: #fff;
+                    background: var(--ui-primary);
+                    color: var(--ui-on-primary);
                     padding: 0 12px;
                     cursor: pointer;
                     font-weight: 700;
                 }
                 .visual-log-history-export.secondary {
-                    border-color: #8a8f86;
-                    background: #59665d;
+                    border-color: var(--ui-control);
+                    background: var(--ui-soft);
+                    color: var(--ui-text);
                 }
                 .visual-log-history-status {
                     min-height: 1.2em;
                     padding: 0 20px 10px;
-                    background: #fbfaf6;
-                    color: #6b6257;
+                    background: var(--ui-bg);
+                    color: var(--ui-sub);
                     font-size: 0.86rem;
                 }
                 .visual-log-history-list {
@@ -510,9 +510,9 @@ window.openVisualLogHistoryModal = function () {
                     min-height: 300px;
                     max-height: 58vh;
                     overflow: auto;
-                    border: 1px solid #d7d0c5;
+                    border: 1px solid var(--ui-control);
                     border-radius: 10px;
-                    background: #fffdf8;
+                    background: var(--ui-bg);
                     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
                 }
                 .visual-log-history-list .visual-log-history-row {
@@ -533,12 +533,12 @@ window.openVisualLogHistoryModal = function () {
                 .visual-log-history-list .visual-log-history-meta {
                     font-family: Consolas, "Courier New", monospace;
                     font-size: 0.75rem;
-                    color: #7b7065;
+                    color: var(--ui-sub);
                     white-space: nowrap;
                 }
                 .visual-log-history-empty {
                     padding: 30px 16px;
-                    color: #82786c;
+                    color: var(--ui-sub);
                     text-align: center;
                 }
                 @media (max-width: 720px) {
@@ -583,6 +583,7 @@ window.openVisualLogHistoryModal = function () {
             <div id="visual-log-history-list" class="battle-log visual-log-history-list"></div>
         </div>
     `;
+    applySystemWindow(backdrop.querySelector('.visual-log-history-modal'));
     document.body.appendChild(backdrop);
 
     const listEl = backdrop.querySelector('#visual-log-history-list');
@@ -965,7 +966,7 @@ window.setupVisualSidebarControls = function () {
         } else {
             msg = msg.replace(/^(\/roll|\/r)(\s+|$)/i, '');
             if (isSecret) msg = msg.replace(/^(\/sroll|\/sr)(\s+|$)/i, '');
-            if (!msg && isSecret) { alert("シークレットメッセージの内容を入力してください。"); return; }
+            if (!msg && isSecret) { window.showAppNotice("シークレットメッセージの内容を入力してください。", {kind: 'error'}); return; }
             if (msg) {
                 socket.emit('request_chat', {
                     room: currentRoomName, user: currentUsername, message: msg, secret: isSecret
@@ -1009,7 +1010,6 @@ window.setupVisualSidebarControls = function () {
     const saveBtn = document.getElementById('visual-save-btn');
     const roomPresetBtn = document.getElementById('visual-room-preset-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
-    const statusMsg = document.getElementById('visual-status-msg');
 
     const actionContainer = document.getElementById('visual-room-actions');
     if (roomPresetBtn) {
@@ -1054,16 +1054,20 @@ window.setupVisualSidebarControls = function () {
         if (saveBtn) {
             saveBtn.style.display = 'inline-block';
             saveBtn.onclick = async () => {
-                statusMsg.textContent = "保存中...";
+                saveBtn.disabled = true;
                 try {
-                    await fetchWithSession('/save_room', {
+                    const response = await fetchWithSession('/save_room', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ room_name: currentRoomName, state: battleState })
                     });
-                    statusMsg.textContent = "保存しました。";
-                    setTimeout(() => statusMsg.textContent = "", 2000);
-                } catch (e) { statusMsg.textContent = "保存に失敗しました。"; }
+                    if (!response.ok) throw new Error("保存に失敗しました。");
+                    window.showAppNotice("保存しました。", {kind: "success"});
+                } catch (e) {
+                    window.showAppNotice("保存に失敗しました。", {kind: "error"});
+                } finally {
+                    saveBtn.disabled = false;
+                }
             };
         }
         if (roomPresetBtn) {

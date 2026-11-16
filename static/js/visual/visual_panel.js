@@ -720,7 +720,7 @@ window.sendSkillDeclaration = function (side, isCommit) {
 
     const skillSelect = document.getElementById(`duel-${side}-skill`);
     const skillId = skillSelect ? skillSelect.value : "";
-    if (!skillId) { alert("スキルを選択してください。"); return; }
+    if (!skillId) { window.showAppNotice("スキルを選択してください。", {kind: 'error'}); return; }
 
     const skillData = window.allSkillData ? window.allSkillData[skillId] : null;
     const actor = battleState.characters.find(c => c.id === actorId);

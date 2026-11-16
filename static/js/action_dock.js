@@ -344,6 +344,7 @@ function openImmediateSkillModal() {
     modalContent.appendChild(header);
     modalContent.appendChild(body);
     backdrop.appendChild(modalContent);
+    applySystemWindow(modalContent);
     document.body.appendChild(backdrop);
 
     // イベントリスナー
@@ -442,7 +443,7 @@ function createImmediateCharRow(char) {
     executeBtn.onclick = () => {
         const selectedSkillId = select.value;
         if (!selectedSkillId) {
-            alert('スキルを選択してください');
+            window.showAppNotice('スキルを選択してください', {kind: 'error'});
             return;
         }
 
@@ -815,6 +816,7 @@ function openQuickEditModal() {
     `;
 
     backdrop.appendChild(modalContent);
+    applySystemWindow(modalContent);
     document.body.appendChild(backdrop);
 
     const closeFunc = () => backdrop.remove();
@@ -1068,7 +1070,7 @@ function renderQuickEditList(container) {
             const newFp = parseInt(fpGrp.input.value, 10);
 
             if (isNaN(newHp) || isNaN(newMp) || isNaN(newFp)) {
-                alert('数値を入力してください');
+                window.showAppNotice('数値を入力してください', {kind: 'error'});
                 return;
             }
 
@@ -1088,7 +1090,7 @@ function renderQuickEditList(container) {
                     });
                 } else {
                     console.error("Socket not found");
-                    alert("通信エラーが発生しました。");
+                    window.showAppNotice("通信エラーが発生しました。", {kind: 'error'});
                     return;
                 }
 
@@ -1472,12 +1474,12 @@ function renderQuickEditList(container) {
             applyBtn.onclick = () => {
                 const socketToUse = getSocket();
                 if (!socketToUse) {
-                    alert('Socket not found');
+                    window.showAppNotice('Socket not found', {kind: 'error'});
                     return;
                 }
                 const rawBuff = String(applyBuffSelect.value || '').trim();
                 if (!rawBuff) {
-                    alert('付与するバフを選択してください');
+                    window.showAppNotice('付与するバフを選択してください', {kind: 'error'});
                     return;
                 }
                 const lastingVal = parseInt(applyLastingInput.value, 10);
@@ -1508,18 +1510,18 @@ function renderQuickEditList(container) {
             stateBtn.onclick = () => {
                 const socketToUse = getSocket();
                 if (!socketToUse) {
-                    alert('Socket not found');
+                    window.showAppNotice('Socket not found', {kind: 'error'});
                     return;
                 }
                 const stateName = String(stateSelect.value || '').trim();
                 const amountVal = parseInt(stateAmountInput.value, 10);
                 const roundsVal = parseInt(stateRoundsInput.value, 10);
                 if (!stateName) {
-                    alert('付与する状態異常を選択してください');
+                    window.showAppNotice('付与する状態異常を選択してください', {kind: 'error'});
                     return;
                 }
                 if (!Number.isFinite(amountVal) || amountVal <= 0) {
-                    alert('スタックは 1 以上の整数で指定してください');
+                    window.showAppNotice('スタックは 1 以上の整数で指定してください', {kind: 'error'});
                     return;
                 }
                 const payload = {
@@ -1538,12 +1540,12 @@ function renderQuickEditList(container) {
             removeBtn.onclick = () => {
                 const socketToUse = getSocket();
                 if (!socketToUse) {
-                    alert('Socket not found');
+                    window.showAppNotice('Socket not found', {kind: 'error'});
                     return;
                 }
                 const idx = parseInt(removeSelect.value, 10);
                 if (!Number.isFinite(idx) || idx < 0 || idx >= buffEntries.length) {
-                    alert('解除するバフを選択してください');
+                    window.showAppNotice('解除するバフを選択してください', {kind: 'error'});
                     return;
                 }
                 const buff = buffEntries[idx];
@@ -1554,7 +1556,7 @@ function renderQuickEditList(container) {
                 };
                 const resolvedBuffId = buff.buff_id || entryData.buff_id || '';
                 if (!resolvedBuffId) {
-                    alert('このバフは buff_id が不明なため解除できません');
+                    window.showAppNotice('このバフは buff_id が不明なため解除できません', {kind: 'error'});
                     return;
                 }
                 payload.buff_id = resolvedBuffId;
@@ -1565,17 +1567,17 @@ function renderQuickEditList(container) {
             itemBtn.onclick = () => {
                 const socketToUse = getSocket();
                 if (!socketToUse) {
-                    alert('Socket not found');
+                    window.showAppNotice('Socket not found', {kind: 'error'});
                     return;
                 }
                 const itemId = String(itemSelect.value || '').trim();
                 const deltaVal = parseInt(itemDeltaInput.value, 10);
                 if (!itemId) {
-                    alert('増減するアイテムを選択してください');
+                    window.showAppNotice('増減するアイテムを選択してください', {kind: 'error'});
                     return;
                 }
                 if (!Number.isFinite(deltaVal) || deltaVal === 0) {
-                    alert('delta は 0 以外の整数で指定してください');
+                    window.showAppNotice('delta は 0 以外の整数で指定してください', {kind: 'error'});
                     return;
                 }
                 socketToUse.emit('request_gm_adjust_item', {
@@ -1795,15 +1797,13 @@ function toggleStagingAreaOverlay() {
     // ヘッダー
     const header = document.createElement('div');
     header.className = 'modal-header';
-    header.style.background = 'linear-gradient(135deg, #e67e22 0%, #d35400 100%)';
-    header.style.color = 'white';
     header.style.padding = '15px 20px';
     header.style.display = 'flex';
     header.style.justifyContent = 'space-between';
     header.style.alignItems = 'center';
     header.innerHTML = `
         <h3 style="margin:0;">📦 未配置キャラクター</h3>
-        <button class="window-control-btn close-btn" style="background:none; border:none; color:white; font-size:1.5em; cursor:pointer;">×</button>
+        <button class="window-control-btn close-btn" style="font-size:1.5em; cursor:pointer;">×</button>
     `;
 
     // ボディ
@@ -1819,6 +1819,7 @@ function toggleStagingAreaOverlay() {
     content.appendChild(header);
     content.appendChild(body);
     overlay.appendChild(content);
+    applySystemWindow(content);
     document.body.appendChild(overlay);
 
     // 閉じるボタンのイベント
@@ -1992,7 +1993,7 @@ function placeCharacterToDefaultPosition(char) {
     const socketToUse = window.socket || socket;
     if (!socketToUse) {
         console.error('[ERROR] socket is not initialized!');
-        alert('サーバーとの接続エラーです。ページをリロードしてください。');
+        window.showAppNotice('サーバーとの接続エラーです。ページをリロードしてください。', {kind: 'error'});
         return;
     }
 

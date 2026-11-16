@@ -9,8 +9,8 @@
 /* タブボタン */
 .image-picker-tabs .tab-btn {
     padding: 10px 20px;
-    border: none;
-    background: #f0f0f0;
+    border: 1px solid var(--ui-control);
+    background: var(--ui-soft);
     cursor: pointer;
     border-bottom: 3px solid transparent;
     font-weight: 500;
@@ -18,14 +18,15 @@
 }
 
 .image-picker-tabs .tab-btn:hover {
-    background: #e0e0e0;
+    background: var(--ui-primary-soft);
 }
 
 .image-picker-tabs .tab-btn.active {
-    background: #fff;
-    border-bottom-color: #007bff;
-    color: #007bff;
+    background: var(--ui-bg);
+    border-bottom-color: var(--ui-primary);
+    color: var(--ui-primary);
     font-weight: bold;
+    text-decoration: underline;
 }
 
 /* 画像カードのホバー効果 */

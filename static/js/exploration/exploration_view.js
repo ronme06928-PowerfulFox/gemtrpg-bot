@@ -515,7 +515,7 @@ if (!window.ExplorationView) {
                 });
             }, 'background'); // ★ 背景モード
         } else {
-            alert("画像ピッカーが見つかりません");
+            window.showAppNotice("画像ピッカーが見つかりません", {kind: 'error'});
         }
     }
 

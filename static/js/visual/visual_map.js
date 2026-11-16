@@ -1633,7 +1633,7 @@ window.createMapToken = function (char) {
             const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
 
             if (!isOwner && !isGM) {
-                alert("キャラクターの所有者またはGMのみがマッチを開始できます。");
+                window.showAppNotice("キャラクターの所有者またはGMのみがマッチを開始できます。", {kind: 'error'});
                 exitAttackTargetingMode();
                 return;
             }
@@ -1659,7 +1659,7 @@ window.createMapToken = function (char) {
             if (!isOwner && !isGM) return;
 
             if (window.matchActionInitiated) {
-                alert("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。");
+                window.showAppNotice("1ターンに1回のみマッチを開始できます。\n次のターンまでお待ちください。", {kind: 'error'});
                 return;
             }
 
@@ -1943,9 +1943,9 @@ window.openTransferOwnershipModal = function (charId, mode) {
 
     modalContent.innerHTML = `
         <h3 style="margin-top:0;">所有権譲渡: ${title}</h3>
-        <p style="font-size:0.9em; color:#666;">「${char.name}」の所有権を譲渡するユーザーを選択してください。</p>
-        <div id="user-list-container" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; margin:15px 0;">
-            <div style="padding:20px; text-align:center; color:#999;">読み込み中...</div>
+        <p style="font-size:0.9em; color:var(--ui-sub);">「${char.name}」の所有権を譲渡するユーザーを選択してください。</p>
+        <div id="user-list-container" style="max-height:300px; overflow-y:auto; border:1px solid var(--ui-line); border-radius:4px; margin:15px 0;">
+            <div style="padding:20px; text-align:center; color:var(--ui-sub);">読み込み中...</div>
         </div>
         <div style="text-align:right; margin-top:15px;">
             <button id="transfer-cancel-btn" style="padding:8px 16px; margin-right:10px;">キャンセル</button>
@@ -1953,6 +1953,7 @@ window.openTransferOwnershipModal = function (charId, mode) {
     `;
 
     backdrop.appendChild(modalContent);
+    applySystemWindow(modalContent);
     document.body.appendChild(backdrop);
 
     modalContent.querySelector('#transfer-cancel-btn').onclick = () => backdrop.remove();
@@ -1966,7 +1967,7 @@ window.openTransferOwnershipModal = function (charId, mode) {
         .then(payload => {
             const users = mode === 'all' ? payload.users : payload;
             if (!Array.isArray(users) || users.length === 0) {
-                userListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:#999;">ユーザーが見つかりません。</div>';
+                userListContainer.innerHTML = '<div style="padding:20px; text-align:center; color:var(--ui-sub);">ユーザーが見つかりません。</div>';
                 return;
             }
             userListContainer.innerHTML = '';
@@ -1981,7 +1982,7 @@ window.openTransferOwnershipModal = function (charId, mode) {
 
                 userItem.innerHTML = `
                     <span style="font-weight:bold;">${userName}</span>
-                    <span style="font-size:0.85em; color:#666;">${user.attribute || '不明'}</span>
+                    <span style="font-size:0.85em; color:var(--ui-sub);">${user.attribute || '不明'}</span>
                 `;
 
                 userItem.onclick = async () => {

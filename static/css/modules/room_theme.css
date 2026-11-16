@@ -72,13 +72,6 @@
   border-bottom: 1px solid var(--ui-gold);
 }
 
-#visual-status-msg {
-  color: var(--ui-sub);
-  font-size: 0.8em;
-  padding-bottom: 2px;
-  text-align: center;
-}
-
 .room-op--progress { --gem-role: var(--gem-emerald); }
 .room-op--end { --gem-role: var(--gem-topaz); }
 .room-op--danger { --gem-role: var(--gem-ruby); }

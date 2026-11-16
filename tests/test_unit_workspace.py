@@ -175,8 +175,9 @@ globalThis.document = {
   activeElement: opener,
   createElement() {
     const controls = Object.fromEntries(['cancel','confirm','input','error'].map(key => ['#app-dialog-' + key,control()]));
+    const panel = {dataset: {}, classList: {add() {}}, insertAdjacentHTML() {}, querySelector() {return null;}};
     overlay = {...control(), dataset: {},
-      querySelector(key) {return key.endsWith('-input') && !this.innerHTML.includes('id="app-dialog-input"') ? null : controls[key];},
+      querySelector(key) {if (key === '.app-dialog-modal') return panel; return key.endsWith('-input') && !this.innerHTML.includes('id="app-dialog-input"') ? null : controls[key];},
       remove() {this.closed = true;}};
     return overlay;
   },
@@ -192,7 +193,7 @@ function key(name, extra = {}) {
 }
 const start = source.indexOf('function escapeDialogText(');
 const end = source.indexOf('window.showAppPrompt = showAppPrompt;') + 'window.showAppPrompt = showAppPrompt;'.length;
-new Function(source.slice(start,end))();
+new Function(readFileSync('static/js/common/system_window.js','utf8') + '\n' + source.slice(start,end))();
 let result = showAppConfirm('danger',{defaultFocus:'cancel'});
 assert.equal(document.activeElement,overlay.querySelector('#app-dialog-cancel'));
 key('Enter');

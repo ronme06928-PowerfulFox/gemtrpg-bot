@@ -168,7 +168,7 @@
     const leaveResult = await leaveCurrentSocketRoom();
     if (!leaveResult?.ok) {
       console.warn('Socket room leave acknowledgement timed out.', leaveResult);
-      showAppAlert('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。', { title: 'エラー' });
+      window.showAppNotice('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。', {kind: 'error'});
       return false;
     }
     exitRoomTo(name);

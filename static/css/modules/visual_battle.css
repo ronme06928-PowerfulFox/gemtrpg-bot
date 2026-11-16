@@ -87,29 +87,10 @@
     z-index: 11900;
 }
 
-.combat-history-confirm-backdrop {
-    /* 既存モーダル・テーマの重なり順を超えて、削除確認を必ず前面に表示する。 */
-    z-index: 2147483647 !important;
-}
-
-.combat-history-confirm {
-    width: min(420px, calc(100vw - 28px));
-    padding: 22px;
-    border-top-color: #b91c1c;
-}
-
-.combat-history-confirm h3 { margin: 0; color: #7f1d1d; }
-.combat-history-confirm p { margin: 12px 0 0; color: #334155; line-height: 1.55; }
-.combat-history-confirm__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
-.combat-history-confirm__actions button { border: 0; border-radius: 5px; padding: 9px 12px; cursor: pointer; font-weight: 700; }
-.combat-history-confirm__actions button:first-child { background: #e2e8f0; color: #334155; }
-.combat-history-confirm__delete { background: #b91c1c; color: #fff; }
-
 .combat-history-modal {
     width: min(980px, 94vw);
     max-height: min(760px, 90vh);
     padding: 20px;
-    border-top-color: #475569;
 }
 
 .combat-history-modal__header {
@@ -119,28 +100,30 @@
     align-items: flex-start;
     margin: -20px -20px 0;
     padding: 22px 38px 18px;
-    background: #0f172a;
+    background: transparent;
+    color: var(--ui-text);
+    border-bottom: 1px solid var(--ui-line);
 }
 
-.combat-history-modal__header h2 { margin: 0; color: #f8fafc; }
-.combat-history-modal__header p { margin: 5px 0 0; color: #cbd5e1; font-size: 0.9em; }
+.combat-history-modal__header h2 { margin: 0; }
+.combat-history-modal__header p { margin: 5px 0 0; color: var(--ui-sub); font-size: 0.9em; }
 
 .combat-history-modal__close {
     border: 0;
     background: transparent;
-    color: #e2e8f0;
+    color: var(--ui-sub);
     cursor: pointer;
     font-size: 1.6em;
     line-height: 1;
 }
 
 .combat-history-modal__close:hover,
-.combat-history-modal__close:focus-visible { color: #fff; outline: 2px solid #93c5fd; outline-offset: 2px; }
+.combat-history-modal__close:focus-visible { color: var(--ui-primary); outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 
 .combat-history-modal__error {
     min-height: 1.2em;
     margin: 8px 0 0;
-    color: #b91c1c;
+    color: var(--ui-danger);
     font-size: 0.86em;
 }
 
@@ -155,9 +138,9 @@
 .combat-history-list,
 .combat-history-detail {
     overflow: auto;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ui-line);
     border-radius: 8px;
-    background: #f8fafc;
+    background: var(--ui-soft);
     padding: 8px;
 }
 
@@ -166,36 +149,36 @@
 .combat-history-list__item {
     display: grid;
     gap: 3px;
-    border: 1px solid #cbd5e1;
+    border: 1px solid var(--ui-control);
     border-radius: 6px;
     padding: 9px;
-    background: #fff;
-    color: #1e293b;
+    background: var(--ui-bg);
+    color: var(--ui-text);
     cursor: pointer;
     text-align: left;
 }
 
 .combat-history-list__item.is-selected,
-.combat-history-list__item:hover { border-color: #2563eb; background: #eff6ff; }
+.combat-history-list__item:hover { border-color: var(--ui-focus); background: var(--ui-primary-soft); }
+.combat-history-list__item.is-selected strong { text-decoration: underline; }
 .combat-history-list__item strong { font-size: 0.93em; }
-.combat-history-list__item span { color: #64748b; font-size: 0.75em; }
+.combat-history-list__item span { color: var(--ui-sub); font-size: 0.75em; }
 
-.combat-history-detail { background: #fff; }
-.combat-history-detail__heading { color: #0f172a; font-size: 1.12em; font-weight: 800; }
-.combat-history-detail__meta { display: grid; gap: 4px; margin-top: 8px; color: #475569; font-size: 0.84em; }
-.combat-history-detail h3 { margin: 16px 0 8px; color: #334155; font-size: 0.96em; }
+.combat-history-detail { background: var(--ui-bg); }
+.combat-history-detail__heading { color: var(--ui-text); font-size: 1.12em; font-weight: 800; }
+.combat-history-detail__meta { display: grid; gap: 4px; margin-top: 8px; color: var(--ui-sub); font-size: 0.84em; }
+.combat-history-detail h3 { margin: 16px 0 8px; color: var(--ui-text); font-size: 0.96em; }
 
 .combat-history-stats { display: grid; gap: 6px; }
-.combat-history-stat { display: grid; grid-template-columns: minmax(100px, 1fr) auto; gap: 5px 10px; align-items: center; border: 1px solid #dbe3ef; border-radius: 6px; padding: 8px; background: #f8fafc; }
-.combat-history-stat--unowned { background: #fffbeb; border-color: #fcd34d; }
-.combat-history-stat__name { color: #1e293b; font-weight: 700; }
-.combat-history-stat__value { color: #334155; font-size: 0.86em; }
-.combat-history-stat__summon { grid-column: 1 / -1; color: #64748b; font-size: 0.8em; }
+.combat-history-stat { display: grid; grid-template-columns: minmax(100px, 1fr) auto; gap: 5px 10px; align-items: center; border: 1px solid var(--ui-line); border-radius: 6px; padding: 8px; background: var(--ui-soft); }
+.combat-history-stat--unowned { background: var(--ui-warn-soft); border-color: var(--ui-control); }
+.combat-history-stat__name { color: var(--ui-text); font-weight: 700; }
+.combat-history-stat__value { color: var(--ui-text); font-size: 0.86em; }
+.combat-history-stat__summon { grid-column: 1 / -1; color: var(--ui-sub); font-size: 0.8em; }
 
 .combat-history-detail__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-.combat-history-delete { border: 0; border-radius: 5px; padding: 8px 10px; background: #b91c1c; color: #fff; cursor: pointer; font-weight: 700; }
-.combat-history-delete--all { background: #7f1d1d; }
-.combat-history-empty { color: #64748b; padding: 12px; font-size: 0.88em; }
+.combat-history-delete { border: 0; border-radius: 5px; padding: 8px 10px; background: var(--ui-danger-soft); color: var(--ui-danger); cursor: pointer; font-weight: 700; }
+.combat-history-empty { color: var(--ui-sub); padding: 12px; font-size: 0.88em; }
 
 @media (max-width: 680px) {
     .combat-history-modal__body { grid-template-columns: 1fr; min-height: 0; }
@@ -211,27 +194,26 @@
 .combat-conclusion-modal {
     width: min(560px, 92vw);
     padding: 22px;
-    border-top-color: #9f1239;
 }
 
 .combat-conclusion-modal h2 {
     margin: 0;
-    color: #4c0519;
+    color: var(--ui-text);
 }
 
 .combat-conclusion-modal__lead {
     margin: 10px 0 14px;
-    color: #374151;
+    color: var(--ui-sub);
     line-height: 1.5;
 }
 
 .combat-conclusion-modal__warning {
     margin: 0 0 14px;
     padding: 10px 12px;
-    border: 1px solid #f59e0b;
+    border: 1px solid var(--ui-control);
     border-radius: 7px;
-    background: #fffbeb;
-    color: #92400e;
+    background: var(--ui-warn-soft);
+    color: var(--ui-warn);
     font-size: 0.9em;
     font-weight: 700;
     line-height: 1.45;
@@ -248,10 +230,10 @@
     gap: 4px;
     min-height: 86px;
     padding: 12px;
-    border: 2px solid #d1d5db;
+    border: 2px solid var(--ui-control);
     border-radius: 8px;
-    background: #fff;
-    color: #1f2937;
+    background: var(--ui-bg);
+    color: var(--ui-text);
     cursor: pointer;
     text-align: left;
 }
@@ -262,25 +244,25 @@
 }
 
 .combat-conclusion-option span {
-    color: #4b5563;
+    color: var(--ui-sub);
     font-size: 0.82em;
 }
 
 .combat-conclusion-option:hover,
 .combat-conclusion-option.is-selected {
-    border-color: #9f1239;
-    background: #fff1f2;
+    border-color: var(--ui-focus);
+    background: var(--ui-primary-soft);
 }
 
 .combat-conclusion-option:focus-visible {
-    outline: 3px solid #fda4af;
+    outline: 3px solid var(--ui-focus);
     outline-offset: 2px;
 }
 
 .combat-conclusion-modal__error {
     min-height: 1.2em;
     margin: 10px 0 0;
-    color: #b91c1c;
+    color: var(--ui-danger);
     font-size: 0.86em;
 }
 
@@ -289,24 +271,6 @@
     justify-content: flex-end;
     gap: 8px;
     margin-top: 14px;
-}
-
-.combat-conclusion-modal__actions button {
-    border: 0;
-    border-radius: 5px;
-    padding: 9px 12px;
-    cursor: pointer;
-    font-weight: 700;
-}
-
-.combat-conclusion-modal__cancel {
-    background: #e5e7eb;
-    color: #374151;
-}
-
-.combat-conclusion-modal__confirm {
-    background: #9f1239;
-    color: #fff;
 }
 
 .combat-conclusion-modal__confirm:disabled {

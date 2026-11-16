@@ -84,41 +84,7 @@
     }
 
     function confirmCombatHistoryDeletion({ title, message, confirmText }) {
-        return new Promise((resolve) => {
-            document.getElementById('combat-history-confirm-backdrop')?.remove();
-            const backdrop = document.createElement('div');
-            backdrop.id = 'combat-history-confirm-backdrop';
-            backdrop.className = 'modal-backdrop combat-history-confirm-backdrop';
-            const dialog = document.createElement('section');
-            dialog.className = 'modal-content combat-history-confirm';
-            dialog.setAttribute('role', 'dialog');
-            dialog.setAttribute('aria-modal', 'true');
-            const heading = document.createElement('h3');
-            heading.textContent = title;
-            const body = document.createElement('p');
-            body.textContent = message;
-            const actions = document.createElement('div');
-            actions.className = 'combat-history-confirm__actions';
-            const cancel = document.createElement('button');
-            cancel.type = 'button';
-            cancel.textContent = 'キャンセル';
-            const confirm = document.createElement('button');
-            confirm.type = 'button';
-            confirm.className = 'combat-history-confirm__delete';
-            confirm.textContent = confirmText;
-            actions.append(cancel, confirm);
-            dialog.append(heading, body, actions);
-            backdrop.appendChild(dialog);
-            const close = (confirmed) => {
-                backdrop.remove();
-                resolve(confirmed);
-            };
-            cancel.addEventListener('click', () => close(false));
-            confirm.addEventListener('click', () => close(true));
-            backdrop.addEventListener('click', (event) => { if (event.target === backdrop) close(false); });
-            document.body.appendChild(backdrop);
-            confirm.focus();
-        });
+        return window.showAppConfirm(message, { title, confirmText, danger: true });
     }
 
     window.openCombatHistoryModal = function () {
@@ -137,6 +103,7 @@
                 <div class="combat-history-modal__body"><div class="combat-history-list" aria-label="戦闘記録一覧"></div><div class="combat-history-detail"></div></div>
             </section>
         `;
+        applySystemWindow(backdrop.querySelector('.combat-history-modal'));
         const list = backdrop.querySelector('.combat-history-list');
         const detail = backdrop.querySelector('.combat-history-detail');
         const error = backdrop.querySelector('.combat-history-modal__error');
@@ -313,11 +280,12 @@
                 <div class="combat-conclusion-modal__outcomes" role="radiogroup" aria-label="戦闘結果"></div>
                 <p class="combat-conclusion-modal__error" aria-live="polite"></p>
                 <div class="combat-conclusion-modal__actions">
-                    <button type="button" class="combat-conclusion-modal__cancel">キャンセル</button>
-                    <button type="button" class="combat-conclusion-modal__confirm" disabled>戦闘終結</button>
+                    <button type="button" class="combat-conclusion-modal__cancel btn-set">キャンセル</button>
+                    <button type="button" class="combat-conclusion-modal__confirm btn-set is-danger" disabled>戦闘終結</button>
                 </div>
             </section>
         `;
+        applySystemWindow(backdrop.querySelector('.combat-conclusion-modal'));
         const warning = backdrop.querySelector('.combat-conclusion-modal__warning');
         if (unresolved.length) {
             warning.hidden = false;
@@ -363,7 +331,7 @@
             });
         });
         document.body.appendChild(backdrop);
-        outcomes.querySelector('.combat-conclusion-option')?.focus();
+        backdrop.querySelector('.combat-conclusion-modal__cancel').focus();
     };
 
     window.renderCombatSessionControls = function (state) {

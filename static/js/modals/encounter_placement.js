@@ -1,7 +1,7 @@
 (() => {
   const directions = {ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1]};
 
-  window.openEncounterPlacement = (summary, {confirm, cancel}) => {
+  window.openEncounterPlacement = (summary, {confirm: onConfirm, cancel}) => {
     const viewport = document.getElementById('map-viewport');
     const map = document.getElementById('game-map');
     if (!viewport || !map) return null;
@@ -85,7 +85,7 @@
       if (locked || (pos && !inBounds(pos))) return;
       locked = true;
       controls.querySelectorAll('button').forEach(button => { button.disabled = true; });
-      confirm(pos);
+      onConfirm(pos);
     }
 
     function close() {

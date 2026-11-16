@@ -23,24 +23,21 @@ function openImagePicker(onSelect, pickType = 'character') {
     const titlePrefix = pickType === 'background' ? '背景' : '画像';
 
     modal.innerHTML = `
-        <div class="modal-content image-picker-content" style="max-width: 800px; width: 90%; height: 85vh; max-height: 800px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.3); border-radius: 12px; overflow: hidden;">
+        <div class="modal-content image-picker-content" style="max-width: 800px; width: 90%; height: 85vh; max-height: 800px; display: flex; flex-direction: column; border-radius: 12px; overflow: hidden;">
             <div class="modal-header" style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                color: white;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 padding: 20px 24px;
                 margin: 0;
-                border-bottom: none;
             ">
                 <h3 style="margin: 0; font-size: 1.4em; font-weight: 600;">🖼️ ${titlePrefix}を選択</h3>
-                <button class="modal-close-btn" style="background: rgba(255,255,255,0.2); border: none; font-size: 1.8em; cursor: pointer; color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">×</button>
+                <button class="modal-close-btn btn-set" aria-label="閉じる">×</button>
             </div>
 
             <div style="padding: 20px; flex: 1; overflow-y: auto; display: flex; flex-direction: column;">
                 <!-- タブナビゲーション -->
-                <div class="image-picker-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e0e0; flex-shrink: 0;">
+                <div class="image-picker-tabs" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid var(--ui-control); flex-shrink: 0;">
                     <button class="tab-btn active" data-tab="gallery">📚 ギャラリー</button>
                     <button class="tab-btn" data-tab="upload">⬆️ 新規アップロード</button>
                     <button class="tab-btn" data-tab="defaults">✨ デフォルト素材</button>
@@ -51,10 +48,10 @@ function openImagePicker(onSelect, pickType = 'character') {
                     <!-- ギャラリータブ -->
                     <div class="tab-pane active" data-pane="gallery">
                         <div style="margin-bottom: 15px;">
-                            <input type="text" id="image-search-input" placeholder="🔍 画像名で検索..." style="width: 100%; padding: 12px 16px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; transition: border-color 0.2s;" onfocus="this.style.borderColor='#667eea'" onblur="this.style.borderColor='#e0e0e0'">
+                            <input type="text" id="image-search-input" placeholder="🔍 画像名で検索..." style="width: 100%; padding: 12px 16px; border: 2px solid var(--ui-control); border-radius: 8px; font-size: 1em; transition: border-color 0.2s;">
                         </div>
                         <div id="gallery-images" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 4px;">
-                            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">
+                            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--ui-sub);">
                                 <div style="font-size: 3em; margin-bottom: 10px;">🔄</div>
                                 <div>読み込み中...</div>
                             </div>
@@ -63,33 +60,33 @@ function openImagePicker(onSelect, pickType = 'character') {
 
                     <!-- アップロードタブ -->
                     <div class="tab-pane" data-pane="upload" style="display: none;">
-                        <div style="border: 3px dashed #667eea; border-radius: 12px; padding: 40px; text-align: center; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); transition: all 0.3s;">
+                        <div style="border: 3px dashed var(--ui-control); border-radius: 12px; padding: 40px; text-align: center; background: var(--ui-soft); transition: all 0.3s;">
                             <input type="file" id="picker-file-input" accept="image/*" style="display: none;">
                             <div id="upload-dropzone">
                                 <p style="font-size: 3em; margin: 0 0 15px 0;">📷</p>
-                                <p style="font-size: 1.2em; margin-bottom: 15px; font-weight: 600; color: #333;">画像をドロップ または クリックして選択</p>
-                                <button class="btn-primary" onclick="document.getElementById('picker-file-input').click()" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 32px; border: none; border-radius: 8px; font-size: 1em; font-weight: 600; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(102,126,234,0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">ファイルを選択</button>
+                                <p style="font-size: 1.2em; margin-bottom: 15px; font-weight: 600; color: var(--ui-text);">画像をドロップ または クリックして選択</p>
+                                <button class="btn-set is-primary" onclick="document.getElementById('picker-file-input').click()">ファイルを選択</button>
                             </div>
                             <div style="margin-top: 20px; text-align: left; max-width: 400px; margin-left: auto; margin-right: auto;">
-                                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">画像タイプ:</label>
-                                <select id="picker-image-type" style="width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--ui-text);">画像タイプ:</label>
+                                <select id="picker-image-type" style="width: 100%; padding: 10px 14px; border: 2px solid var(--ui-control); border-radius: 8px; font-size: 1em; margin-bottom: 15px;">
                                     <option value="character" ${pickType === 'character' ? 'selected' : ''}>キャラクター立ち絵</option>
                                     <option value="background" ${pickType === 'background' ? 'selected' : ''}>背景画像</option>
                                 </select>
 
-                                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #333;">画像名（省略可）:</label>
-                                <input type="text" id="picker-image-name" placeholder="例: 戦士_男" style="width: 100%; padding: 10px 14px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 1em; margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: var(--ui-text);">画像名（省略可）:</label>
+                                <input type="text" id="picker-image-name" placeholder="例: 戦士_男" style="width: 100%; padding: 10px 14px; border: 2px solid var(--ui-control); border-radius: 8px; font-size: 1em; margin-bottom: 15px;">
 
-                                <div id="gm-only-option" style="display: none; margin-bottom: 15px; background: #fff3cd; padding: 10px; border-radius: 8px; border: 1px solid #ffeeba;">
+                                <div id="gm-only-option" style="display: none; margin-bottom: 15px; background: var(--ui-warn-soft); padding: 10px; border-radius: 8px; border: 1px solid var(--ui-line);">
                                     <label style="display: flex; align-items: center; cursor: pointer;">
                                         <input type="checkbox" id="picker-gm-only" style="width: 18px; height: 18px; margin-right: 8px;">
-                                        <span style="font-weight: bold; color: #856404;">🔒 GM限定画像として保存</span>
+                                        <span style="font-weight: bold; color: var(--ui-warn);">🔒 GM限定画像として保存</span>
                                     </label>
-                                    <div style="font-size: 0.85em; color: #856404; margin-top: 4px; margin-left: 26px;">GM権限を持つユーザーのみ閲覧・使用できます</div>
+                                    <div style="font-size: 0.85em; color: var(--ui-warn); margin-top: 4px; margin-left: 26px;">GM権限を持つユーザーのみ閲覧・使用できます</div>
                                 </div>
                             </div>
                             <div id="upload-preview" style="margin-top: 20px; display: none;">
-                                <img id="upload-preview-img" style="max-width: 240px; max-height: 240px; border: 3px solid #667eea; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+                                <img id="upload-preview-img" style="max-width: 240px; max-height: 240px; border: 3px solid var(--ui-control); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
                                 <p id="upload-status" style="margin-top: 15px; font-weight: bold; font-size: 1.1em;"></p>
                             </div>
                         </div>
@@ -98,7 +95,7 @@ function openImagePicker(onSelect, pickType = 'character') {
                     <!-- デフォルト素材タブ -->
                     <div class="tab-pane" data-pane="defaults" style="display: none;">
                         <div id="default-images" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; max-height: 400px; overflow-y: auto; padding: 4px;">
-                            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: #999;">
+                            <div style="grid-column: 1 / -1; text-align: center; padding: 40px; color: var(--ui-sub);">
                                 <div style="font-size: 3em; margin-bottom: 10px;">✨</div>
                                 <div>デフォルト画像はまだありません</div>
                             </div>
@@ -109,6 +106,7 @@ function openImagePicker(onSelect, pickType = 'character') {
         </div>
     `;
 
+    applySystemWindow(modal.querySelector('.modal-content'));
     document.body.appendChild(modal);
 
     // イベントハンドラ
@@ -188,16 +186,16 @@ function openImageCropperModal(imageData) {
         modal.innerHTML = `
             <div class="modal-content" style="width: 92%; max-width: 560px; padding: 18px; border-radius: 12px;">
                 <h3 style="margin: 0 0 12px 0;">画像の表示範囲を調整</h3>
-                <p style="margin: 0 0 12px 0; color: #666; font-size: 0.9em;">ズームとドラッグで切り抜き範囲を決めます。</p>
+                <p style="margin: 0 0 12px 0; color: var(--ui-sub); font-size: 0.9em;">ズームとドラッグで切り抜き範囲を決めます。</p>
                 <div id="crop-viewport" style="
                     width: ${viewportSize}px;
                     height: ${viewportSize}px;
                     margin: 0 auto 12px auto;
-                    border: 2px solid #667eea;
+                    border: 2px solid var(--ui-control);
                     border-radius: 10px;
                     overflow: hidden;
                     position: relative;
-                    background: #f2f4f8;
+                    background: var(--ui-soft);
                     touch-action: none;
                     cursor: grab;
                 ">
@@ -208,12 +206,13 @@ function openImageCropperModal(imageData) {
                     <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1" style="width:100%;">
                 </div>
                 <div style="display:flex; gap:8px; justify-content:flex-end; flex-wrap: wrap;">
-                    <button id="crop-cancel-btn" class="btn-secondary" type="button">キャンセル</button>
-                    <button id="crop-original-btn" class="btn-secondary" type="button">元画像のまま使う</button>
-                    <button id="crop-apply-btn" class="btn-primary" type="button">切り抜いて決定</button>
+                    <button id="crop-cancel-btn" class="btn-set" type="button">キャンセル</button>
+                    <button id="crop-original-btn" class="btn-set" type="button">元画像のまま使う</button>
+                    <button id="crop-apply-btn" class="btn-set is-primary" type="button">切り抜いて決定</button>
                 </div>
             </div>
         `;
+        applySystemWindow(modal.querySelector('.modal-content'));
         document.body.appendChild(modal);
 
         const viewport = modal.querySelector('#crop-viewport');
@@ -362,7 +361,7 @@ function openImageCropperModal(imageData) {
                 });
             } catch (err) {
                 console.error('[ImagePicker] Crop error:', err);
-                alert('画像の切り抜きに失敗しました。元画像を使用します。');
+                window.showAppNotice('画像の切り抜きに失敗しました。元画像を使用します。', {kind: 'error'});
                 closeWith({
                     ...imageData,
                     originalUrl: imageData.url,
@@ -385,7 +384,7 @@ function openImageCropperModal(imageData) {
             renderCropPreview();
         };
         sourceImg.onerror = () => {
-            alert('画像の読み込みに失敗しました。元画像を使用します。');
+            window.showAppNotice('画像の読み込みに失敗しました。元画像を使用します。', {kind: 'error'});
             closeWith({
                 ...imageData,
                 originalUrl: imageData.url,
@@ -401,7 +400,7 @@ function openImageCropperModal(imageData) {
  */
 async function loadGalleryImages(modal, onSelect, query = '', pickType = 'character') {
     const container = modal.querySelector('#gallery-images');
-    container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #999;">読み込み中...</div>';
+    container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--ui-sub);">読み込み中...</div>';
 
     try {
         const params = new URLSearchParams();
@@ -418,7 +417,7 @@ async function loadGalleryImages(modal, onSelect, query = '', pickType = 'charac
         const images = await response.json();
 
         if (images.length === 0) {
-            container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #999;">画像がありません</div>';
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--ui-sub);">画像がありません</div>';
             return;
         }
 
@@ -453,7 +452,7 @@ async function loadDefaultImages(modal, onSelect, pickType = 'character') {
         const images = await response.json();
 
         if (images.length === 0) {
-            container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: #999;">デフォルト画像はまだありません</div>';
+            container.innerHTML = '<div style="grid-column: 1 / -1; text-align: center; padding: 20px; color: var(--ui-sub);">デフォルト画像はまだありません</div>';
             return;
         }
 
@@ -543,11 +542,11 @@ function createImageCard(imageData, onClickCallback, allowDelete = false) {
                         card.remove(); // 画面から削除
                     } else {
                         const dat = await res.json();
-                        alert('削除に失敗しました: ' + (dat.error || 'Unknown error'));
+                        window.showAppNotice('削除に失敗しました: ' + (dat.error || 'Unknown error'), {kind: 'error'});
                     }
                 } catch (err) {
                     console.error(err);
-                    alert('通信エラーが発生しました');
+                    window.showAppNotice('通信エラーが発生しました', {kind: 'error'});
                 }
             }
         };
@@ -644,7 +643,7 @@ function setupUploadTab(modal, onSelect, pickType = 'character') {
     uploadBtn.onclick = async () => {
         const file = fileInput.files[0];
         if (!file) {
-            alert("ファイルが選択されていません");
+            window.showAppNotice("ファイルが選択されていません", {kind: 'error'});
             return;
         }
 
@@ -655,7 +654,7 @@ function setupUploadTab(modal, onSelect, pickType = 'character') {
         uploadBtn.style.cursor = 'not-allowed';
 
         statusText.textContent = 'アップロード中...';
-        statusText.style.color = '#666';
+        statusText.style.color = 'var(--ui-sub)';
 
         const formData = new FormData();
         formData.append('file', file);
