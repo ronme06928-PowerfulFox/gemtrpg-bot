@@ -8,7 +8,7 @@ import pytest
 CSS = Path(__file__).resolve().parents[1] / "static" / "css" / "modules"
 
 
-@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css", "paper_screens.css"])
+@pytest.mark.parametrize("filename", ["master_data.css", "unit_management.css", "main_menu.css", "paper_screens.css", "room_theme.css"])
 def test_workspace_colors_use_tokens(filename):
     source = re.sub(r"/\*.*?\*/", "", (CSS / filename).read_text(encoding="utf-8"), flags=re.S)
     values = re.findall(r"(?:[;{])\s*[\w-]+\s*:\s*([^;}]+)", source)
@@ -63,3 +63,68 @@ def test_encounter_queue_uses_night_tokens():
     for filename in ("preset_deployment_browser.js", "encounter_placement.js"):
         source = (modals / filename).read_text(encoding="utf-8")
         assert ".dataset.theme = 'night'" in source
+
+
+@pytest.mark.parametrize("role,gem", [
+    ("progress", "emerald"), ("end", "topaz"), ("danger", "ruby"),
+    ("prepare", "sapphire"), ("record", "quartz"),
+])
+def test_room_role_contrast(role, gem):
+    source = (CSS / "room_theme.css").read_text(encoding="utf-8")
+    assert re.search(r"\.room-op--" + role + r"\s*\{[^}]*var\(--gem-" + gem + r"\)", source)
+    assert "color-mix(in srgb, var(--gem-role) 14%, var(--ui-bg))" in source
+    tokens = _app_theme("night")
+    foreground, background = (tokens[name][1:] for name in ("--gem-" + gem, "--ui-bg"))
+    mixed = "".join(
+        f"{round(int(foreground[i:i+2], 16) * .14 + int(background[i:i+2], 16) * .86):02x}"
+        for i in (0, 2, 4)
+    )
+    for surface, minimum in [(mixed, 4.5), (background, 3)]:
+        low, high = sorted((_luminance(foreground), _luminance(surface)))
+        assert (high + .05) / (low + .05) >= minimum
+
+
+def test_room_operation_roles():
+    static = CSS.parents[1]
+    markup = (static / "4_visual_battle.html").read_text(encoding="utf-8")
+    for button, role in {
+        "visual-round-start-btn": "progress", "visual-round-end-btn": "end",
+        "visual-reset-btn": "danger", "visual-save-btn": "prepare",
+        "visual-room-preset-btn": "prepare",
+    }.items():
+        assert re.search(fr'<button id="{button}"[^>]*class="[^"]*room-op--{role}', markup)
+    controls = (static / "js/visual/visual_combat_session.js").read_text(encoding="utf-8")
+    for pattern in (
+        r"combat-session-action--enter[^']*room-op--progress",
+        r"combat-session-action--conclude[^']*room-op--end",
+        r"combat-session-history-button[^']*room-op--record",
+    ):
+        assert re.search(pattern, controls)
+    visual_ui = (static / "js/visual/visual_ui.js").read_text(encoding="utf-8")
+    assert re.search(r"pveBtn.className = '[^']*room-op--record", visual_ui)
+
+
+def test_room_theme_follows_entry_and_exit():
+    import subprocess
+
+    result = subprocess.run(["node", "-e", r"""
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const room = {style: {display: 'none'}, dataset: {}};
+const context = vm.createContext({
+    mainAppContainer: room, goScreen() {},
+});
+const main = fs.readFileSync('static/js/main.js', 'utf8');
+const screens = fs.readFileSync('static/js/app_screens.js', 'utf8');
+const visibility = main.match(/function setRoomVisible\(visible\) \{[\s\S]+?\n\}/)[0];
+const exit = screens.match(/function exitRoomTo\(name\) \{[\s\S]+?\n  \}/)[0];
+assert.match(main.slice(main.indexOf('function joinRoom')), /setRoomVisible\(true\)/);
+vm.runInContext(visibility + exit + '\nsetRoomVisible(true);', context);
+assert.equal(room.style.display, 'block');
+assert.equal(room.dataset.theme, 'night');
+vm.runInContext("exitRoomTo('rooms');", context);
+assert.equal(room.style.display, 'none');
+assert.equal(room.dataset.theme, undefined);
+"""], cwd=CSS.parents[2], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr

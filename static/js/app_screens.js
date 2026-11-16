@@ -90,7 +90,8 @@
   }
 
   function showPortal(html) {
-    for (const id of ['entry-portal', 'room-portal', 'main-app-container']) {
+    setRoomVisible(false);
+    for (const id of ['entry-portal', 'room-portal']) {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     }
@@ -115,7 +116,8 @@
 
   function showUsers() {
     if (!window.currentUserIsAppAdmin) { goScreen('menu'); return; }
-    for (const id of ['entry-portal', 'room-portal', 'main-app-container']) {
+    setRoomVisible(false);
+    for (const id of ['entry-portal', 'room-portal']) {
       const el = document.getElementById(id);
       if (el) el.style.display = 'none';
     }
@@ -174,7 +176,7 @@
   }
 
   function exitRoomTo(name) {
-    document.getElementById('main-app-container').style.display = 'none';
+    setRoomVisible(false);
     goScreen(name);
   }
 

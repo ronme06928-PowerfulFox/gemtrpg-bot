@@ -179,28 +179,6 @@
     gap: 5px;
 }
 
-.filter-btn {
-    background: #f0f0f0;
-    border: 1px solid #ccc;
-    border-radius: 15px;
-    padding: 4px 12px;
-    font-size: 0.85em;
-    cursor: pointer;
-    color: #555;
-    transition: all 0.2s;
-}
-
-.filter-btn:hover {
-    background: #e0e0e0;
-}
-
-.filter-btn.active {
-    background: #007bff;
-    color: white;
-    border-color: #007bff;
-    font-weight: bold;
-}
-
 .hidden-log {
     display: none !important;
 }

@@ -12,7 +12,7 @@ window.renderMatchPanelFromState = function (matchData) {
         if (panel && !panel.classList.contains('collapsed')) {
             // Close logic if needed
         }
-        document.getElementById('wide-match-container').style.display = 'none';
+        document.getElementById('wide-match-container').hidden = true;
         const duelContainer = document.querySelector('.duel-container');
         if (duelContainer) duelContainer.style.display = 'none';
 
@@ -37,7 +37,7 @@ window.renderMatchPanelFromState = function (matchData) {
             populateWideMatchPanel(matchData);
         }
     } else {
-        document.getElementById('wide-match-container').style.display = 'none';
+        document.getElementById('wide-match-container').hidden = true;
         const duelContainer = document.querySelector('.duel-container');
         if (duelContainer) duelContainer.style.display = 'flex';
     }
@@ -125,7 +125,7 @@ window.renderMatchPanelFromState = function (matchData) {
                 })) {
                     clearMatchPanelContent();
                     collapseMatchPanel();
-                    document.getElementById('wide-match-container').style.display = 'none';
+                    document.getElementById('wide-match-container').hidden = true;
                     document.querySelector('.duel-container').style.display = '';
 
                     if (socket) socket.emit('request_force_end_match', { room: currentRoomName });

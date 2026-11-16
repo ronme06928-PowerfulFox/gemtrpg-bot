@@ -390,7 +390,7 @@
         actions.className = 'combat-session-actions';
         const historyButton = document.createElement('button');
         historyButton.type = 'button';
-        historyButton.className = 'combat-session-history-button';
+        historyButton.className = 'combat-session-history-button room-op room-op--record';
         historyButton.textContent = '戦闘記録';
         historyButton.addEventListener('click', () => window.openCombatHistoryModal());
         actions.appendChild(historyButton);
@@ -403,9 +403,11 @@
         const action = document.createElement('button');
         action.type = 'button';
         action.className = ready
-            ? 'combat-session-action combat-session-action--enter'
-            : 'combat-session-action combat-session-action--conclude';
-        action.textContent = ready ? '戦闘突入' : '戦闘終結';
+            ? 'combat-session-action combat-session-action--enter room-op room-op--progress'
+            : 'combat-session-action combat-session-action--conclude room-op room-op--end';
+        action.innerHTML = ready
+            ? '<span aria-hidden="true">⚔</span> 戦闘突入'
+            : '<span aria-hidden="true">⚑</span> 戦闘終結';
         action.disabled = false;
         action.title = ready
             ? '戦闘を開始します。ラウンド開始は別操作です。'

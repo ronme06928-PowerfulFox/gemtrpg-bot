@@ -309,6 +309,12 @@ const mainAppContainer = document.getElementById('main-app-container');
 const mainContent = document.getElementById('main-content');
 const tabButtons = document.querySelectorAll('.tab-button');
 
+function setRoomVisible(visible) {
+    if (visible) mainAppContainer.dataset.theme = 'night';
+    else delete mainAppContainer.dataset.theme;
+    mainAppContainer.style.display = visible ? 'block' : 'none';
+}
+
 // --- 2. APIフェッチ ---
 async function fetchWithSession(url, options = {}) {
     options.credentials = 'include';
@@ -327,7 +333,7 @@ function showEntryPortal() {
     hideMenuScreens();
     clearScreenHash();
     roomPortal.style.display = 'none';
-    mainAppContainer.style.display = 'none';
+    setRoomVisible(false);
     entryPortal.style.display = 'block';
 
     const entryMsg = document.getElementById('entry-message');
@@ -454,7 +460,7 @@ async function showRoomPortal() {
         try { window.__boQuickStartCleanup(); } catch (_e) {}
     }
     entryPortal.style.display = 'none';
-    mainAppContainer.style.display = 'none';
+    setRoomVisible(false);
     hideMenuScreens();
     roomPortal.style.display = 'block';
     roomPortal.innerHTML = '<section class="paper-panel"><p>ルーム一覧を読み込み中…</p></section>';
@@ -967,7 +973,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         roomPortal.style.display = 'none';
         hideMenuScreens();
         enterRoomHistory();
-        mainAppContainer.style.display = 'block';
+        setRoomVisible(true);
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
         updateHeaderUserInfo();
 

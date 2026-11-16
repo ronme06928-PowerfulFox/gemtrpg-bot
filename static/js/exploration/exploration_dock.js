@@ -32,7 +32,7 @@ if (!window.ExplorationDock) {
         // 1. 背景設定ボタン (GMのみ)
         if (userAttr === 'GM') {
             const bgBtn = createDockIcon('🖼️', '背景変更', openExplorationBgPicker);
-            // bgBtn.style.background = '#e74c3c';
+            bgBtn.classList.add('room-op', 'room-op--prepare');
             dock.appendChild(bgBtn);
         }
 
@@ -124,7 +124,7 @@ if (!window.ExplorationDock) {
                     });
                 }
             });
-            backBtn.style.background = '#e74c3c';
+            backBtn.classList.add('room-op', 'room-op--progress');
             dock.appendChild(backBtn);
         }
 

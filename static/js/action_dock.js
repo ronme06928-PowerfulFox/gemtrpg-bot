@@ -172,7 +172,7 @@ function updateActionDock() {
         if (!expBtn) {
             expBtn = document.createElement('div');
             expBtn.id = 'dock-to-exploration-btn';
-            expBtn.className = 'dock-icon dock-icon--exploration';
+            expBtn.className = 'dock-icon room-op room-op--end';
             expBtn.textContent = '🗺️';
             expBtn.title = '探索パートへ切替';
             expBtn.onclick = async () => {

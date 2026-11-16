@@ -667,31 +667,6 @@
     text-align: center;
 }
 
-.wide-status .ready {
-    color: #28a745;
-    font-weight: bold;
-}
-
-.wide-status .waiting {
-    color: #ffc107;
-}
-
-.duel-btn.execute {
-    background: linear-gradient(135deg, #ff9800, #ff5722);
-    color: #fff;
-    font-size: 1.1em;
-    padding: 10px 25px;
-}
-
-.duel-btn.execute:hover {
-    background: linear-gradient(135deg, #ffb74d, #ff8a65);
-}
-
-.duel-btn.execute:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
-}
-
 /* Wide Match Skill Detail Area */
 .wide-skill-detail-area {
     background: #f8f9fa;
@@ -776,8 +751,6 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #343a40;
-    color: #fff;
     padding: 10px 15px;
     border-radius: 6px;
     gap: 15px;
@@ -788,7 +761,7 @@
     font-size: 1.1em;
 }
 
-#wide-match-container .wide-match-header-bar .duel-btn.execute {
+#wide-execute-btn {
     padding: 8px 25px;
     font-size: 1.1em;
 }
@@ -835,7 +808,7 @@
     font-size: 1em;
 }
 
-#wide-match-container .wide-attacker-controls .duel-btn {
+#wide-match-container .wide-attacker-controls .room-op {
     flex: 1;
     /* 20% each */
     min-width: 80px;
@@ -947,17 +920,8 @@
     margin: 0 -20px -20px -20px;
 }
 
-#wide-match-container .wide-status {
-    color: #fff;
-}
-
 #wide-match-container .wide-status .ready {
-    color: #28a745;
     font-weight: bold;
-}
-
-#wide-match-container .wide-status .waiting {
-    color: #ffc107;
 }
 
 #wide-match-container .declared-badge {

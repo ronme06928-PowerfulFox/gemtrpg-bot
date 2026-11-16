@@ -271,7 +271,6 @@ window.appendVisualLogLine = function (container, logData, filterType, live = fa
     } else {
         _appendRichVisualSystemLogMessage(contentTarget, displayMessage);
     }
-    logLine.style.borderBottom = "1px dotted #eee";
     logLine.style.padding = "2px 5px";
     logLine.style.fontSize = "0.9em";
     container.appendChild(logLine);
@@ -288,7 +287,7 @@ window.renderVisualLogHistory = function (logs) {
     if (!logArea) return;
     logArea.innerHTML = '';
     if (!logs || logs.length === 0) {
-        logArea.innerHTML = '<div style="padding:10px; color:#999;">ログはありません</div>';
+        logArea.innerHTML = '<div class="visual-log-empty">ログはありません</div>';
         return;
     }
     const filter = window.currentVisualLogFilter || 'all';
@@ -986,8 +985,11 @@ window.setupVisualSidebarControls = function () {
     const filters = document.querySelectorAll('.filter-btn[data-target="visual-log"]');
     filters.forEach(btn => {
         btn.onclick = () => {
-            filters.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            filters.forEach(filter => {
+                const selected = filter === btn;
+                filter.classList.toggle('active', selected);
+                filter.setAttribute('aria-pressed', String(selected));
+            });
             window.currentVisualLogFilter = btn.dataset.filter;
             if (battleState && battleState.logs) renderVisualLogHistory(battleState.logs);
         };
@@ -1009,36 +1011,26 @@ window.setupVisualSidebarControls = function () {
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
 
-    // 追加ボタンを表示できるよう、ルーム操作エリアのレイアウトを拡張
     const actionContainer = document.getElementById('visual-room-actions');
     if (roomPresetBtn) {
         roomPresetBtn.style.display = isGM ? 'inline-flex' : 'none';
     }
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
-        // 2カラム固定から折り返し可能なflexレイアウトに変更
-        actionContainer.style.display = 'flex';
-        actionContainer.style.flexWrap = 'wrap';
-        actionContainer.style.gap = '5px';
-
-        actionContainer.style.gap = '5px';
-
         // PvE/PvP切替はGMのみ表示
         if (isGM) {
             const pveBtn = document.createElement('button');
             pveBtn.id = 'visual-pve-btn';
+            pveBtn.className = 'room-op room-op--record';
 
             const updateBtnText = () => {
                 const mode = battleState?.battle_mode || 'pvp';
                 pveBtn.textContent = (mode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP';
-                pveBtn.style.background = (mode === 'pve') ? '#28a745' : '#6c757d'; // Green for PvE, Gray for PvP
-                pveBtn.style.color = 'white';
             };
 
             // 初期表示を遅延反映
             setTimeout(updateBtnText, 500);
             // battleState更新を拾って表示を同期するため、簡易的に定期更新する
 
-            pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
             pveBtn.onclick = async () => {
                 const currentMode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
                 const nextMode = (currentMode === 'pve') ? 'pvp' : 'pve';

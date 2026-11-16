@@ -29,15 +29,8 @@
     width: 40px;
     height: 40px;
     font-size: 20px;
-    background: rgba(0, 0, 0, 0.7);
-    color: white;
-    border: 1px solid #666;
     border-radius: 5px;
     cursor: pointer;
-}
-
-.map-btn:hover {
-    background: rgba(0, 0, 0, 0.9);
 }
 
 .map-token {

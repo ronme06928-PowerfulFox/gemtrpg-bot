@@ -301,7 +301,7 @@
         }
 
         // Show container
-        container.style.display = '';
+        container.hidden = false;
     };
 
     // ============================================
@@ -665,7 +665,7 @@
 
         if (canControl && !isDeclared) {
             var calcBtn = document.createElement('button');
-            calcBtn.className = 'duel-btn secondary wide-def-calc-btn';
+            calcBtn.className = 'wide-def-calc-btn room-op room-op--prepare';
             calcBtn.dataset.defId = defData.id;
             calcBtn.textContent = '計算';
             calcBtn.onclick = function () {
@@ -806,7 +806,7 @@
             body.appendChild(calcBtn);
 
             var declBtn = document.createElement('button');
-            declBtn.className = 'duel-btn primary wide-def-declare-btn';
+            declBtn.className = 'wide-def-declare-btn room-op room-op--prepare';
             declBtn.dataset.defId = defData.id;
             declBtn.textContent = '宣言';
             declBtn.disabled = true;
@@ -1511,7 +1511,7 @@
                 // 即座にパネルを閉じてメイン画面に戻る
                 var wideContainer = document.getElementById('wide-match-container');
                 var duelContainer = document.querySelector('.duel-container');
-                if (wideContainer) wideContainer.style.display = 'none';
+                if (wideContainer) wideContainer.hidden = true;
                 if (duelContainer) duelContainer.style.display = '';
 
                 // マッチパネル自体も閉じておく (state_updated が来るまでの一時的な措置)

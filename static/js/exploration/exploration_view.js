@@ -166,7 +166,6 @@ if (!window.ExplorationView) {
             // bgDiv.style.imageRendering = 'auto'; // Optimize for photos, not pixel art
         } else {
             bgDiv.style.backgroundImage = 'none'; // またはデフォルト画像
-            bgDiv.style.backgroundColor = '#202020';
         }
     }
 

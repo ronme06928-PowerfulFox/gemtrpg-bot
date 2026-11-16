@@ -55,7 +55,7 @@
 
     <!-- ★ Exploration Viewport ★ -->
     <div id="exploration-viewport" class="viewport-container"
-        style="display: none; flex: 1; position: relative; background: #2c3e50; overflow: hidden; cursor: grab;">
+        style="display: none; flex: 1; position: relative; overflow: hidden; cursor: grab;">
         <div id="exploration-world"
             style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform;">
             <div id="exploration-background"
@@ -71,7 +71,7 @@
                 <button id="exp-zoom-in-btn" class="map-btn" title="拡大">＋</button>
                 <button id="exp-zoom-out-btn" class="map-btn" title="縮小">－</button>
                 <button id="exp-reset-view-btn" class="map-btn" title="リセット">⟲</button>
-                <button id="exp-bg-update-btn" class="map-btn" title="背景変更" style="display:none;">🖼️</button>
+                <button id="exp-bg-update-btn" class="map-btn room-op room-op--prepare" title="背景変更" style="display:none;">🖼️</button>
             </div>
         </div>
     </div>
@@ -80,54 +80,41 @@
 
 
 
-        <div id="visual-controls-area" style="padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+        <div id="visual-controls-area">
             <div id="combat-session-controls" class="combat-session-controls" aria-live="polite"></div>
-            <div style="display: flex; gap: 5px;">
-                <button id="visual-round-start-btn" class="sidebar-btn"
-                    style="display:none; flex: 1; background: #17a2b8; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer;">R開始</button>
-                <button id="visual-round-end-btn" class="sidebar-btn"
-                    style="display:none; flex: 1; background: #f0e0e0; color: #c82333; border: 1px solid #e0c0c0; padding: 5px; border-radius: 4px; cursor: pointer;">R終了</button>
+            <div class="room-round-actions">
+                <button id="visual-round-start-btn" class="sidebar-btn room-op room-op--progress" style="display: none;">
+                    <span aria-hidden="true">▶</span> R開始
+                </button>
+                <button id="visual-round-end-btn" class="sidebar-btn room-op room-op--end" style="display: none;">
+                    <span aria-hidden="true">■</span> R終了
+                </button>
             </div>
         </div>
 
-        <div id="visual-room-actions"
-            style="padding: 8px; background: #e9ecef; border-bottom: 1px solid #ccc; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-            <button id="visual-save-btn"
-                style="padding: 5px; font-size: 0.8em; cursor: pointer; border: 1px solid #ccc; border-radius: 3px; background: #fff;">保存</button>
-            <button id="visual-room-preset-btn"
-                style="display: none; padding: 5px; font-size: 0.8em; cursor: pointer; background: #d97732; color: white; border: none; border-radius: 3px;">待機列</button>
-            <button id="visual-reset-btn"
-                style="padding: 5px; font-size: 0.8em; cursor: pointer; background: #dc3545; color: white; border: none; border-radius: 3px;">リセット</button>
-
+        <div id="visual-room-actions">
+            <button id="visual-save-btn" class="room-op room-op--prepare">保存</button>
+            <button id="visual-room-preset-btn" class="room-op room-op--prepare" style="display: none;">待機列</button>
+            <button id="visual-reset-btn" class="room-op room-op--danger"><span aria-hidden="true">⟲</span> リセット</button>
         </div>
 
-        <div id="visual-chat-area" style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-            <div class="log-header"
-                style="padding: 5px; background: #eee; border-bottom: 1px solid #ddd; display: flex; gap: 5px;">
-                <button class="filter-btn active" data-target="visual-log" data-filter="all"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">すべて</button>
-                <button class="filter-btn" data-target="visual-log" data-filter="chat"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">会話</button>
-                <button class="filter-btn" data-target="visual-log" data-filter="system"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer;">システム</button>
-                <button id="visual-show-history-btn" class="filter-btn"
-                    style="font-size: 0.8em; padding: 2px 8px; border-radius: 10px; border: 1px solid #ccc; cursor: pointer; background-color: #6c757d; color: white;">履歴</button>
+        <div id="visual-chat-area">
+            <div class="log-header" role="group" aria-label="チャットログ">
+                <button class="filter-btn active" data-target="visual-log" data-filter="all" aria-pressed="true">すべて</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="chat" aria-pressed="false">会話</button>
+                <button class="filter-btn" data-target="visual-log" data-filter="system" aria-pressed="false">システム</button>
+                <button id="visual-show-history-btn" class="filter-btn">履歴</button>
             </div>
 
-            <div id="visual-log-area" class="battle-log"
-                style="flex: 1; overflow-y: auto; padding: 5px; font-size: 0.85em; background: #fff;">
-            </div>
+            <div id="visual-log-area" class="battle-log" data-theme="paper"></div>
 
-            <div style="display: flex; border-top: 1px solid #ccc;">
-                <input type="text" id="visual-chat-input" placeholder="チャットまたは /roll コマンド"
-                    style="flex: 1; border: none; padding: 8px;">
-                <button id="visual-chat-send"
-                    style="border: none; background: #007bff; color: white; padding: 0 15px; cursor: pointer; font-weight: bold;">送信</button>
+            <div class="room-chat-compose">
+                <input type="text" id="visual-chat-input" placeholder="チャットまたは /roll コマンド">
+                <button id="visual-chat-send">送信</button>
             </div>
         </div>
 
-        <div id="visual-status-msg"
-            style="font-size: 0.8em; text-align: center; padding-bottom: 2px; background: #e9ecef; color: #555;"></div>
+        <div id="visual-status-msg"></div>
 
         <div id="declare-panel-sidebar-host" aria-live="polite"></div>
     </div>
@@ -145,14 +132,14 @@
 
     <div class="panel-content">
         <!-- Wide Match Container (hidden by default, shown when match_type === 'wide') -->
-        <div id="wide-match-container" class="wide-match-container" style="display: none;">
+        <div id="wide-match-container" class="wide-match-container" hidden>
             <!-- Top bar with status and execute button -->
             <div class="wide-match-header-bar">
                 <input type="hidden" id="wide-mode-select" value="individual">
                 <div id="wide-status" class="wide-status">
                     <span class="waiting">宣言待ち...</span>
                 </div>
-                <button id="wide-execute-btn" class="duel-btn execute" disabled>⚡ 実行</button>
+                <button id="wide-execute-btn" class="room-op room-op--progress" disabled><span aria-hidden="true">▶</span> 実行</button>
             </div>
 
             <div class="wide-attacker-section">
@@ -167,8 +154,8 @@
                 </div>
                 <div class="wide-attacker-controls">
                     <select id="wide-attacker-skill" class="duel-select"></select>
-                    <button id="wide-attacker-calc-btn" class="duel-btn calc">計算</button>
-                    <button id="wide-attacker-declare-btn" class="duel-btn declare" disabled>宣言</button>
+                    <button id="wide-attacker-calc-btn" class="room-op room-op--prepare">計算</button>
+                    <button id="wide-attacker-declare-btn" class="room-op room-op--prepare" disabled>宣言</button>
                 </div>
                 <div id="wide-attacker-skill-detail" class="wide-skill-detail-area"></div>
                 <div id="wide-attacker-result" class="wide-result-display"></div>
