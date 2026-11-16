@@ -11,6 +11,7 @@
     const grid = window.GRID_SIZE || 90;
     const controls = document.createElement('div');
     controls.className = 'rq-theme rq-placement';
+    controls.dataset.theme = 'night';
     controls.innerHTML = `<strong>登場位置</strong><span class="rq-coordinate" aria-live="polite"></span>
       <button type="button" data-at class="rq-primary">ここに置く</button>
       <button type="button" data-auto>自動で置く</button><button type="button" data-cancel>取り消し</button>`;

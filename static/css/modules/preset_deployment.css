@@ -1,64 +1,48 @@
 .rq-theme {
-  --rq-text: #ece6d6;
-  --rq-sub: #b3ad9a;
-  --rq-bg: #1c2030;
-  --rq-soft: #262b40;
-  --rq-control: #8f93aa;
-  --rq-focus: #f0d27a;
-  --rq-gold: #8f7a3c;
-  --rq-primary: #d9b85a;
-  --rq-on-primary: #1c1505;
-  --rq-principal-soft: #3b3421;
-  --rq-input: #141829;
-  --rq-danger: #ff9b90;
-  --rq-danger-soft: #4a2622;
-  --rq-warn: #f0c070;
-  --rq-add: #7fd8a0;
-  --rq-shadow: 0 12px 30px rgb(0 0 0 / 65%);
-  color: var(--rq-text);
+  color: var(--ui-text);
   color-scheme: dark;
   font: 14px/1.45 system-ui, sans-serif;
-  background: linear-gradient(180deg, rgb(255 255 255 / 6%), transparent 140px), var(--rq-bg);
-  border: 1px solid var(--rq-gold);
+  background: linear-gradient(180deg, rgb(255 255 255 / 6%), transparent 140px), var(--ui-bg);
+  border: 1px solid var(--ui-gold);
   border-radius: 10px;
-  box-shadow: var(--rq-shadow);
+  box-shadow: var(--ui-shadow-float);
 }
 
 .rq-theme *, .rq-theme *::before, .rq-theme *::after { box-sizing: border-box; }
 .rq-theme h2, .rq-theme h3 {
-  font-family: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+  font-family: var(--ui-head-font);
   margin: 0 0 4px;
 }
 .rq-theme h2 { font-size: 20px; }
 .rq-theme h3 { font-size: 16px; }
 .rq-theme p { margin: 4px 0; }
-.rq-theme small, .rq-status { color: var(--rq-sub); }
+.rq-theme small, .rq-status { color: var(--ui-sub); }
 .rq-theme button, .rq-theme input, .rq-theme select, .rq-theme textarea {
   margin: 0;
   padding: 4px 8px;
   max-width: 100%;
   color: inherit;
   font: inherit;
-  border: 1px solid var(--rq-control);
+  border: 1px solid var(--ui-control);
   border-radius: 5px;
-  background: var(--rq-input);
+  background: var(--ui-input-bg);
 }
 .rq-theme button {
   cursor: pointer;
-  background: linear-gradient(180deg, rgb(255 255 255 / 12%), transparent), var(--rq-soft);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%);
+  background: linear-gradient(180deg, rgb(255 255 255 / 12%), transparent), var(--ui-soft);
+  box-shadow: var(--ui-inset);
 }
-.rq-theme :focus-visible { outline: 2px solid var(--rq-focus); outline-offset: 2px; }
+.rq-theme :focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
 .rq-theme button[aria-pressed="true"] {
-  background: var(--rq-principal-soft);
-  color: var(--rq-focus);
+  background: var(--ui-primary-soft);
+  color: var(--ui-focus);
   text-decoration: underline;
 }
-.rq-theme .rq-primary { color: var(--rq-on-primary); background: var(--rq-primary); border-color: var(--rq-primary); font-weight: 700; }
-.rq-theme .rq-danger { color: var(--rq-danger); }
-.rq-theme .rq-warn { color: var(--rq-warn); }
+.rq-theme .rq-primary { color: var(--ui-on-primary); background: var(--ui-primary); border-color: var(--ui-primary); font-weight: 700; }
+.rq-theme .rq-danger { color: var(--ui-danger); }
+.rq-theme .rq-warn { color: var(--ui-warn); }
 .rq-theme button:disabled { opacity: .6; cursor: default; }
-.rq-theme input[type="checkbox"] { accent-color: var(--rq-primary); }
+.rq-theme input[type="checkbox"] { accent-color: var(--ui-primary); }
 .rq-theme input[type="number"] { width: 5.5em; }
 .rq-dialog {
   position: fixed;
@@ -69,7 +53,7 @@
   padding: 0;
   overflow: auto;
 }
-.rq-dialog::backdrop { background: rgb(7 8 14 / 68%); }
+.rq-dialog::backdrop { background: var(--ui-overlay); }
 .rq-dialog--review { width: min(660px, calc(100vw - 28px)); }
 .rq-dialog header {
   position: sticky;
@@ -80,8 +64,8 @@
   justify-content: space-between;
   gap: 6px;
   padding: 10px 12px;
-  background: var(--rq-bg);
-  border-bottom: 1px solid var(--rq-gold);
+  background: var(--ui-bg);
+  border-bottom: 1px solid var(--ui-gold);
 }
 .rq-dialog header h2 { margin: 0; }
 .rq-dialog .rq-status:not(:empty) { padding-inline: 12px; }
@@ -92,7 +76,7 @@
   gap: 8px;
 }
 .rq-layout:has(> :only-child) { grid-template-columns: 1fr; }
-.rq-pane { min-width: 0; padding: 8px; border: 1px solid var(--rq-gold); border-radius: 6px; }
+.rq-pane { min-width: 0; padding: 8px; border: 1px solid var(--ui-gold); border-radius: 6px; }
 .rq-heading, .rq-reference, .rq-resource, .rq-options, .rq-actions {
   display: flex;
   align-items: center;
@@ -103,7 +87,7 @@
 .rq-card, .rq-resource, .rq-reference {
   margin: 5px 0;
   padding: 6px;
-  background: var(--rq-soft);
+  background: var(--ui-soft);
   border-radius: 4px;
 }
 .rq-resource { flex-wrap: nowrap; }
@@ -113,12 +97,12 @@
 .rq-results, .rq-entries { max-height: 58dvh; overflow: auto; }
 .rq-resources input { width: 100%; margin-top: 6px; }
 .rq-form label { display: grid; grid-template-columns: 4em minmax(0, 1fr); align-items: start; gap: 4px; margin: 6px 0; }
-.rq-options { margin: 6px 0; padding: 4px; border-color: var(--rq-gold); }
+.rq-options { margin: 6px 0; padding: 4px; border-color: var(--ui-gold); }
 .rq-options label { display: inline-flex; align-items: center; gap: 4px; }
 .rq-summary { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; }
 .rq-summary dt { font-weight: 700; }
 .rq-summary dd { margin: 0; }
-.rq-done { color: var(--rq-add); border: 1px solid currentColor; border-radius: 4px; padding: 1px 5px; }
+.rq-done { color: var(--ui-add); border: 1px solid currentColor; border-radius: 4px; padding: 1px 5px; }
 .rq-placement-mode #map-viewport { display: block !important; }
 .rq-placement-mode #exploration-viewport { display: none !important; }
 .rq-placement {

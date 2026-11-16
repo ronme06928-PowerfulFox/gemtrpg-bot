@@ -34,6 +34,7 @@
     const room = currentRoomName;
     const modal = document.createElement('dialog');
     modal.className = 'rq-theme rq-dialog';
+    modal.dataset.theme = 'night';
     modal.setAttribute('aria-label', '待機列');
     modal.innerHTML = `<header><h2>待機列</h2><div>${button('reinforce', '＋ 予定外の増援')} ${button('close', '閉じる')}</div></header>
       <p class="rq-status" role="status"></p><div class="rq-body"></div>`;

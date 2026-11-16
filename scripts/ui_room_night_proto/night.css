@@ -1,0 +1,235 @@
+/* Room chrome. The board, portraits and resolve presentation retain their own rendering. */
+body[data-theme="night"]:has(#main-app-container:not([style*="display: none"])) {
+  background: var(--ui-page);
+  color: var(--ui-text);
+}
+[data-theme="night"] #main-app-container > header,
+[data-theme="night"] :is(#visual-sidebar, #visual-controls-area, #visual-room-actions, .tab-container),
+[data-theme="night"] #visual-chat-area > div:has(> #visual-chat-input) {
+  color: var(--ui-text);
+  background: var(--ui-bg) !important;
+  border-color: var(--ui-gold) !important;
+}
+[data-theme="night"] #main-app-container > header {
+  border-bottom: 1px solid var(--ui-gold);
+  background-image: var(--ui-tex) !important;
+}
+[data-theme="night"] #main-app-container > header h1 {
+  font-family: var(--ui-head-font);
+}
+[data-theme="night"] #current-room-name {
+  color: var(--ui-focus);
+  background: var(--ui-primary-soft);
+}
+[data-theme="night"] .header-icon-btn svg { stroke: var(--ui-text); }
+[data-theme="night"] :is(#map-viewport, #exploration-viewport, #exploration-background) {
+  background-color: var(--ui-page) !important;
+}
+[data-theme="night"] .action-dock {
+  background: var(--ui-bg) !important;
+  border-color: var(--ui-gold);
+}
+[data-theme="night"] :is(.action-dock .dock-icon, .map-btn, .tab-btn, #visual-controls-area button,
+  #visual-room-actions button, #visual-chat-area .log-header button,
+  .declare-panel button, .declare-panel select) {
+  color: var(--ui-text) !important;
+  background: var(--ui-soft) !important;
+  border: 1px solid var(--ui-control) !important;
+}
+[data-theme="night"] :is(.action-dock .dock-icon, .map-btn, .tab-btn, #visual-controls-area button,
+  #visual-room-actions button, .declare-panel button):hover {
+  background: var(--ui-primary-soft) !important;
+}
+[data-theme="night"] :is(.action-dock .dock-icon.active, .tab-btn.active, #visual-chat-area .filter-btn.active) {
+  color: var(--ui-focus) !important;
+  background: var(--ui-primary-soft) !important;
+  border-color: var(--ui-focus) !important;
+}
+[data-theme="night"] :is(#visual-chat-send, #visual-controls-area .combat-session-action, .declare-panel .declare-commit-btn):not(:disabled) {
+  color: var(--ui-on-primary) !important;
+  background: var(--ui-primary) var(--ui-primary-gloss) !important;
+  border: 1px solid var(--ui-primary) !important;
+}
+[data-theme="night"] #visual-room-actions #visual-reset-btn { color: var(--ui-danger) !important; }
+[data-theme="night"] :is(#visual-timeline-area, .match-panel .panel-header, .wide-match-container, .wide-match-header-bar) {
+  color: var(--ui-text);
+  background: var(--ui-bg);
+  border-color: var(--ui-gold);
+}
+[data-theme="night"] :is(#visual-timeline-area .sidebar-header, #combat-session-controls .combat-session-status) {
+  color: var(--ui-text);
+  background: var(--ui-soft);
+  border-color: var(--ui-line);
+}
+[data-theme="night"] .combat-session-status__label { color: var(--ui-text); }
+[data-theme="night"] .combat-session-status__description { color: var(--ui-sub); }
+[data-theme="night"] #visual-chat-area .log-header {
+  background: var(--ui-soft) !important;
+  border-color: var(--ui-gold) !important;
+}
+[data-theme="night"] #visual-chat-input {
+  color: var(--ui-text);
+  background: var(--ui-input-bg) !important;
+  border-color: var(--ui-control) !important;
+}
+[data-theme="night"] #visual-chat-input::placeholder { color: var(--ui-sub); }
+
+/* Long passages and reference books share the existing paper theme. */
+#visual-log-area[data-theme="paper"] {
+  color: var(--ui-text);
+  background: var(--ui-bg) !important;
+  border-color: var(--ui-gold) !important;
+}
+#visual-log-area[data-theme="paper"] .log-line { border-color: var(--ui-line); }
+#visual-log-area[data-theme="paper"] :is(.info, .state-change, .resolve-log-entry-body) { color: var(--ui-sub); }
+#visual-log-area[data-theme="paper"] :is(.round, .chat-user) { color: var(--ui-primary); }
+#visual-log-area[data-theme="paper"] :is(.round, .resolve-log-entry) { background: var(--ui-soft); }
+#visual-log-area[data-theme="paper"] .resolve-log-entry { border-color: var(--ui-line); }
+#visual-log-area[data-theme="paper"] .dice { color: var(--ui-add); }
+:is(.book-modal-backdrop, #glossary-catalog-backdrop, .declare-skill-detail)[data-theme="paper"] {
+  --book-serif: var(--ui-head-font);
+  --book-paper: var(--ui-bg);
+  --book-paper-deep: var(--ui-soft);
+  --book-ink: var(--ui-text);
+  --book-ink-soft: var(--ui-sub);
+  --book-line: var(--ui-line);
+  --book-accent: var(--ui-gold-strong);
+  --book-shadow: var(--ui-overlay);
+}
+
+[data-theme="night"] :is(.declare-panel, .declare-panel-banner) {
+  color: var(--ui-text);
+  background: var(--ui-bg);
+  border-color: var(--ui-gold);
+}
+[data-theme="night"] :is(.declare-panel-header, .declare-skill-meta, .declare-panel .skill-card) {
+  color: var(--ui-text);
+  background: var(--ui-soft);
+  border-color: var(--ui-line);
+}
+[data-theme="night"] :is(.declare-panel-title, .declare-skill-display) {
+  color: var(--ui-text);
+  text-shadow: none;
+}
+[data-theme="night"] :is(.declare-panel .declare-human-label, .declare-panel-row code, .declare-flow-guide) {
+  background: var(--ui-input-bg);
+  border-color: var(--ui-control);
+  color: var(--ui-text);
+}
+[data-theme="night"] .declare-flow-guide .declare-flow-text { color: var(--ui-text); }
+.declare-skill-detail[data-theme="paper"] {
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-line);
+  border-radius: .25rem;
+  padding: .5rem;
+}
+[data-theme="night"] :is(.declare-help-text, .declare-panel .label, .declare-panel .skill-card-id) {
+  color: var(--ui-sub);
+}
+
+/* Apply the room palette to the character, item and shared-dialog surfaces. */
+[data-theme="night"] :is(#char-modal-backdrop, #item-modal-backdrop, .app-dialog-backdrop) {
+  background: var(--ui-overlay) !important;
+}
+[data-theme="night"] :is(#char-modal-backdrop > .modal-content, .item-modal, .app-dialog-modal, #char-settings-context-menu) {
+  color: var(--ui-text) !important;
+  background-color: var(--ui-bg) !important;
+  background-image: var(--ui-tex) !important;
+  border: 1px solid var(--ui-gold) !important;
+  box-shadow: var(--ui-shadow-float);
+}
+[data-theme="night"] :is(.detail-header, .detail-section-title, .item-modal .modal-header, .app-dialog-title) {
+  color: var(--ui-text);
+  font-family: var(--ui-head-font);
+  border-color: var(--ui-gold) !important;
+}
+[data-theme="night"] :is(.app-dialog-message, .detail-stat-label, .detail-stat-max, .buff-desc-row,
+  .item-modal .item-description, .item-modal .item-flavor) { color: var(--ui-text) !important; }
+[data-theme="night"] :is(.detail-stat-box, .detail-buff-item, .detail-section summary, .detail-section details > div,
+  .item-modal .modal-header, .item-modal .modal-body, .char-item-row, .item-card,
+  .params-container, .char-params-grid, .char-param-item, .char-skill-item) {
+  background: var(--ui-soft) !important;
+  color: var(--ui-text) !important;
+  border-color: var(--ui-line) !important;
+}
+[data-theme="night"] :is(.app-dialog-cancel, .app-dialog-input, .item-modal .back-btn, .item-use-btn) {
+  color: var(--ui-text) !important;
+  background: var(--ui-input-bg) !important;
+  border: 1px solid var(--ui-control) !important;
+}
+[data-theme="night"] .app-dialog-confirm {
+  color: var(--ui-on-primary) !important;
+  background: var(--ui-primary) var(--ui-primary-gloss) !important;
+  border: 1px solid var(--ui-primary) !important;
+}
+[data-theme="night"] :is(.detail-stat-val .detail-stat-max, .char-param-item .param-label, .char-skill-item label span,
+  .item-card div[style*="color: #666"]) { color: var(--ui-sub) !important; }
+[data-theme="night"] .params-toggle-btn {
+  color: var(--ui-text);
+  background: var(--ui-soft);
+  border: 1px solid var(--ui-control);
+}
+[data-theme="night"] .app-dialog-error { color: var(--ui-danger); }
+[data-theme="night"] :is(.char-param-item .param-value, .char-detail-modal-content h4, .buff-name) { color: var(--ui-text) !important; }
+[data-theme="night"] :is(.detail-stat-box.hp-box .detail-stat-val, .item-use-btn) { color: var(--ui-add) !important; }
+[data-theme="night"] .detail-stat-box.mp-box .detail-stat-val { color: var(--ui-ally) !important; }
+[data-theme="night"] .detail-stat-box.fp-box .detail-stat-val { color: var(--ui-focus) !important; }
+[data-theme="night"] :is(#modal-settings-trigger, .detail-header .modal-close-btn, .item-modal .modal-controls button) {
+  color: var(--ui-text) !important;
+}
+[data-theme="night"] :is(#main-app-container, .app-dialog-modal, .item-modal, #char-modal-backdrop) :focus-visible {
+  outline: 2px solid var(--ui-focus);
+  outline-offset: 2px;
+}
+
+/* Diagram variants for the comparison. Token geometry, labels and portraits are shared. */
+[data-theme="night"][data-token-palette="night"] .map-token.PC { border-color: var(--ui-ally) !important; }
+[data-theme="night"][data-token-palette="night"] .map-token.Enemy { border-color: var(--ui-enemy) !important; }
+[data-theme="night"][data-token-palette="night"] .token-bar-fill.hp { background: var(--ui-add); }
+[data-theme="night"][data-token-palette="night"] .token-bar-fill.mp { background: var(--ui-ally); }
+[data-theme="night"][data-token-palette="night"] .fp-badge {
+  background: var(--ui-primary) !important;
+  border-color: var(--ui-page) !important;
+  color: var(--ui-on-primary) !important;
+}
+[data-theme="night"][data-gem-marks] :is(.filter-btn, .item-modal .modal-header h3)::before {
+  content: "";
+  display: inline-block;
+  width: .58em;
+  height: .58em;
+  margin-inline-end: .62em;
+  transform: rotate(45deg);
+  background: var(--gem-sapphire);
+  box-shadow: inset 0 0 0 1px var(--ui-gem-facet);
+}
+[data-theme="night"][data-gem-marks] .item-modal .modal-header h3::before { background: var(--gem-amethyst); }
+
+/* The room currently has no general bottom-right notice stack. */
+.room-notices {
+  position: fixed;
+  inset: auto 1rem 1rem auto;
+  z-index: 30000;
+  width: min(320px, calc(100vw - 2rem));
+  display: grid;
+  gap: .5rem;
+}
+.room-notices[hidden] { display: none; }
+.room-notice {
+  padding: .65rem .8rem;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-control);
+  border-inline-start: .25rem solid var(--ui-add);
+  border-radius: .4rem;
+  color: var(--ui-text);
+  box-shadow: var(--ui-shadow-float);
+}
+.room-notice[role="alert"] { border-inline-start-color: var(--ui-danger); }
+.room-notice button {
+  color: var(--ui-text);
+  background: var(--ui-soft);
+  border: 1px solid var(--ui-control);
+  border-radius: .2rem;
+}
+.room-notice strong { display: block; color: var(--ui-add); }
+.room-notice[role="alert"] strong { color: var(--ui-danger); }
