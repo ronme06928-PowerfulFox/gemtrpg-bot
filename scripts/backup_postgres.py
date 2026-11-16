@@ -1,4 +1,7 @@
-"""Create private PostgreSQL archives; never restore into a database."""
+"""Create private PostgreSQL archives; never restore into a database.
+
+Manual and scheduled backups share one path. See manuals/operations/postgres_backup_runbook.md.
+"""
 
 from __future__ import annotations
 
@@ -26,6 +29,11 @@ DEFAULT_BACKUP_ROOT = ROOT / "_local" / "backups" / "postgres"
 DEFAULT_PG_BIN = ROOT / "_local" / "tools" / "postgresql" / "bin"
 REQUIRED_TABLES = {"users", "rooms", "room_members", "owned_characters", "room_log_archives"}
 JST = timezone(timedelta(hours=9))
+CREDENTIAL_TARGET = "GemDiceBot/backup-database-url"
+AUTO_LOG = "auto.log"
+KEEP_DAILY = 7
+KEEP_WEEKLY = 12
+STALE_AFTER = timedelta(hours=48)
 
 
 class BackupError(Exception):
@@ -188,7 +196,7 @@ def _remove_incomplete(folder: Path):
     folder.rmdir()
 
 
-def create_backup(url: str, tools: Toolchain, output_root: Path) -> Path:
+def create_backup(url: str, tools: Toolchain, output_root: Path, trigger: str = "manual") -> Path:
     connection = parse_connection_url(url)
     output_root.mkdir(parents=True, exist_ok=True)
     now = datetime.now(JST)
@@ -211,7 +219,7 @@ def create_backup(url: str, tools: Toolchain, output_root: Path) -> Path:
             "size_bytes": dump.stat().st_size, "sha256": _digest(dump),
             "pg_dump_version": tools.dump_version, "pg_restore_version": tools.restore_version,
             "checked_tables": sorted(REQUIRED_TABLES), "public_table_count": len(tables),
-            "verification": "archive-readable-not-restored",
+            "verification": "archive-readable-not-restored", "trigger": trigger,
         }
         with (stage / "manifest.json").open("x", encoding="utf-8", newline="\n") as handle:
             json.dump(manifest, handle, ensure_ascii=False, indent=2)
@@ -243,14 +251,199 @@ def verify_backup(folder: Path, tools: Toolchain):
     return manifest
 
 
+def _completed_backups(root: Path):
+    """Yield (folder, created_at, trigger) for finished backups; skip anything unreadable."""
+    if not root.is_dir():
+        return
+    for folder in root.iterdir():
+        if not folder.is_dir() or (folder / ".incomplete").exists():
+            continue
+        try:
+            manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
+            created = datetime.fromisoformat(manifest["created_at"])
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        yield folder, created, manifest.get("trigger", "manual")
+
+
+def expired_backups(entries, now):
+    """Keys of automatic backups past retention: newest per day for 7 days, then newest per ISO week for 12 more weeks."""
+    autos = sorted(((created, key) for key, created, trigger in entries if trigger == "auto"), reverse=True)
+    recent_days = {(now - timedelta(days=offset)).astimezone(JST).date() for offset in range(KEEP_DAILY)}
+    oldest = now - timedelta(days=KEEP_DAILY, weeks=KEEP_WEEKLY)
+    kept_days, kept_weeks, expired = set(), set(), []
+    for created, key in autos:
+        day = created.astimezone(JST).date()
+        if day in recent_days:
+            if day in kept_days:
+                expired.append(key)
+            kept_days.add(day)
+            continue
+        week = day.isocalendar()[:2]
+        if week in kept_weeks or created < oldest:
+            expired.append(key)
+        else:
+            kept_weeks.add(week)
+    return expired
+
+
+def prune_backups(root: Path, now):
+    """Delete expired automatic backups whose folder holds only the dump and manifest."""
+    for folder in expired_backups(list(_completed_backups(root)), now):
+        if {p.name for p in folder.iterdir()} != {"database.dump", "manifest.json"}:
+            continue
+        (folder / "database.dump").unlink()
+        (folder / "manifest.json").unlink()
+        folder.rmdir()
+
+
+def backup_status(root: Path, now):
+    latest = max(_completed_backups(root), key=lambda entry: entry[1], default=None)
+    log = root / AUTO_LOG
+    lines = log.read_text(encoding="utf-8").splitlines() if log.is_file() else []
+    info = None if latest is None else {
+        "folder": latest[0].name, "created_at": latest[1].isoformat(), "trigger": latest[2],
+    }
+    return {
+        "latest": info, "warning": latest is None or now - latest[1] > STALE_AFTER,
+        "last_auto_log": lines[-1] if lines else None,
+    }
+
+
+def _log_auto(root: Path, message: str):
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / AUTO_LOG).open("a", encoding="utf-8", newline="\n") as handle:
+        handle.write(f"{datetime.now(JST).isoformat(timespec='seconds')} {message}\n")
+
+
+NOTICE_SCRIPT = (
+    "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;"
+    "$x = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent("
+    "[Windows.UI.Notifications.ToastTemplateType]::ToastText02);"
+    "$t = $x.GetElementsByTagName('text');"
+    "$t.Item(0).AppendChild($x.CreateTextNode('GemDiceBot DB backup')) > $null;"
+    "$t.Item(1).AppendChild($x.CreateTextNode($env:GEMDICE_NOTICE)) > $null;"
+    "$id = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\\WindowsPowerShell\\v1.0\\powershell.exe';"
+    "[Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($id).Show("
+    "[Windows.UI.Notifications.ToastNotification]::new($x))"
+)
+
+
+def notify(message: str):
+    """Show a Windows notification. The message travels in the environment, not the command line."""
+    if os.name != "nt":
+        return
+    env = _clean_environment()
+    env["GEMDICE_NOTICE"] = message
+    try:
+        subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", NOTICE_SCRIPT],
+            env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
+CRED_TYPE_GENERIC = 1
+CRED_PERSIST_LOCAL_MACHINE = 2
+ERROR_NOT_FOUND = 1168
+
+
+def _credential_api():
+    import ctypes
+    from ctypes import wintypes
+
+    class CREDENTIAL(ctypes.Structure):
+        _fields_ = [
+            ("Flags", wintypes.DWORD), ("Type", wintypes.DWORD), ("TargetName", wintypes.LPWSTR),
+            ("Comment", wintypes.LPWSTR), ("LastWritten", wintypes.FILETIME),
+            ("CredentialBlobSize", wintypes.DWORD), ("CredentialBlob", ctypes.POINTER(ctypes.c_ubyte)),
+            ("Persist", wintypes.DWORD), ("AttributeCount", wintypes.DWORD), ("Attributes", ctypes.c_void_p),
+            ("TargetAlias", wintypes.LPWSTR), ("UserName", wintypes.LPWSTR),
+        ]
+
+    api = ctypes.WinDLL("advapi32", use_last_error=True)
+    api.CredReadW.argtypes = [
+        wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, ctypes.POINTER(ctypes.POINTER(CREDENTIAL)),
+    ]
+    api.CredWriteW.argtypes = [ctypes.POINTER(CREDENTIAL), wintypes.DWORD]
+    api.CredDeleteW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD]
+    api.CredFree.argtypes = [ctypes.c_void_p]
+    return ctypes, api, CREDENTIAL
+
+
+def read_stored_url():
+    """The URL saved by store-credential, or None."""
+    if os.name != "nt":
+        return None
+    ctypes, api, CREDENTIAL = _credential_api()
+    pointer = ctypes.POINTER(CREDENTIAL)()
+    if not api.CredReadW(CREDENTIAL_TARGET, CRED_TYPE_GENERIC, 0, ctypes.byref(pointer)):
+        if ctypes.get_last_error() == ERROR_NOT_FOUND:
+            return None
+        raise BackupError("資格情報マネージャーを読めませんでした。")
+    try:
+        cred = pointer.contents
+        return ctypes.string_at(cred.CredentialBlob, cred.CredentialBlobSize).decode("utf-16-le")
+    finally:
+        api.CredFree(pointer)
+
+
+def write_stored_url(url: str):
+    if os.name != "nt":
+        raise BackupError("資格情報マネージャーは Windows でだけ使えます。")
+    ctypes, api, CREDENTIAL = _credential_api()
+    blob = url.encode("utf-16-le")
+    buffer = (ctypes.c_ubyte * len(blob)).from_buffer_copy(blob)
+    cred = CREDENTIAL(
+        Type=CRED_TYPE_GENERIC, TargetName=CREDENTIAL_TARGET, CredentialBlobSize=len(blob),
+        CredentialBlob=ctypes.cast(buffer, ctypes.POINTER(ctypes.c_ubyte)),
+        Persist=CRED_PERSIST_LOCAL_MACHINE, UserName="gemdice-backup",
+    )
+    if not api.CredWriteW(ctypes.byref(cred), 0):
+        raise BackupError("資格情報マネージャーへ保存できませんでした。")
+
+
+def delete_stored_url():
+    if os.name != "nt":
+        return
+    ctypes, api, _ = _credential_api()
+    if not api.CredDeleteW(CREDENTIAL_TARGET, CRED_TYPE_GENERIC, 0) and ctypes.get_last_error() != ERROR_NOT_FOUND:
+        raise BackupError("資格情報マネージャーから削除できませんでした。")
+
+
+def run_auto_backup(tools: Toolchain, root: Path):
+    try:
+        url = os.environ.get("GEMDICE_BACKUP_DATABASE_URL") or read_stored_url()
+        if not url:
+            raise BackupError("接続URLが登録されていません。store-credential で登録してください。")
+        folder = create_backup(url, tools, root, trigger="auto")
+        prune_backups(root, datetime.now(JST))
+    except (BackupError, OSError) as error:
+        message = str(error) if isinstance(error, BackupError) else "ローカルファイルの操作に失敗しました。"
+        _log_auto(root, f"失敗 {message}")
+        notify(f"自動の控えを取れませんでした。{message}")
+        raise
+    _log_auto(root, f"成功 {folder.name}")
+    return folder
+
+
+def _store_credential():
+    url = _read_connection_url(prompt_only=True)
+    parse_connection_url(url)
+    write_stored_url(url)
+    print(f"資格情報マネージャーに保存しました（{CREDENTIAL_TARGET}）。接続はまだ確かめていません。")
+
+
 class SafeArgumentParser(argparse.ArgumentParser):
     def error(self, message):
         self.print_usage(sys.stderr)
         self.exit(2, "引数が不正です。接続URLは引数に含めず、非表示入力を使用してください。\n")
 
 
-def _read_connection_url():
-    value = os.environ.get("GEMDICE_BACKUP_DATABASE_URL")
+def _read_connection_url(prompt_only=False):
+    value = None if prompt_only else os.environ.get("GEMDICE_BACKUP_DATABASE_URL")
     if value:
         return value
     if not sys.stdin.isatty():
@@ -268,12 +461,27 @@ def main(argv=None):
     parser.add_argument("--pg-bin", type=Path, help="PostgreSQLのbinフォルダ")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("doctor", help="クライアント確認のみ。DBへ接続しない")
-    commands.add_parser("backup", help="DBをPCへ保存。元DBへ書き込まない")
+    commands.add_parser("backup", help="DBをPCへ保存。元DBへ書き込まない").add_argument(
+        "--auto", action="store_true", help="定期実行用。登録したURLを使い、古い自動の控えを消し、失敗を通知する")
     commands.add_parser("verify", help="保管済みファイルを再検査。DBへ接続しない").add_argument("folder", type=Path)
+    commands.add_parser("status", help="最後に取れた控えの日時。DBへ接続しない")
+    commands.add_parser("store-credential", help="接続URLを資格情報マネージャーへ保存。DBへ接続しない")
     args = parser.parse_args(argv)
     try:
+        if args.command == "status":
+            status = backup_status(DEFAULT_BACKUP_ROOT, datetime.now(JST))
+            print(json.dumps(status, ensure_ascii=False, indent=2))
+            if status["warning"]:
+                print("注意：2日より新しい控えがありません。", file=sys.stderr)
+            return 1 if status["warning"] else 0
+        if args.command == "store-credential":
+            _store_credential()
+            return 0
         tools = find_tools(args.pg_bin)
-        if args.command == "doctor":
+        if args.command == "backup" and args.auto:
+            folder = run_auto_backup(tools, DEFAULT_BACKUP_ROOT)
+            print(f"自動の控えを作成・検査しました: {folder}")
+        elif args.command == "doctor":
             print(json.dumps({"ready": True, "pg_dump": tools.dump_version, "pg_restore": tools.restore_version}))
         elif args.command == "backup":
             url = _read_connection_url()
