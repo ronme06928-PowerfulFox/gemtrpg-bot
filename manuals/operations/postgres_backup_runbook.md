@@ -61,12 +61,38 @@ DBバックアップにはアプリのユーザーデータが入るため、Git
 
 1. PC で `python scripts/backup_postgres.py store-credential` を実行し、手動の控えと同じ直接接続 URL を非表示入力へ貼り付ける。資格情報マネージャーに保存される（形式だけを確かめ、接続はしない）。
 2. `python scripts/backup_postgres.py backup --auto` を1回手で動かし、成功することを確かめる。
-3. PowerShell で `scriptsegister_backup_task.ps1` を実行し、タスク `GemDiceBot DB backup` を登録する（Python の場所が違うときは `-Python <pythonw.exe のパス>`）。登録はこのユーザーがログオンしているときだけ動く形で、管理者権限は要らない。
+3. PowerShell で `scripts
+egister_backup_task.ps1` を実行し、タスク `GemDiceBot DB backup` を登録する（Python の場所が違うときは `-Python <pythonw.exe のパス>`）。登録はこのユーザーがログオンしているときだけ動く形で、管理者権限は要らない。
 4. 翌日以降に `status` で、自動で取れていることを確かめる。
 
 2026-11-17：ユーザーが手順1〜3を済ませた。手で動かした自動の控え（`20261117_032214_92ef40bf7db6`）は成功し、タスクは毎日12時・起動時の取り戻しありで登録された。
 
 URL を変えたとき（パスワードの再発行など）は手順1をやり直す。タスクをやめるときは `Unregister-ScheduledTask -TaskName "GemDiceBot DB backup"`。
+
+## 控えから戻す（2026-11-17 試験済み）
+
+### 戻せることを確かめる（いつでも安全）
+
+```powershell
+python scripts/restore_postgres_check.py            # 最新の控え
+python scripts/restore_postgres_check.py "_local/backups/postgres/<フォルダ>"
+```
+
+`scripts/restore_postgres_check.py` は、控えを検査したうえで、`_local/restore_check/` に使い捨ての PostgreSQL（127.0.0.1 だけで待ち受け）を立てて戻し、表ごとの件数を数え、戻した DB でアプリを起動してマスターデータ7種類とルームの状態が読めるかを確かめ、最後に DB を消す。Neon と手元の SQLite には接続しない。出すのは件数だけで、行の中身は出さない。調べるために DB を残すときは `--keep`（調べ終えたら `_local/restore_check/` の中を消す）。
+
+2026-11-17 の試験：自動の控え `20261117_032214_92ef40bf7db6` を戻し、13表（`catalog_entries` 307件・`catalog_history` 315件・`users` 2件・`rooms` 2件など）が戻った。戻した DB でアプリが起動し、スキル139・バフ53・用語83・アイテム3・特殊パッシブ8・輝化スキル9・召喚テンプレート3件を配り、ルーム2件の状態を読めた。
+
+### Neon の控えを Neon 以外へ戻すときの注意
+
+Neon の控えには、Neon だけの列の設定 `ALTER TABLE ONLY ... ALTER COLUMN ... SET (pg_attver=...)` が入っている（2026-11-17 の控えで16行）。普通の PostgreSQL はこの行で止まるので、`pg_restore -f` で SQL にしてからこの行だけを外し、`psql -v ON_ERROR_STOP=1 -f` で流す（`restore_postgres_check.py` の `strip_neon_options` と同じ手順）。Neon へ戻すときは外さなくてよい。
+
+### 本番が壊れたときに戻す（ユーザーが行う。Claude は接続情報を扱わない）
+
+1. まず Neon の履歴（直近6時間）で戻せないかを見る。戻せるならそれを使う。
+2. 戻す控えを選び、上の `restore_postgres_check.py` で戻せることと件数を確かめる。
+3. Neon に新しいブランチか新しいデータベースを作り、その直接接続 URL へ `pg_restore --no-owner --no-acl --exit-on-error -d <URL> database.dump` で戻す。今の本番の DB へ上書きで戻さない（壊れた状態も調べられるように残す）。
+4. Render の `DATABASE_URL` を新しい DB に替えて再起動し、ログインとルーム・マスターデータを確かめる。
+5. 保存待ち（約2秒）と控えの後に変わった分は戻らない。何が失われたかをメンバーに知らせる。
 
 ## 検証と残る手順
 
