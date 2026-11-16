@@ -139,20 +139,14 @@ def create_room():
     if Room.query.filter_by(name=room_name).first():
         return jsonify({"error": "Room exists"}), 409
 
-    play_mode = str(data.get('play_mode') or 'normal').strip().lower()
-    if play_mode not in ('normal', 'battle_only'):
-        play_mode = 'normal'
-
     new_state = {
         "characters": [],
         "timeline": [],
         "round": 0,
         "logs": [],
-        "play_mode": play_mode,
+        "play_mode": "normal",
         "owner_id": session.get('user_id'),
     }
-    if play_mode == 'battle_only':
-        new_state["battle_only"] = {"status": "lobby", "ally_entries": [], "enemy_entries": []}
     ensure_combat_session_defaults(new_state, new_room=True)
 
     # ▼▼▼ 修正: Room作成時に owner_id を保存 ▼▼▼

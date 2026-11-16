@@ -175,10 +175,9 @@ def test_end_round_rejects_non_member(monkeypatch):
 # Phase B-2: socket_char.request_move_character ownership
 # ---------------------------------------------------------------------------
 
-def _patch_move(monkeypatch, username, attribute, play_mode="normal"):
+def _patch_move(monkeypatch, username, attribute):
     from manager import room_manager
     state, emits = _patch_char(monkeypatch, in_room=True, attribute=attribute)
-    state["play_mode"] = play_mode
     state["character_owners"] = {"C_owner": "owner_user"}
     state["characters"] = [
         {"id": "C_owner", "name": "Hero", "type": "ally", "x": 3, "y": 4},
@@ -231,16 +230,6 @@ def test_move_character_allows_gm(monkeypatch, char_id):
     assert not any(e[0] == "move_denied" for e in emits)
 
 
-def test_move_character_battle_only_skips_owner_check(monkeypatch):
-    state, emits = _patch_move(monkeypatch, "other_user", "Player", play_mode="battle_only")
-
-    socket_char.handle_move_character({"room": "room_t", "character_id": "C_enemy", "x": 7, "y": 8})
-
-    assert _char_pos(state, "C_enemy") == (7, 8)
-    assert not any(e[0] == "move_denied" for e in emits)
-
-
-# Deletion and token scale must use the same authorization as movement.
 @pytest.mark.parametrize("operation", ["delete", "scale"])
 @pytest.mark.parametrize("char_id", ["C_owner", "C_enemy"])
 def test_character_edit_rejects_non_owner_without_side_effects(monkeypatch, operation, char_id):
@@ -269,14 +258,13 @@ def _run_character_edit(operation, char_id):
 
 
 @pytest.mark.parametrize("operation", ["delete", "scale"])
-@pytest.mark.parametrize("username,attribute,char_id,mode", [
-    ("owner_user", "Player", "C_owner", "normal"),
-    ("gm_user", "GM", "C_owner", "normal"),
-    ("gm_user", "GM", "C_enemy", "normal"),
-    ("other_user", "Player", "C_enemy", "battle_only"),
+@pytest.mark.parametrize("username,attribute,char_id", [
+    ("owner_user", "Player", "C_owner"),
+    ("gm_user", "GM", "C_owner"),
+    ("gm_user", "GM", "C_enemy"),
 ])
-def test_character_edit_allows_authorized_user(monkeypatch, operation, username, attribute, char_id, mode):
-    state, emits = _patch_move(monkeypatch, username, attribute, mode)
+def test_character_edit_allows_authorized_user(monkeypatch, operation, username, attribute, char_id):
+    state, emits = _patch_move(monkeypatch, username, attribute)
     effects = []
     monkeypatch.setattr(socket_char, "save_specific_room_state", lambda _r: effects.append("save"))
     monkeypatch.setattr(socket_char, "broadcast_state_update", lambda _r: effects.append("update"))
@@ -312,3 +300,21 @@ def test_character_edit_missing_character_does_nothing(monkeypatch, operation):
     assert len(state["characters"]) == 2
     assert effects == []
     assert emits == []
+
+
+@pytest.mark.parametrize(("handler", "operation"), [
+    (common_routes.on_request_end_round, "_complete_round_after_resolve"),
+    (common_routes.on_request_reset_battle, "reset_battle_logic"),
+    (common_routes.on_battle_resolve_start, "_start_select_resolve_if_ready"),
+])
+def test_battle_progression_rejects_player(monkeypatch, handler, operation):
+    _calls, emits = _patch_common_routes(monkeypatch, in_room=True, attribute="Player")
+
+    def unexpected_operation(*args, **kwargs):
+        pytest.fail(f"Player invoked {operation}")
+
+    monkeypatch.setattr(common_routes, operation, unexpected_operation)
+    handler({"room": "room_t", "room_id": "room_t", "battle_id": "battle_t"})
+
+    if handler is common_routes.on_battle_resolve_start:
+        assert emits[-1][1]["message"] == "battle_resolve_start is GM only"

@@ -327,25 +327,6 @@ class ResolveFlowPanel {
         return knownGM || !hasAnyRoleSignal;
     }
 
-    _isBattleOnlyMode(state) {
-        const fromState = String(
-            state?.play_mode
-            || state?.room_play_mode
-            || state?.mode_play
-            || ''
-        ).trim().toLowerCase();
-        if (fromState === 'battle_only') return true;
-        if (typeof window !== 'undefined') {
-            const legacyPlayMode = String(
-                window?.battleState?.play_mode
-                || window?.battleState?.room_play_mode
-                || ''
-            ).trim().toLowerCase();
-            if (legacyPlayMode === 'battle_only') return true;
-        }
-        return false;
-    }
-
     _canDriveResolveFlow(state) {
         const presentation = state?.resolvePresentation || null;
         const controllerUserId = presentation?.controller_user_id || null;
@@ -357,10 +338,7 @@ class ResolveFlowPanel {
     }
 
     _canClaimResolveFlow(state) {
-        const presentation = state?.resolvePresentation || {};
-        if (this._canDriveResolveFlow(state)) return false;
-        if (this._detectIsGM(state)) return true;
-        return this._isBattleOnlyMode(state) && presentation.controller_present === false;
+        return !this._canDriveResolveFlow(state) && this._detectIsGM(state);
     }
 
     _stepDuration(step) {
@@ -438,9 +416,6 @@ class ResolveFlowPanel {
         if (phase !== 'round_end') return false;
         const roundKey = this._roundStateKey(stateNow);
         if (!roundKey) return false;
-        // 戦闘専用モードでもラウンド遷移はサーバー共有カーソルの完了処理が行う。
-        // ここはローカル表示の完了通知を重複させないための判定だけを担う。
-        if (this._isBattleOnlyMode(stateNow)) return true;
         // Prevent false completion on reconnect/round-start transient round_end snapshots.
         return this._roundSawResolvePhase || this._introShownRounds.has(roundKey) || this._presentedStepCount > 0;
     }

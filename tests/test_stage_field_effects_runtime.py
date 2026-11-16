@@ -4,10 +4,7 @@ from manager.game_logic import process_skill_effects
 
 def _stage_state_with_rules(rules):
     return {
-        "battle_only": {
-            "stage_field_effect_enabled": True,
-            "stage_field_effect_profile": {"version": 1, "rules": rules},
-        }
+        "stage_field_effect_profile": {"version": 1, "rules": rules},
     }
 
 

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text
 
-from extensions import active_room_states, db
-from models import CatalogEntry, CatalogHistory, Room
+from extensions import db
+from models import CatalogEntry, CatalogHistory
 from manager.catalog.kinds import CatalogValidationError
 from manager.catalog.repository import CatalogConflictError, _transaction, record_history
 from manager.units.validation import IDS, inspect_payload, links, valid_id
@@ -68,28 +68,6 @@ def references(kind, entry_id, *, resources=None):
             for (source_kind, source_id), source in resources.items()
             for target_kind, target_id, path in links(source_kind, source["payload"])
             if (target_kind, target_id) == (kind, entry_id)]
-
-
-def room_references(kind, entry_id):
-    fields = {
-        "formation": ("enemy_formation_id", "ally_formation_id"),
-        "stage": ("selected_stage_id",),
-    }
-    result = []
-    for room in Room.query.all():
-        state = active_room_states.get(room.name, room.data)
-        draft = state.get("battle_only") if isinstance(state, dict) else None
-        if not isinstance(draft, dict):
-            continue
-        paths = [field for field in fields.get(kind, ()) if draft.get(field) == entry_id]
-        if kind == "unit":
-            paths += [f"{field}[{index}].preset_id"
-                      for field in ("ally_entries", "enemy_entries")
-                      for index, item in enumerate(draft.get(field) or [])
-                      if isinstance(item, dict) and item.get("preset_id") == entry_id]
-        result.extend({"kind": "room", "entry_id": room.name, "path": f"battle_only.{path}"}
-                      for path in paths)
-    return result
 
 
 def lock_writes():
@@ -248,7 +226,7 @@ def delete(kind, entry_id, *, base_revision):
     lock_writes()
     row = get(kind, entry_id)
     expect_revision(row, base_revision)
-    in_use = references(kind, entry_id) or room_references(kind, entry_id)
+    in_use = references(kind, entry_id)
     if in_use:
         raise CatalogConflictError("参照されている資源は削除できません", field="references")
     db.session.delete(row)

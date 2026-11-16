@@ -404,9 +404,8 @@ def test_build_room_state_from_presets_uses_stage_formations_and_positions():
     enemies = [char for char in state["characters"] if char.get("type") == "enemy"]
     assert len(allies) == 1
     assert len(enemies) == 2
-    assert state["play_mode"] == "battle_only"
-    assert state["battle_only"]["selected_stage_id"] == "ST-001"
-    assert state["battle_only"]["field_effect_profile"]["id"] == "field_test"
+    assert state["play_mode"] == "normal"
+    assert state["stage_field_effect_profile"]["id"] == "field_test"
     assert all(char["x"] >= 0 and char["y"] >= 0 for char in state["characters"])
 
 

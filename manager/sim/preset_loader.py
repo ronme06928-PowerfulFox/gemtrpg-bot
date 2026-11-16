@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from manager.battle_only_runtime import _bo_assign_auto_positions
+from manager.sim.positions import assign_auto_positions
 from manager.units.characters import build_character, skill_catalog
 from manager.units.runtime import deployment_store
 from manager.units.transfer import package_entries
@@ -19,7 +19,7 @@ PresetSide = Literal["ally", "enemy"]
 def empty_room_state_for_presets() -> dict:
     return {
         "round": 0,
-        "play_mode": "battle_only",
+        "play_mode": "normal",
         "battle_mode": "pve",
         "characters": [],
         "timeline": [],
@@ -41,7 +41,6 @@ def empty_room_state_for_presets() -> dict:
                 "trace": [],
             },
         },
-        "battle_only": {"status": "in_battle", "simulator": True},
     }
 
 
@@ -169,9 +168,8 @@ def build_room_state_from_presets(
             raise ValueError(f"stage preset not found: {stage_id}")
         ally_formation_id = ally_formation_id or stage.get("ally_formation_id")
         enemy_formation_id = enemy_formation_id or stage.get("enemy_formation_id")
-        state["battle_only"]["selected_stage_id"] = str(stage.get("id") or stage_id)
         if isinstance(stage.get("field_effect_profile"), dict):
-            state["battle_only"]["field_effect_profile"] = copy.deepcopy(stage.get("field_effect_profile"))
+            state["stage_field_effect_profile"] = copy.deepcopy(stage.get("field_effect_profile"))
 
     masters = skill_catalog() if masters is None else masters
     allies = []
@@ -188,5 +186,5 @@ def build_room_state_from_presets(
 
     state["characters"] = allies + enemies
     state["character_owners"] = {str(char.get("id")): "simulator" for char in state["characters"] if char.get("id")}
-    _bo_assign_auto_positions(allies, enemies, state, anchor=anchor)
+    assign_auto_positions(allies, enemies, state, anchor=anchor)
     return state

@@ -3,7 +3,7 @@ from manager.battle import common_manager
 
 def test_existing_token_move_emits_position_only_update(monkeypatch):
     state = {
-        "play_mode": "battle_only",
+        "play_mode": "normal",
         "characters": [{"id": "c1", "x": 1, "y": 2, "last_move_ts": 10}],
     }
     emitted = []
@@ -30,7 +30,7 @@ def test_existing_token_move_emits_position_only_update(monkeypatch):
 
 def test_first_placement_keeps_full_state_update(monkeypatch):
     state = {
-        "play_mode": "battle_only",
+        "play_mode": "normal",
         "characters": [{"id": "c1", "x": -1, "y": -1}],
     }
     emitted = []

@@ -111,7 +111,6 @@ def test_catalog_returns_all_record_types_and_collection_counts():
 def test_normal_stage_and_single_character_apply_atomically():
     state = _normal_state()
     request_data = {
-        "target_mode": "normal",
         "stage": {"record_id": "st_1", "apply": {"ally_formation": True}},
         "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 1}],
     }
@@ -141,7 +140,6 @@ def test_normal_deployment_assigns_unique_enemy_numbers_to_batch():
     apply_deployment(
         state,
         {
-            "target_mode": "normal",
             "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 3}],
         },
         store,
@@ -162,7 +160,7 @@ def test_preview_does_not_mutate_room_state():
 
     summary = preview_deployment(
         state,
-        {"target_mode": "normal", "formations": {"enemy": {"record_id": "ef_1"}}},
+        {"formations": {"enemy": {"record_id": "ef_1"}}},
         _store(),
         **_context(),
     )
@@ -179,7 +177,6 @@ def test_invalid_reference_does_not_change_state():
         apply_deployment(
             state,
             {
-                "target_mode": "normal",
                 "characters": [{"record_id": "missing", "side": "enemy", "count": 1}],
             },
             _store(),
@@ -195,7 +192,6 @@ def test_deployment_limit_accepts_100_and_rejects_101():
     accepted = preview_deployment(
         state,
         {
-            "target_mode": "normal",
             "characters": [{"record_id": "c_enemy", "side": "enemy", "count": MAX_DEPLOYED_CHARACTERS}],
         },
         _store(),
@@ -207,60 +203,12 @@ def test_deployment_limit_accepts_100_and_rejects_101():
         preview_deployment(
             state,
             {
-                "target_mode": "normal",
                 "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 101}],
             },
             _store(),
             **_context(),
         )
     assert exc.value.code == "deployment_limit_exceeded"
-
-
-def test_battle_only_stage_replaces_draft_and_single_character_appends():
-    state = {
-        "play_mode": "battle_only",
-        "battle_only": {
-            "status": "draft",
-            "ally_entries": [{"preset_id": "old_ally", "user_id": "u_player"}],
-            "enemy_entries": [{"preset_id": "old_enemy", "count": 4}],
-        },
-    }
-    request_data = {
-        "target_mode": "battle_only",
-        "stage": {"record_id": "st_1", "apply": {}},
-        "characters": [{"record_id": "c_enemy", "side": "enemy", "count": 1}],
-    }
-
-    summary, _ = apply_deployment(state, request_data, _store(), **_context())
-
-    bo = state["battle_only"]
-    assert bo["selected_stage_id"] == "st_1"
-    assert bo["ally_entries"] == [{"preset_id": "c_ally", "user_id": "u_gm"}]
-    assert sum(row["count"] for row in bo["enemy_entries"]) == 3
-    assert summary["removed"] == {"ally": 1, "enemy": 4}
-    assert summary["ready"] is True
-    assert summary["issues"] == []
-    assert bo["stage_background_profile"]["background_image"] == "https://example.invalid/stage.png"
-    assert state["play_mode"] == "battle_only"
-
-
-def test_battle_only_preview_reports_assignment_and_required_count_issues():
-    store = _store()
-    store["stage_presets"]["st_1"]["required_ally_count"] = 2
-    context = _context()
-    context["active_users"] = {"u_player": "PL花子"}
-
-    summary = preview_deployment(
-        {"play_mode": "battle_only", "battle_only": {"status": "draft"}},
-        {"target_mode": "battle_only", "stage": {"record_id": "st_1", "apply": {}}},
-        store,
-        **context,
-    )
-
-    assert summary["ready"] is False
-    assert summary["can_apply"] is True
-    assert any("担当ユーザー" in issue for issue in summary["issues"])
-    assert any("味方人数が不一致" in issue for issue in summary["issues"])
 
 
 def test_center_rechecks_occupied_cells_and_reports_overflow():

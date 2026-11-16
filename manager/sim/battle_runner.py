@@ -9,7 +9,7 @@ from typing import Callable, Literal
 from manager.battle import common_manager as battle_common
 from manager.battle import core as battle_core
 from manager.battle import duel_solver
-from manager.battle import resolve_auto_runtime
+from manager.battle.battle_result import estimate_battle_result
 from manager.battle import wide_solver
 from manager.battle.battle_ai import ai_suggest_skill
 from manager.battle.system_skills import ensure_system_skills_registered
@@ -352,13 +352,13 @@ def run_battle(
     if auto_ally_intents:
         _ensure_skill_catalog_loaded_for_auto_intents()
     battle_id = _current_battle_id(state)
-    result = resolve_auto_runtime._bo_estimate_battle_result(state)
+    result = estimate_battle_result(state)
     rounds = safe_int(state.get("round"), 0)
     rounds_detail = []
 
     with _patched_headless_runtime(room, state, roll_mode):
         for round_value in range(1, max_rounds + 1):
-            result = resolve_auto_runtime._bo_estimate_battle_result(state)
+            result = estimate_battle_result(state)
             if result != "in_progress":
                 break
 
@@ -391,10 +391,10 @@ def run_battle(
 
             _mark_round_ready_to_end(state)
             battle_common.process_full_round_end(room, "simulator")
-            round_result = resolve_auto_runtime._bo_estimate_battle_result(state)
+            round_result = estimate_battle_result(state)
             rounds_detail.append(round_summary(state, round_value, round_result, committed_intents, hp_before))
 
-        result = resolve_auto_runtime._bo_estimate_battle_result(state)
+        result = estimate_battle_result(state)
 
     snapshots = snapshot_characters(state)
     return BattleReport(

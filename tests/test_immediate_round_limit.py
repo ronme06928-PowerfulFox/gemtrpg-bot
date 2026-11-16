@@ -14,7 +14,7 @@ def _setup(monkeypatch):
     actor['flags'] = {'other_flag': True}
     actor['hasActed'] = True
     state = _base_state([actor])
-    state['play_mode'] = 'battle_only'
+    state['play_mode'] = 'normal'
     state['is_round_ended'] = False
     skill = _skill('INSTANT', 0, fp=2, mp=3)
     skill['tags'] = ['即時発動']

@@ -46,7 +46,7 @@
 | [C01_JSON_Definition_Master.md](implemented/C01_JSON_Definition_Master.md) | JSON定義マニュアル（正本・統合版） |
 | [C02_Retaliation_Passive_Sheet_Examples.md](implemented/C02_Retaliation_Passive_Sheet_Examples.md) | 被弾反応パッシブの正式仕様・シート記入例 |
 | **D — プレイモード仕様** | |
-| [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md) | PvEモード・戦闘専用モード・ステージ効果仕様書 |
+| [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md) | PvEモード・ステージ効果仕様書 |
 | **E — UI / フロントエンド** | |
 | [E01_Visual_Battle_Architecture.md](implemented/E01_Visual_Battle_Architecture.md) | ビジュアルバトル アーキテクチャ仕様書 |
 | [E02_UI_Component_Specs.md](implemented/E02_UI_Component_Specs.md) | UIコンポーネント仕様書（モーダル・プリセット・ステータス編集） |
@@ -66,7 +66,7 @@
 
 ### 戦闘進行仕様
 1. [B03_SelectResolve_Spec.md](implemented/B03_SelectResolve_Spec.md)
-2. [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md)（PvE/戦闘専用モード）
+2. [D01_Play_Mode_Specs.md](implemented/D01_Play_Mode_Specs.md)（PvE・ステージ効果）
 
 ### デプロイ・運用
 1. [F01_Operations_Manual.md](implemented/F01_Operations_Manual.md)
@@ -123,7 +123,7 @@
 | 14_GM_Buff_Item_Operations_Spec | F01 Part1 |
 | 15_JSON_Definition_Master | C01 |
 | 16_Manual_Update_Protocol | F01 Part2 |
-| 17_Battle_Only_Play_Mode_Spec | D01 Part2 |
+| 17_Battle_Only_Play_Mode_Spec | 計画65で廃止 |
 | 17_Phase3_Strict_Errata | C01 |
 | 18_Stage_Field_Effect_Spec | D01 Part3 |
 | 19_Fallback_Struggle_Spec | B02 |

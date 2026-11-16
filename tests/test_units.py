@@ -97,21 +97,9 @@ def test_legacy_tables_migrate_once(unit_app):
                                 "(resource_type,stable_id,name,viewer_mode,payload,collection_id,archived) "
                                 "VALUES (:kind,:key,:key,'restricted',:payload,'old_c',false)"),
                            {"kind": kind, "key": key, "payload": payload})
-    from models import Room
-
-    db.session.add(Room(name="saved-room", data={"battle_only": {
-        "selected_stage_id": "old_s", "enemy_formation_id": "old_f",
-        "enemy_entries": [{"preset_id": "old_u", "count": 2, "behavior_profile_override": {}}],
-    }}))
     db.session.commit()
     run_auto_migration(unit_app)
     run_auto_migration(unit_app)
-    draft = Room.query.filter_by(name="saved-room").one().data["battle_only"]
-    assert draft["selected_stage_id"] == "ST-001"
-    assert draft["enemy_formation_id"] == "F-001"
-    assert draft["enemy_entries"] == [{"preset_id": "U-001", "count": 2}]
-    with pytest.raises(repository.CatalogConflictError):
-        repository.delete("stage", "ST-001", base_revision=1)
     assert repository.get("unit", "U-001").visibility == "staff"
     assert repository.get("formation", "F-001").payload["members"] == [
         {"unit_id": "U-001", "count": 2, "pattern_id": None}
@@ -251,7 +239,7 @@ def test_validation_of_default_patterns_sides_and_master_deprecation(unit_app):
     assert "skills[0]" in repository.check("unit", unit | {"default_pattern_id": "BP-a"})[0]
 
 
-def test_catalog_units_build_normal_battle_draft_and_simulator(unit_app):
+def test_catalog_units_build_for_deployment_and_simulator(unit_app):
     from manager.preset_deployment import apply_deployment
     from manager.sim.preset_loader import build_room_state_from_presets
     from manager.units.runtime import deployment_store
@@ -271,21 +259,17 @@ def test_catalog_units_build_normal_battle_draft_and_simulator(unit_app):
     repository.save("stage", None, {"name": "Stage", "enemy_formation_id": "F-002",
                                    "ally_formation_id": "F-001"})
     store = deployment_store()
-    for mode in ("normal", "battle_only"):
-        state = {"play_mode": mode, "characters": [], "character_owners": {}}
-        summary, _ = apply_deployment(state, {"target_mode": mode, "stage": {
-            "record_id": "ST-001", "apply": {"ally_formation": True},
-        }},
-                                      store, room_role="gm", gm_user={"user_id": "gm", "username": "GM"},
-                                      active_users={"gm": "GM"})
-        assert summary["added"] == {"ally": 1, "enemy": 1}
-        if mode == "normal":
-            ally, enemy = state["characters"]
-            assert "behavior_profile" not in ally["flags"]
-            assert enemy["flags"]["behavior_profile"]["enabled"]
-            assert enemy["commands"] == "2d6 【E-23 固有名】"
-        else:
-            assert state["battle_only"]["enemy_entries"][0]["pattern_id"] == "BP-2"
+    state = {"play_mode": "normal", "characters": [], "character_owners": {}}
+    summary, _ = apply_deployment(state, {"stage": {
+        "record_id": "ST-001", "apply": {"ally_formation": True},
+    }},
+                                  store, room_role="gm", gm_user={"user_id": "gm", "username": "GM"},
+                                  active_users={"gm": "GM"})
+    assert summary["added"] == {"ally": 1, "enemy": 1}
+    ally, enemy = state["characters"]
+    assert "behavior_profile" not in ally["flags"]
+    assert enemy["flags"]["behavior_profile"]["enabled"]
+    assert enemy["commands"] == "2d6 【E-23 固有名】"
     sim = build_room_state_from_presets(stage_id="ST-001")
     ally, enemy = sim["characters"]
     assert "behavior_profile" not in ally["flags"]

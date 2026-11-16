@@ -125,7 +125,6 @@
 .room-list-name { font-size: 1.1rem; font-weight: 700; }
 .room-list-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .room-list-desc { font-size: .9em; color: var(--ui-sub); }
-.room-mode-badge,
 .room-role-badge,
 .room-recruit-badge,
 .user-badge {
@@ -137,8 +136,6 @@
   font-weight: 700;
   line-height: 1.3;
 }
-.room-mode-badge.normal { color: var(--ui-sub); background: var(--ui-soft); }
-.room-mode-badge.battle-only { color: var(--ui-enemy); background: var(--ui-enemy-soft); }
 .room-role-badge { color: var(--ui-ally); background: var(--ui-ally-soft); }
 .room-recruit-badge { color: var(--ui-add); background: var(--ui-add-soft); }
 .room-list-buttons { display: flex; flex-wrap: wrap; gap: 8px; }

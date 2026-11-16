@@ -82,18 +82,6 @@ def test_queue_events_validate_update_and_reject_players(monkeypatch):
     deployment_socket.handle_encounter_delete({"room": "r", "encounter_id": row["id"]})
     assert state["encounter_queue"] == []
 
-    state["play_mode"] = "battle_only"
-    deployment_socket.handle_encounter_save({
-        **save, "deployment": {"stage": {"id": "st_1", "apply": {"ally_formation": False}}}
-    })
-    row, = state["encounter_queue"]
-    deployment_socket.handle_preset_deployment_apply({
-        "room": "r", "encounter_id": row["id"], "operation_id": "battle-draft-test"
-    })
-    assert sent[-1][1]["summary"]["ready"] is False
-    assert state["battle_only"]["enemy_entries"][0]["count"] == 2
-    assert state["encounter_queue"][0]["done"] is True
-
 
 def test_retired_socket_handlers_are_unregistered():
     from pathlib import Path

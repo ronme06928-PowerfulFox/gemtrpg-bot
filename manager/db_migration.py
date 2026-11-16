@@ -50,28 +50,35 @@ def _remove_unit_initial_states(inspector):
         logging.info("Auto Migration: removed initial states from %d unit rows", changed)
 
 
-def _remap_room_drafts(ids):
+_RETIRED_ROOM_MODE = "battle_only"
+
+
+def normalize_room_play_mode(state):
+    if state.get("play_mode") == _RETIRED_ROOM_MODE:
+        state.setdefault("combat_phase", "ready")
+    state["play_mode"] = "normal"
+    state.pop(_RETIRED_ROOM_MODE, None)
+
+
+def _migrate_room_play_modes():
+    from models import Room
+
+    for room in Room.query.yield_per(100):
+        state = room.data
+        if isinstance(state, dict) and (state.get("play_mode") != "normal" or _RETIRED_ROOM_MODE in state):
+            normalized = state.copy()
+            normalize_room_play_mode(normalized)
+            room.data = normalized
+    db.session.commit()
+
+
+def _remap_room_presets(ids):
     from models import Room
 
     for room in Room.query.all():
         if not isinstance(room.data, dict):
             continue
         state = deepcopy(room.data)
-        draft = state.get("battle_only")
-        if isinstance(draft, dict):
-            for field, kind in (("selected_stage_id", "stage"),
-                                ("enemy_formation_id", "enemy_formation"),
-                                ("ally_formation_id", "ally_formation")):
-                if draft.get(field):
-                    draft[field] = ids.get((kind, draft[field]))
-            for field in ("enemy_entries", "ally_entries"):
-                if isinstance(draft.get(field), list):
-                    for member in draft[field]:
-                        if isinstance(member, dict):
-                            member["preset_id"] = ids.get(("character", member.get("preset_id")))
-                            member.pop("behavior_profile_override", None)
-                    draft[field] = [member for member in draft[field]
-                                    if isinstance(member, dict) and member["preset_id"]]
         placement = state.get("room_preset_state")
         if isinstance(placement, dict) and placement.get("selected_stage_id"):
             placement["selected_stage_id"] = ids.get(("stage", placement["selected_stage_id"]))
@@ -155,7 +162,7 @@ def _migrate_unit_resources():
                   bool(row["archived"] or payload.pop("archived", False)), "import")
             counts[kind] += 1
         if "rooms" in existing:
-            _remap_room_drafts(ids)
+            _remap_room_presets(ids)
         db.session.flush()
     for name in ("preset_resource_acl", "preset_resources"):
         if name in existing:
@@ -303,6 +310,8 @@ def run_auto_migration(app):
 
             _migrate_skill_cost(inspector)
             _migrate_unit_resources()
+            if inspector.has_table("rooms"):
+                _migrate_room_play_modes()
             _remove_unit_initial_states(inspect(db.session.connection()))
 
             # image_registryテーブルが存在するか確認

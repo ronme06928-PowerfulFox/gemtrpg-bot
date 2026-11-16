@@ -15,10 +15,6 @@ def _iso_now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def _is_battle_only(state):
-    return str((state or {}).get("play_mode") or "normal").strip().lower() == "battle_only"
-
-
 def _as_int(value, default=0):
     try:
         return int(value)
@@ -89,7 +85,7 @@ def _new_session(state, username, *, legacy_migrated=False):
 
 
 def ensure_combat_session_defaults(state, *, new_room=False):
-    if not isinstance(state, dict) or _is_battle_only(state):
+    if not isinstance(state, dict):
         return state
     if not isinstance(state.get("combat_history"), list):
         state["combat_history"] = []
@@ -103,17 +99,14 @@ def ensure_combat_session_defaults(state, *, new_room=False):
 
 
 def is_combat_progression_allowed(state):
-    if not isinstance(state, dict) or _is_battle_only(state):
+    if not isinstance(state, dict):
         return True
     return state.get("combat_phase") is None or str(state.get("combat_phase")).strip().lower() == "active"
 
 
 def mark_combat_arrival(state, char):
     """Return whether this character joined a combat already in progress."""
-    if _is_battle_only(state):
-        active = (state.get("battle_only") or {}).get("status") == "in_battle"
-    else:
-        active = state.get("combat_phase") == "active" and isinstance(state.get("combat_session"), dict)
+    active = state.get("combat_phase") == "active" and isinstance(state.get("combat_session"), dict)
     char.pop("can_act_from_round", None)
     if active:
         char["can_act_from_round"] = _as_int(state.get("round")) + 1
@@ -155,7 +148,7 @@ def clear_combat_transients(state):
 
 def start_combat_session(state, username):
     ensure_combat_session_defaults(state)
-    if not isinstance(state, dict) or _is_battle_only(state) or state.get("combat_phase") != "ready":
+    if not isinstance(state, dict) or state.get("combat_phase") != "ready":
         return None
     clear_combat_transients(state)
     session = _new_session(state, username)
@@ -167,7 +160,7 @@ def start_combat_session(state, username):
 def conclude_combat_session(state, username, outcome):
     ensure_combat_session_defaults(state)
     normalized = str(outcome or "").strip().upper()
-    if not isinstance(state, dict) or _is_battle_only(state) or state.get("combat_phase") != "active" or normalized not in OUTCOMES:
+    if not isinstance(state, dict) or state.get("combat_phase") != "active" or normalized not in OUTCOMES:
         return None
     session = state.get("combat_session")
     if not isinstance(session, dict):
@@ -193,7 +186,7 @@ def mark_round_completed(state):
 def delete_combat_history(state, combat_id=None, *, all_records=False):
     """Delete archived records only; the active session is never mutable here."""
     ensure_combat_session_defaults(state)
-    if not isinstance(state, dict) or _is_battle_only(state):
+    if not isinstance(state, dict):
         return False
     history = state.get("combat_history")
     if not isinstance(history, list):

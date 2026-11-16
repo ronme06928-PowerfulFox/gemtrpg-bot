@@ -13,7 +13,7 @@
   function deleteReason(kind, refs) {
     if (!refs) return '参照元を確認中';
     if (refs.references.length) return {unit:'編成で使用中',formation:'ステージで使用中'}[kind] || '参照元で使用中';
-    return refs.room_reference_count ? 'ルームで使用中' : '';
+    return '';
   }
 
   function candidates(source, records, masters) {

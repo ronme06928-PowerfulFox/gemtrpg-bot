@@ -1,9 +1,5 @@
 // 通常ルームの戦闘セッション表示、戦闘突入・戦闘終結の操作、結果演出、戦闘記録。
 (function () {
-    function isBattleOnly(state) {
-        return String((state && state.play_mode) || 'normal').trim().toLowerCase() === 'battle_only';
-    }
-
     function isGmUser() {
         const attribute = (typeof currentUserAttribute !== 'undefined')
             ? currentUserAttribute
@@ -19,9 +15,8 @@
     }
 
     // ラウンド開始・終了操作を出せるのは、GMが通常ルームの戦闘中にいるときだけ。
-    // 戦闘専用モードは独自の進行導線を持つため対象外。
     window.canShowRoundControls = function (state, isGm) {
-        return !!isGm && !isBattleOnly(state) && getPhase(state) === 'active';
+        return !!isGm && getPhase(state) === 'active';
     };
 
     function currentBattleState() {
@@ -127,7 +122,6 @@
     }
 
     window.openCombatHistoryModal = function () {
-        if (isBattleOnly(currentBattleState())) return;
         document.getElementById('combat-history-modal-backdrop')?.remove();
 
         const backdrop = document.createElement('div');
@@ -303,7 +297,7 @@
 
     window.openCombatConclusionModal = function () {
         const state = currentBattleState();
-        if (isBattleOnly(state) || getPhase(state) !== 'active' || !isGmUser()) return;
+        if (getPhase(state) !== 'active' || !isGmUser()) return;
 
         removeConclusionModal();
         const session = state.combat_session && typeof state.combat_session === 'object' ? state.combat_session : {};
@@ -377,12 +371,6 @@
         if (!root) return;
 
         const roomState = state || currentBattleState();
-        if (isBattleOnly(roomState)) {
-            root.hidden = true;
-            root.replaceChildren();
-            return;
-        }
-
         root.hidden = false;
         const phase = getPhase(roomState);
         const ready = phase === 'ready';

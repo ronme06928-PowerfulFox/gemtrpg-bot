@@ -1,4 +1,4 @@
-"""通常ルーム／戦闘専用で共有するプリセット配置Socketイベント。"""
+"""待機列とプリセット配置のSocketイベント。"""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from collections import OrderedDict
 from flask import request
 
 from extensions import socketio, user_sids
-from events.battle_only.catalog_access_context import catalog_request_context
+from events.preset_deployment_access import catalog_request_context
 from manager.room_access import GM_ROLES
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.units.runtime import deployment_store
@@ -125,10 +125,9 @@ def _deployment_payload(context, src):
     encounter_id = src.get("encounter_id")
     if not encounter_id:
         payload = src.get("deployment") if isinstance(src.get("deployment"), dict) else src
-        return {"target_mode": context["state"].get("play_mode", "normal"), **payload}
+        return payload
     row = _encounter(context, encounter_id)
-    return {**row["deployment"], "center": src.get("center"),
-            "target_mode": context["state"].get("play_mode", "normal")}
+    return {**row["deployment"], "center": src.get("center")}
 
 
 @socketio.on("request_encounter_queue")
@@ -150,7 +149,6 @@ def handle_encounter_save(data):
     with _mutation_lock:
         try:
             payload = _deployment_payload(context, {"deployment": data.get("deployment") or {}})
-            _validate_target_mode(context["state"], payload)
             deployment = normalize_deployment_request({**payload, "center": None})
             summary = preview_deployment(context["state"], deployment, deployment_store(), **_manager_context(context))
             encounter_id = data.get("encounter_id")
@@ -186,15 +184,6 @@ def handle_encounter_delete(data):
             context["state"]["encounter_queue"] = remaining
             save_specific_room_state(context["room"])
         _emit_queue(context)
-
-
-def _validate_target_mode(state, payload):
-    target_mode = str((payload or {}).get("target_mode") or "normal").strip().lower()
-    current_mode = str(state.get("play_mode") or "normal").strip().lower()
-    if target_mode == "battle_only" and current_mode != "battle_only":
-        raise PresetDeploymentError("invalid_room_mode", "このルームは戦闘専用モードではありません。")
-    if target_mode == "normal" and current_mode == "battle_only":
-        raise PresetDeploymentError("invalid_room_mode", "戦闘専用ルームには通常配置できません。")
 
 
 def _manager_context(context):
@@ -264,7 +253,6 @@ def handle_preset_deployment_preview(data):
     request_version = src.get("request_version")
     try:
         payload = _deployment_payload(context, src)
-        _validate_target_mode(context["state"], payload)
         summary = preview_deployment(
             context["state"],
             payload,
@@ -319,7 +307,6 @@ def _apply(context, src):
         return
     try:
         payload = _deployment_payload(context, src)
-        _validate_target_mode(context["state"], payload)
         expected_unplaced = src.get("expected_unplaced")
         summary, logs = apply_deployment(
             context["state"],
@@ -349,11 +336,10 @@ def _apply(context, src):
     broadcast_state_update(context["room"])
     for message in logs:
         broadcast_log(context["room"], message, "state-change")
-    if summary["target_mode"] == "normal":
-        broadcast_log(
-            context["room"],
-            f"登場：味方{summary['added']['ally']}体・敵{summary['added']['enemy']}体",
-            "info",
-        )
+    broadcast_log(
+        context["room"],
+        f"登場：味方{summary['added']['ally']}体・敵{summary['added']['enemy']}体",
+        "info",
+    )
     _emit_queue(context)
     socketio.emit("preset_deployment_applied", response, to=request.sid)

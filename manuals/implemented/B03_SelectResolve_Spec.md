@@ -85,7 +85,7 @@ RoundStart は次の順序で処理する。
 ### 5.0 通常ルームの戦闘セッション境界（2026-09-08）
 
 - 通常ルームは `combat_phase` を用い、`ready`（戦闘準備中）と `active`（戦闘中）を区別する。探索表示を切り替える既存の `mode` とは別の状態である。
-- `ready` 中は、RoundStart、ラウンド終了、宣言、Resolve、通常・広域マッチの進行要求をサーバー側で拒否する。`battle_only` は従来どおりこの制限の対象外である。
+- `ready` 中は、RoundStart、ラウンド終了、宣言、Resolve、通常・広域マッチの進行要求をサーバー側で拒否する。
 - 新規作成した通常ルームは `ready` で始まる。GMの戦闘突入で `active` となり、`combat_session` を新規作成して戦闘内一時状態を初期化する。召喚体は残し、荊棘重絡0化・バフの初期状態への復元は行う（2026-10-21 D25、C1）。既存保存データにこの状態がなければ、互換性のため `active` として扱う。
 - GMの戦闘終結で、結果を`VICTORY`、`DEFEAT`、`RETREAT`、`INTERRUPTED`から必須選択して `ready` に戻す。通常キャラクターのHP、MP、FP、配置は保持し、召喚体を除去し、荊棘重絡を0にする（D25）。timeline、slots、intents、resolve queue、active match、ラウンド制状態、伝授スキル、戦闘内使用フラグを消去する。
 - 行動可能者と行動対象は、HPが正で逃走しておらず、`x` と `y` の両方が0以上の盤面配置済みキャラクターに限る。片方だけ盤外または座標欠損のキャラクターは、timeline、Select/Resolve slot、PvE自動行動、AI対象選択、ラウンド終了時の未行動判定に含めない。
@@ -616,7 +616,7 @@ Select中の引き寄せ履歴は`battle_state.redirects`にのみ記録し、Re
 
 `battle_resolve_flow_advance_request`は`room_id`、`battle_id`、`round`、`expected_step_index`、`expected_revision`を必要とする。在室中の進行役から届き、すべてが現在値と一致した要求だけを一度受理する。遅延・重複・非進行役の要求は状態を変更せず、要求元へ最新presentationを返す。受理時はroom全体へpresentationと`battle_resolve_flow_advance`を配信するため、通常ルームを含め全員の表示位置は同じになる。
 
-宣言操作権と演出進行権は別権限である。通常ルームはResolveを開始したGM、戦闘専用ルームは原則として戦闘開始者が進行役となる。通常ルームの別GMは`battle_resolve_flow_claim_request`で明示的に引き継げる。一般参加者による引継ぎは、戦闘専用ルームで現在の進行役がSocket在室していない場合だけ許可する。
+宣言操作権と演出進行権は別権限である。Resolveを開始したGMが進行役となる。別のGMは`battle_resolve_flow_claim_request`で明示的に引き継げる。
 
 最後のステップを進めるとサーバーが`completed`を確定し、ラウンド終了処理を一度だけ実行する。クライアントのローカル再生完了をラウンド終了の根拠にしない。traceが0件の場合はResolve計算直後に同じ完了処理へ進む。
 

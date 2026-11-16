@@ -51,11 +51,47 @@ def test_new_normal_room_starts_ready_in_memory_and_db(client):
     assert stored["combat_phase"] == "ready"
 
 
-def test_new_battle_only_room_has_no_combat_session(client):
+def test_create_room_ignores_requested_play_mode(client):
     res = client.post(
         "/create_room",
         json={"room_name": "new-battle-only", "gm_pin": "1234", "play_mode": "battle_only"},
     )
 
     assert res.status_code == 201
-    assert "combat_phase" not in res.get_json()["state"]
+    state = res.get_json()["state"]
+    assert state["play_mode"] == "normal"
+    assert state["combat_phase"] == "ready"
+    assert "battle_only" not in state
+    assert "battle_only" not in Room.query.filter_by(name="new-battle-only").one().data
+
+
+def test_loading_saved_room_removes_retired_fields(client):
+    from manager.room_manager import get_room_state
+
+    name = "new-battle-only"
+    db.session.add(Room(name=name, data={"play_mode": "battle_only", "battle_only": {}, "round": 4}))
+    db.session.commit()
+
+    state = get_room_state(name)
+
+    assert state["play_mode"] == "normal"
+    assert "battle_only" not in state
+    assert state["round"] == 4
+    assert state["combat_phase"] == "ready"
+
+
+def test_startup_migrates_saved_rooms_idempotently(client):
+    from flask import current_app
+    from manager.db_migration import run_auto_migration
+
+    retired = {"play_mode": "battle_only", "battle_only": {"records": [{"result": "ally_win"}]}, "round": 4}
+    ordinary = {"play_mode": "normal", "characters": [{"id": "ally"}]}
+    db.session.add_all([Room(name="retired", data=retired), Room(name="ordinary", data=ordinary)])
+    db.session.commit()
+
+    for _ in range(2):
+        run_auto_migration(current_app)
+        assert Room.query.filter_by(name="retired").one().data == {
+            "play_mode": "normal", "round": 4, "combat_phase": "ready",
+        }
+        assert Room.query.filter_by(name="ordinary").one().data == ordinary

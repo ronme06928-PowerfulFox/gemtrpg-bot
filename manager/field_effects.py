@@ -30,33 +30,9 @@ def _scope_match(scope, char):
 def _extract_rules_from_state(state):
     if not isinstance(state, dict):
         return []
-    bo = state.get("battle_only") if isinstance(state.get("battle_only"), dict) else {}
-    enabled = bool(bo.get("stage_field_effect_enabled", True))
-    if not enabled:
-        return []
-
     profile = state.get("stage_field_effect_profile")
-    if not isinstance(profile, dict):
-        profile = bo.get("stage_field_effect_profile") if isinstance(bo, dict) else {}
-    if not isinstance(profile, dict):
-        profile = {}
-
-    rules = profile.get("rules")
-    if isinstance(rules, list):
-        return [copy.deepcopy(r) for r in rules if isinstance(r, dict)]
-
-    rows = state.get("field_effects")
-    if not isinstance(rows, list):
-        return []
-    out = []
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        rule = row.get("rule")
-        if not isinstance(rule, dict):
-            continue
-        out.append(copy.deepcopy(rule))
-    return out
+    rules = profile.get("rules") if isinstance(profile, dict) else None
+    return [copy.deepcopy(rule) for rule in rules if isinstance(rule, dict)] if isinstance(rules, list) else []
 
 
 def get_rules_by_type(state, rule_type, char=None):

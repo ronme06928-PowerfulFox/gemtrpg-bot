@@ -42,8 +42,8 @@ assert.doesNotMatch(UnitForms.render('basic',{kind:'formation',row:draft,records
 assert.match(UnitViews.importReport([{kind:'unit',entry_id:'U-001',operation:'overwrite',base_revision:2,errors:{},warnings:{ref:'廃止済み'}}]), /上書き（版 2）/);
 assert.equal(UnitForms.sectionAction('skills',draft.payload,true).includes('＋ スキルを追加'),true);
 assert.equal(UnitForms.sectionAction('skills',draft.payload,false),'');
-assert.match(UnitViews.deleteReason('unit',{references:[{kind:'formation'}],room_reference_count:0}), /編成で使用中/);
-assert.equal(UnitViews.deleteReason('unit',{references:[],room_reference_count:0}),'');
+assert.match(UnitViews.deleteReason('unit',{references:[{kind:'formation'}]}), /編成で使用中/);
+assert.equal(UnitViews.deleteReason('unit',{references:[]}),'');
 const skillRows = [
   {entry_id:'Ps-01',payload:{デフォルト名称:'Sword',分類:'物理',コスト:'MP 2',発動時効果:'Bleed',特記:'Note',チャットパレット:'1d6 Sword'}},
   {entry_id:'Pb-01',payload:{デフォルト名称:'Mace',分類:'物理',発動時効果:'Bleed'}},
@@ -140,7 +140,6 @@ def test_unit_workspace_replaces_management_only():
         assert not (ROOT / "static/js/modals" / filename).exists()
         assert filename not in build
     assert "preset_deployment_browser.js" in build
-    assert "battle_only_draft_modal.js" in build
 
 
 def test_unit_workspace_actions_are_in_their_regions():

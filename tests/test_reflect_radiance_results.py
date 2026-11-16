@@ -62,10 +62,9 @@ def test_invalid_radiance_gain_does_not_change_any_state(app_ctx, monkeypatch, g
     assert result["skipped"] and result["reason"] == "invalid_radiance_gain"
 
 
-@pytest.mark.parametrize("mode", ["hollow", "battle_only"])
-def test_radiance_addition_is_limited_to_normal_rooms(app_ctx, monkeypatch, mode):
+def test_radiance_addition_is_limited_to_normal_rooms(app_ctx, monkeypatch):
     char = _room_char()
-    _patch_char(monkeypatch, _state_with_char(char, play_mode=mode), "owner")
+    _patch_char(monkeypatch, _state_with_char(char, play_mode="hollow"), "owner")
     socket_char.handle_reflect_session_results({"room": "r1", "char_id": "char_1", "exp_gain": 2, "radiance_gain": 9})
     owned = db.session.get(OwnedCharacter, "owned_1")
     assert owned.exp_total == 12

@@ -164,7 +164,7 @@
 2026-10-31: [共通処理と入口の依存分離](repository_structure.md#共通処理と入口の依存分離)に従い、次の2点を実施した。
 
 - `manager/skill_catalog_validation.py`へキャッシュ読込・strict lintの3関数を集約。マスター更新とCLIが共通コアを使い、本体から `scripts.skill_catalog_tool` のimportをなくした。CLIのERROR/WARNの条件、終了コード、相場レポートと表示は維持した。
-- `events/battle_only/runtime_builders.py`を `manager/battle_only_runtime.py`へ移動。Socket入口とシミュレータの参照先を更新し、旧モジュールは削除した。ホロウ計画の参照も更新した。
+- `events/battle_only/runtime_builders.py`を `manager/battle_only_runtime.py`へ移動。Socket入口とシミュレータの参照先を更新し、旧モジュールは削除した。計画65で戦闘専用ルームを廃止し、自動配置を `manager/sim/positions.py` へ移した。
 
 先にテストを追加・更新し、共通検証モジュールの未作成と、プリセット構築がeventsをimportする経路で5件失敗することを確認した。実装後は入口を禁止した状態での検証・プリセット生成を含む関連60件が成功した。検証3関数・構築等17関数は移動前後のASTが一致し、変更6モジュールの構文・1500行制限も確認した。旧パス用の互換コード・複製は残していない。
 

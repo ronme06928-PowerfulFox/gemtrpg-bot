@@ -4,9 +4,8 @@ from manager.battle.combat_session import (
 )
 
 
-def test_combat_progression_keeps_legacy_and_battle_only_rooms_active():
+def test_combat_progression_keeps_legacy_rooms_active():
     assert is_combat_progression_allowed({}) is True
-    assert is_combat_progression_allowed({"play_mode": "battle_only", "combat_phase": "ready"}) is True
 
 
 def test_combat_progression_rejects_normal_room_while_ready():

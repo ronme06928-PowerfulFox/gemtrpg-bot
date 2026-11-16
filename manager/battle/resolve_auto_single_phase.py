@@ -1340,31 +1340,3 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
         if payload:
             _log_battle_emit('battle_state_updated', room, battle_id, payload)
             socketio.emit('battle_state_updated', payload, to=room)
-        # Do not auto-advance immediately here.
-        # In battle_only mode, round-end/start should happen after clients finish
-        # resolve-flow playback and explicitly trigger request_end_round.
-
-
-def _try_auto_advance_battle_only_round(room, state):
-    if not isinstance(state, dict):
-        return
-    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
-    if play_mode != 'battle_only':
-        return
-    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
-    bo_status = str(bo.get('status') or '').strip().lower()
-    if bo_status and bo_status != 'in_battle':
-        return
-    if state.get('is_round_ended', False):
-        return
-
-    from manager.battle.common_manager import process_full_round_end, process_round_start
-
-    actor = '戦闘専用モード'
-    process_full_round_end(room, actor)
-    refreshed = get_room_state(room)
-    if not isinstance(refreshed, dict):
-        return
-    if not refreshed.get('is_round_ended', False):
-        return
-    process_round_start(room, actor)

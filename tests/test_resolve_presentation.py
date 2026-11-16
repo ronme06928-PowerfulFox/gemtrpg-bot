@@ -24,7 +24,7 @@ def _battle_state(trace_count=2):
     }
 
 
-def _route_context(state, *, user_id='controller', attribute='Player', present=True, battle_only=False):
+def _route_context(state, *, user_id='controller', attribute='Player', present=True):
     emitted = []
     presentation_emits = []
     saved = []
@@ -51,7 +51,6 @@ def _route_context(state, *, user_id='controller', attribute='Player', present=T
         'save_specific_room_state': lambda room: saved.append(room),
         'socketio': SimpleNamespace(emit=lambda *args, **kwargs: emitted.append((args, kwargs))),
         '_complete_round_after_resolve': lambda *args: completed.append(args),
-        '_is_battle_only_mode': lambda _room: battle_only,
         'logger': SimpleNamespace(info=lambda *_args, **_kwargs: None, exception=lambda *_args, **_kwargs: None),
     }
     return ctx, emitted, presentation_emits, saved, completed
@@ -197,25 +196,6 @@ def test_last_step_completion_runs_round_transition_once():
     assert completed == [('R1', 'controller', 3)]
 
 
-def test_battle_only_player_can_claim_only_when_controller_absent():
-    state = _battle_state()
-    start_resolve_presentation(state, 'controller', 'Alice')
-    finalize_resolve_presentation(state)
-    ctx, _emitted, presentation_emits, saved, _completed = _route_context(
-        state,
-        user_id='other',
-        present=False,
-        battle_only=True,
-    )
-
-    resolve_presentation_routes.handle_claim({'room_id': 'R1'}, ctx)
-
-    presentation = ensure_resolve_presentation(state)
-    assert presentation['controller_user_id'] == 'other'
-    assert saved == ['R1']
-    assert presentation_emits
-
-
 def test_normal_room_player_cannot_claim_but_gm_can_take_over():
     state = _battle_state()
     start_resolve_presentation(state, 'controller', 'Alice')
@@ -224,7 +204,6 @@ def test_normal_room_player_cannot_claim_but_gm_can_take_over():
         state,
         user_id='other',
         present=False,
-        battle_only=False,
     )
     resolve_presentation_routes.handle_claim({'room_id': 'R1'}, player_ctx)
     assert ensure_resolve_presentation(state)['controller_user_id'] == 'controller'
@@ -235,7 +214,6 @@ def test_normal_room_player_cannot_claim_but_gm_can_take_over():
         user_id='gm-user',
         attribute='GM',
         present=True,
-        battle_only=False,
     )
     resolve_presentation_routes.handle_claim({'room_id': 'R1'}, gm_ctx)
     assert ensure_resolve_presentation(state)['controller_user_id'] == 'gm-user'

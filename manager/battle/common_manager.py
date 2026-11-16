@@ -25,7 +25,6 @@ from manager.battle.action_slot_mode import (
 )
 from manager.battle.scheduled_effects import execute_scheduled_effects
 from manager.battle.resolve_presentation import reset_resolve_presentation
-from manager.battle_only_record_state import finalize_in_progress_records
 from manager.battle.combat_session import is_combat_progression_allowed, mark_round_completed
 
 logger = setup_logger(__name__)
@@ -54,7 +53,7 @@ def _safe_emit(event_name, payload, **kwargs):
             return
 
 
-def _clear_stage_runtime_state(state, *, reset_reason=None):
+def _clear_stage_runtime_state(state):
     if not isinstance(state, dict):
         return
     state['field_effects'] = []
@@ -62,13 +61,6 @@ def _clear_stage_runtime_state(state, *, reset_reason=None):
     state['stage_field_effect_enabled'] = False
     state['stage_avatar_profile'] = {}
     state['stage_avatar_enabled'] = False
-    bo = state.get('battle_only')
-    if isinstance(bo, dict):
-        finalize_in_progress_records(
-            bo,
-            result='aborted',
-            reason=reset_reason or 'battle_reset',
-        )
 
 
 get_room_state = getattr(room_manager, "get_room_state", lambda *_args, **_kwargs: None)
@@ -629,10 +621,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
     state['ai_target_arrows'] = []
     if mode in ('full', 'status'):
-        _clear_stage_runtime_state(
-            state,
-            reset_reason=f'{mode}_reset_by:{username}',
-        )
+        _clear_stage_runtime_state(state)
 
     if mode == 'full':
         state['characters'] = []
@@ -829,9 +818,7 @@ def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
     target_char = next((c for c in state["characters"] if c.get('id') == char_id), None)
     if not target_char: return
 
-    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
-    is_battle_only = (play_mode == 'battle_only')
-    if not is_battle_only and not is_authorized_for_character(room, char_id, username, attribute):
+    if not is_authorized_for_character(room, char_id, username, attribute):
         emit('move_denied', {'message': '権限がありません。'})
         return
 
@@ -1017,8 +1004,7 @@ def _process_round_start_impl(room, username):
 
 
     if state.get('round', 0) > 0 and not state.get('is_round_ended', False):
-        if str(username or '').strip() != '戦闘専用モード':
-            emit('new_log', {'message': '前ラウンドの終了処理が未完了です。先にラウンド終了を実行してください。', 'type': 'error'}, room=room)
+        emit('new_log', {'message': '前ラウンドの終了処理が未完了です。先にラウンド終了を実行してください。', 'type': 'error'}, room=room)
         return False
 
 

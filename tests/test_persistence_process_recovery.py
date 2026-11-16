@@ -58,7 +58,7 @@ DRIVER = textwrap.dedent("""
             assert RoomMember.query.filter_by(room_id=room.id, user_id='owner').one().role == 'owner'
             assert RoomLogArchive.query.filter_by(room_id=room.id).one().message == 'archived'
             assert read_saved_rooms_with_owners() == [
-                {'name': 'recovery-room', 'owner_id': 'owner', 'play_mode': 'normal', 'battle_only_stage_id': None}
+                {'name': 'recovery-room', 'owner_id': 'owner'}
             ]
         else:
             assert mode in {'debounce', 'exit', 'abort', 'exit-retry', 'exit-exhausted', 'immediate-exit-retry', 'backup'}

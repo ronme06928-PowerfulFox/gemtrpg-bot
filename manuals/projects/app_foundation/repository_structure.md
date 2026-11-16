@@ -79,7 +79,7 @@ Pythonの動的探索はバフプラグインのディレクトリが対象で�
 | 共通処理の所在 | 変更後 | 呼出し元 |
 |---|---|---|
 | `scripts/skill_catalog_tool.py`の `load_skills`・`lint_catalog`と埋込制約の検査 | `manager/skill_catalog_validation.py`へ集約。CLIには引数・レポート・任意WARNを残す | `manager/data_manager.py`とCLIが同じ検証コアを利用する |
-| `events/battle_only/runtime_builders.py` | 全体を `manager/battle_only_runtime.py`へ移し、旧モジュールは削除する | Socket入口と `manager/sim/preset_loader.py` が共通モジュールを利用する |
+| `events/battle_only/runtime_builders.py` | 全体を `manager/battle_only_runtime.py`へ移し、旧モジュールは削除する | 当時の移動。計画65で戦闘専用ルームを廃止し、自動配置は `manager/sim/positions.py` へ移した |
 
 移動する関数はASTでも前後を比較し、計算・乱数・時刻・命名・初期化の条件を保つ。旧パス用の互換ファイルや重複実装は作らない。現在のCLIコマンドとSocketイベント名はそのままとする。
 

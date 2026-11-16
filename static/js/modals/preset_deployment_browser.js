@@ -17,9 +17,7 @@
   function summaryHtml(summary) {
     const stage = summary.stage_changes || {};
     const counts = side => Object.values(summary[side] || {}).reduce((sum, n) => sum + n, 0);
-    const detail = summary.target_mode === 'battle_only'
-      ? `<p>味方 ${summary.ally_entry_count} / 必要 ${summary.required_ally_count || '—'}　敵 ${summary.enemy_entry_count}</p>`
-      : `<dl class="rq-summary">
+    const detail = `<dl class="rq-summary">
         <dt>維持 ${summary.maintained_names.length}</dt><dd>${names(summary.maintained_names)}</dd>
         <dt>除外 ${summary.removed_names.length}</dt><dd>${names(summary.removed_names)}</dd>
         <dt>追加 ${counts('added')}</dt><dd>${names(actorNames(summary.new_tokens))}</dd>
@@ -30,16 +28,14 @@
       + [...summary.issues || [], ...summary.warnings || []].map(issue => `<p class="rq-warn">${escape(issue)}</p>`).join('');
   }
 
-  function open(options = {}) {
+  function open() {
     if (active || !window.socket || !currentRoomName) return;
     const connection = window.socket;
     const room = currentRoomName;
-    const mode = options.targetMode || (battleState?.play_mode === 'battle_only' ? 'battle_only' : 'normal');
-    const battleOnly = mode === 'battle_only';
     const modal = document.createElement('dialog');
     modal.className = 'rq-theme rq-dialog';
     modal.setAttribute('aria-label', '待機列');
-    modal.innerHTML = `<header><h2>待機列</h2><div>${battleOnly ? '' : button('reinforce', '＋ 予定外の増援')} ${button('close', '閉じる')}</div></header>
+    modal.innerHTML = `<header><h2>待機列</h2><div>${button('reinforce', '＋ 予定外の増援')} ${button('close', '閉じる')}</div></header>
       <p class="rq-status" role="status"></p><div class="rq-body"></div>`;
     document.body.append(modal);
     modal.showModal();
@@ -111,7 +107,7 @@
         ${entries.map(row => `<article class="rq-card"><strong>${escape(row.name)}</strong> ${row.done ? '<span class="rq-done">済</span>' : ''}
           ${row.memo ? `<p>${escape(row.memo)}</p>` : ''}
           <div class="rq-actions">
-            ${button('deploy', battleOnly ? '下書きへ反映' : '登場', `data-id="${escape(row.id)}"`)}
+            ${button('deploy', '登場', `data-id="${escape(row.id)}"`)}
             ${button('edit', '編集', `data-id="${escape(row.id)}"`)}
             ${button('delete', '外す', `data-id="${escape(row.id)}" class="rq-danger"`)}
           </div></article>`).join('') || '<p>遭遇なし</p>'}</aside>`;
@@ -189,19 +185,11 @@
         body.innerHTML = `<h3>保存前チェック</h3>${summaryHtml(saveCheck)}<div class="rq-actions">
           ${button('save', '保存確定', 'class="rq-primary"')} ${button('queue', '編集に戻る')}</div>`;
       } else if (screen === 'confirm') {
-        body.innerHTML = `<h3>${battleOnly ? '下書きへ反映' : '登場を確認'} · ${escape(encounter.name)}</h3>${summaryHtml(preview)}
+        body.innerHTML = `<h3>登場を確認 · ${escape(encounter.name)}</h3>${summaryHtml(preview)}
           <div class="rq-actions">${button('apply', '確定', 'class="rq-primary"')} ${button('cancel-placement', '取り消し')}</div>`;
       } else if (screen === 'remove') {
         body.innerHTML = `<h3>遭遇を外す</h3><p>${escape(removing.name)}を待機列から外しますか？</p>
           <div class="rq-actions">${button('confirm-delete', '外す', 'class="rq-danger"')} ${button('queue', '取り消し')}</div>`;
-      } else if (screen === 'battle-start') {
-        body.innerHTML = `<h3>戦闘突入を確認</h3>${summaryHtml(preview)}<div class="rq-actions">
-          ${button('enter-battle', '戦闘突入', 'class="rq-primary"')} ${button('back-to-result', '取り消し')}</div>`;
-      } else if (screen === 'battle-result') {
-        body.innerHTML = `<h3>下書きに反映しました</h3>${summaryHtml(preview)}<div class="rq-actions">
-          ${button('start', '戦闘突入を確認', preview.ready ? 'class="rq-primary"' : 'disabled')}
-          ${button('details', '詳細調整', preview.ready ? '' : 'class="rq-primary"')}
-          ${button('queue', '待機列に戻る')}</div>`;
       }
       renderResults();
     }
@@ -223,10 +211,10 @@
         else d.characters.push({record_id: record.id, side, count: 1});
       } else if (tab === 'stage') {
         d.stage = {record_id: record.id, apply: {enemy_formation: !!record.enemy_formation_id,
-          ally_formation: battleOnly && !!record.ally_formation_id, background: true, field_effects: true, stage_avatar: true}};
+          ally_formation: false, background: true, field_effects: true, stage_avatar: true}};
       } else {
         const side = tab.split('_')[0];
-        d.formations[side] = {record_id: record.id, mode: side === 'enemy' ? d.enemy_mode : battleOnly ? 'replace' : 'append'};
+        d.formations[side] = {record_id: record.id, mode: side === 'enemy' ? d.enemy_mode : 'append'};
       }
       render();
     }
@@ -242,7 +230,7 @@
 
     function deploymentPayload() {
       return encounter.id ? {encounter_id: encounter.id, center}
-        : {deployment: {...encounter.deployment, target_mode: mode, center}};
+        : {deployment: {...encounter.deployment, center}};
     }
 
     function requestPreview() {
@@ -254,7 +242,7 @@
       center = null;
       encounter = row;
       operationId = crypto.randomUUID();
-      screen = battleOnly ? 'confirm-loading' : 'placement-loading';
+      screen = 'placement-loading';
       setStatus('資源を検査中…');
       requestPreview();
     }
@@ -346,20 +334,6 @@
           expected_unplaced: preview.placement?.unplaced});
         return;
       }
-      if (action === 'start') screen = 'battle-start';
-      if (action === 'back-to-result') screen = 'battle-result';
-      if (action === 'enter-battle') {
-        pending = true;
-        control.disabled = true;
-        setStatus('戦闘突入を検査中…');
-        emit('request_bo_start_battle');
-        return;
-      }
-      if (action === 'details') {
-        close();
-        window.openBattleOnlyDraftModal?.();
-        return;
-      }
       render();
     });
 
@@ -408,11 +382,7 @@
       if (data.operation_id !== operationId) return;
       pending = false;
       preview = data.summary;
-      if (battleOnly) {
-        screen = 'battle-result';
-        setStatus('');
-        render();
-      } else if (placement) {
+      if (placement) {
         modal.close();
         placement.finish(encounter.name, () => {
           placement = null;
@@ -438,13 +408,6 @@
       if (!statusBody() && screen !== 'save-check') cancelPlacement();
       setStatus(data.message);
       if (data.refresh_required) emit('request_preset_deployment_catalog');
-      render();
-    });
-    on('bo_battle_started', () => { if (screen === 'battle-start') close(); });
-    on('bo_draft_error', data => {
-      if (screen !== 'battle-start') return;
-      pending = false;
-      setStatus(data.message);
       render();
     });
     on('disconnect', () => close());

@@ -9,7 +9,7 @@
 
 同日の `REPO-OUTPUTS` では、順次効果の検証を `tests/test_sequential_effects.py` に集約し、出力を作る重複テスト `tests/test_seq_simple.py` と `test_results.txt` を削除した。履歴PDF・移行記録・旧ログの27本は、ユーザー選択1によりすべて現在の場所とGit管理のまま保持する方針となり、変更していない。
 
-同日の `REPO-BOUNDARIES` では、カタログ検証を `manager/skill_catalog_validation.py`、戦闘専用の構築処理を `manager/battle_only_runtime.py`へ集約した。以下の `manager→scripts`・`sim→events` は初回調査時の経路で、現行では解消している。[実施結果](backlog.md#repo-boundaries実施結果)を参照する。
+同日の `REPO-BOUNDARIES` では、カタログ検証を `manager/skill_catalog_validation.py`、戦闘専用の構築処理を `manager/battle_only_runtime.py`へ集約した。以下の `manager→scripts`・`sim→events` は初回調査時の経路で、現行では解消している。計画65で戦闘専用ルームを廃止し、自動配置は `manager/sim/positions.py` へ移した。[実施結果](backlog.md#repo-boundaries実施結果)を参照する。
 
 同日の `REPO-ENTRYPOINT` では、ユーザー提示のRender設定画面で `render-start.sh` の利用を確認した。本番の `app:app` にProcfileを統一し、未使用のルート `wsgi.py` を削除した。以下の入口不一致と未確認の記載は初回調査時点の記録であり、現在の設定は[F01 §8](../../implemented/F01_Operations_Manual.md#8-起動と接続設定)、検証結果は[課題一覧](backlog.md#repo-entrypoint実施結果)を参照する。
 
@@ -41,7 +41,7 @@ Gitの追跡パス、ルートと主要ディレクトリの用途、起動・HT
 |---|---:|---|---|
 | ルート直下 | 29 | 起動、共有状態、モデル、設定、規約に、旧説明・記録・出力が同居 | 次節で分類。入口と過去記録を優先整理 |
 | `.github/` | 1 | Python依存導入、文字検査、スキルsmoke・strictテスト、lintのCI | 維持。スクリプト再配置時に更新 |
-| `events/` | 26 | Socket入口。直下9、戦闘10、戦闘専用7 | イベント登録と下位の処理を分けて確認 |
+| `events/` | 26 | Socket入口。直下9、戦闘10（当時の戦闘専用7は計画65で廃止） | イベント登録と下位の処理を分けて確認 |
 | `routes/` | 6 | account、room、admin、owned_charactersのBlueprintと共通部品 | `app.py`の登録先。既存の分割を活かす |
 | `manager/` | 110 | ロジック・状態・保存・外部データ・シミュレーション。直下38、battle50、その他22 | 責務ごとの整理候補。import先を同時に変更する必要あり |
 | `plugins/` | 24 | カスタム効果6、buff13、item5 | 実行時に利用。バフの動的探索もある |

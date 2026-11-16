@@ -81,10 +81,6 @@ def list_references(kind, entry_id):
     row = _visible(kind, entry_id)
     result = {"references": repository.references(
         kind, entry_id, resources=repository.entries(include_staff=g.units_staff))}
-    user = g.authenticated_user
-    if user.is_catalog_author or user.is_app_admin:
-        refs = repository.room_references(kind, entry_id)
-        result["room_reference_count"] = len({ref["entry_id"] for ref in refs})
     if kind == "unit":
         result["master_references"] = [
             {"kind": target, "entry_id": key, "path": path}

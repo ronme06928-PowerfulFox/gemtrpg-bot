@@ -64,55 +64,11 @@ def read_saved_room(room_name):
             pass
         return None
 
-def _read_saved_rooms_with_owners_full():
-    """全ルームの data(JSON) を丸ごとロードする従来実装（フォールバック用）。"""
-    rooms = Room.query.all()
-    rooms_list = []
-    for r in rooms:
-        state = r.data if isinstance(r.data, dict) else {}
-        play_mode = str(state.get('play_mode', 'normal') or 'normal').strip().lower()
-        if play_mode not in ('normal', 'battle_only'):
-            play_mode = 'normal'
-
-        rooms_list.append({
-            'name': r.name,
-            'owner_id': r.owner_id,
-            'play_mode': play_mode,
-            'battle_only_stage_id': None,
-        })
-    return rooms_list
-
 def read_saved_rooms_with_owners():
-    """DBから全ルームとオーナー情報を取得して返す（一覧表示用・軽量クエリ）。
-
-    一覧では name / owner_id / play_mode しか使わないため、巨大な data(JSON)
-    全体ではなく必要な値だけをDB側で抽出する。JSONパス抽出に対応しない
-    バックエンドでは従来の全ロード方式へフォールバックする。
-    """
+    """Read room names and owners without loading room state."""
     try:
-        try:
-            play_mode_expr = Room.data['play_mode'].as_string()
-            rows = db.session.query(Room.name, Room.owner_id, play_mode_expr).all()
-            rooms_list = []
-            for name, owner_id, play_mode in rows:
-                pm = str(play_mode or 'normal').strip().lower()
-                if pm not in ('normal', 'battle_only'):
-                    pm = 'normal'
-                rooms_list.append({
-                    'name': name,
-                    'owner_id': owner_id,
-                    'play_mode': pm,
-                    'battle_only_stage_id': None,
-                })
-            return rooms_list
-        except Exception as opt_err:
-            # JSONパス抽出が使えない場合は従来の全ロードへフォールバック
-            print(f"[WARN] light room query unavailable, fallback to full load: {opt_err}")
-            try:
-                db.session.rollback()
-            except Exception:
-                pass
-            return _read_saved_rooms_with_owners_full()
+        rows = db.session.query(Room.name, Room.owner_id).all()
+        return [{"name": name, "owner_id": owner_id} for name, owner_id in rows]
     except Exception as e:
         import traceback
         print(f"[ERROR] DB Read Error: {e}")

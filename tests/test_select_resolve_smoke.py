@@ -64,7 +64,7 @@ def _base_state(characters):
 def test_select_resolve_payload_includes_room_play_mode(monkeypatch):
     battle_common, _battle_core = _mods()
     state = _base_state([])
-    state["play_mode"] = "battle_only"
+    state["play_mode"] = "normal"
     monkeypatch.setattr(battle_common, "get_room_state", lambda _room: state)
 
     payload = battle_common.build_select_resolve_state_payload(
@@ -72,7 +72,7 @@ def test_select_resolve_payload_includes_room_play_mode(monkeypatch):
         battle_id="battle_test",
     )
 
-    assert payload["play_mode"] == "battle_only"
+    assert payload["play_mode"] == "normal"
     assert payload["trace_is_snapshot"] is True
     assert payload["trace"] == []
     assert payload["presentation"]["round"] == 1

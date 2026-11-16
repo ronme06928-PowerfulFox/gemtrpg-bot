@@ -1,4 +1,4 @@
-"""プリセットを通常ルームまたは戦闘専用下書きへ安全に反映する共通処理。"""
+"""プリセットを盤面へ適用する処理。"""
 
 from __future__ import annotations
 
@@ -164,10 +164,6 @@ def build_deployment_catalog(
 
 def normalize_deployment_request(raw):
     src = raw if isinstance(raw, dict) else {}
-    target_mode = str(src.get("target_mode") or "normal").strip().lower()
-    if target_mode not in {"normal", "battle_only"}:
-        raise PresetDeploymentError("invalid_target_mode", "配置先が不正です。")
-
     stage_src = src.get("stage") if isinstance(src.get("stage"), dict) else None
     stage = None
     if stage_src:
@@ -179,7 +175,7 @@ def normalize_deployment_request(raw):
             "record_id": record_id,
             "apply": {
                 "enemy_formation": bool(apply_src.get("enemy_formation", True)),
-                "ally_formation": bool(apply_src.get("ally_formation", target_mode == "battle_only")),
+                "ally_formation": bool(apply_src.get("ally_formation", False)),
                 "background": bool(apply_src.get("background", True)),
                 "field_effects": bool(apply_src.get("field_effects", True)),
                 "stage_avatar": bool(apply_src.get("stage_avatar", True)),
@@ -196,7 +192,7 @@ def normalize_deployment_request(raw):
         if not record_id:
             continue
         mode = str(row.get("mode") or ("append" if side == "ally" else "replace")).strip().lower()
-        if side == "ally" and target_mode == "normal":
+        if side == "ally":
             mode = "append"
         if mode not in {"append", "replace"}:
             raise PresetDeploymentError("invalid_mode", "編成の適用方法が不正です。")
@@ -244,7 +240,6 @@ def normalize_deployment_request(raw):
     if not stage and not any(formations.values()) and not characters:
         raise PresetDeploymentError("empty_deployment", "配置するプリセットを選んでください。")
     return {
-        "target_mode": target_mode,
         "stage": stage,
         "formations": formations,
         "characters": characters,
@@ -294,8 +289,7 @@ def resolve_deployment_request(store, request_data, *, user_id=None, is_author=F
             if stage_ref:
                 formation = {
                     "record_id": stage_ref,
-                    "mode": (resolved["enemy_mode"] if side == "enemy" else
-                             "append" if resolved["target_mode"] == "normal" else "replace"),
+                    "mode": resolved["enemy_mode"] if side == "enemy" else "append",
                     "source": "stage",
                 }
                 resolved["formations"][side] = formation
@@ -631,12 +625,11 @@ def _replace_with_enemy_units(resolved):
             and any(row["side"] == "enemy" for row in resolved["characters"]))
 
 
-def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_users=None):
+def build_deployment_candidate(state, resolved, store, *, gm_user=None, active_users=None):
     candidate = copy.deepcopy(state if isinstance(state, dict) else {})
     candidate.setdefault("characters", [])
     candidate.setdefault("character_owners", {})
     summary = {
-        "target_mode": "normal",
         "added": {"ally": 0, "enemy": 0},
         "removed": {"ally": 0, "enemy": 0},
         "changes": [],
@@ -746,197 +739,6 @@ def _build_normal_candidate(state, resolved, store, *, gm_user=None, active_user
     if resolved["formations"].get("enemy"):
         candidate["battle_mode"] = "pve"
     return DeploymentBuild(candidate, summary, logs)
-
-
-def _battle_only_defaults(bo):
-    result = bo if isinstance(bo, dict) else {}
-    result.setdefault("status", "draft")
-    result.setdefault("ally_mode", "preset")
-    result.setdefault("ally_entries", [])
-    result.setdefault("enemy_entries", [])
-    result.setdefault("required_ally_count", 0)
-    result.setdefault("selected_stage_id", None)
-    result.setdefault("ally_formation_id", None)
-    result.setdefault("enemy_formation_id", None)
-    result.setdefault("stage_field_effect_enabled", True)
-    result.setdefault("stage_avatar_enabled", True)
-    return result
-
-
-def _validate_battle_only_candidate(candidate, store, active_users):
-    bo = candidate.get("battle_only") if isinstance(candidate.get("battle_only"), dict) else {}
-    users = active_users if isinstance(active_users, dict) else {}
-    issues = []
-    ally_entries = bo.get("ally_entries") if isinstance(bo.get("ally_entries"), list) else []
-    enemy_entries = bo.get("enemy_entries") if isinstance(bo.get("enemy_entries"), list) else []
-    ally_count = 0
-    enemy_count = 0
-    for row in ally_entries:
-        if not isinstance(row, dict):
-            issues.append("味方編成に不正な項目があります。")
-            continue
-        preset_id = str(row.get("preset_id") or "").strip()
-        record = get_record(store, "character", preset_id)
-        if not isinstance(record, dict) or not bool(record.get("allow_ally", True)):
-            issues.append(f"味方キャラクターを利用できません: {preset_id or 'ID未指定'}")
-            continue
-        ally_count += 1
-        user_id = str(row.get("user_id") or "").strip()
-        if not user_id or user_id not in users:
-            issues.append(f"{record.get('name') or preset_id}の担当ユーザーがルームにいません。")
-    for row in enemy_entries:
-        if not isinstance(row, dict):
-            issues.append("敵編成に不正な項目があります。")
-            continue
-        preset_id = str(row.get("preset_id") or "").strip()
-        record = get_record(store, "character", preset_id)
-        count = max(0, _safe_int(row.get("count"), 0))
-        if not isinstance(record, dict) or not bool(record.get("allow_enemy", True)):
-            issues.append(f"敵キャラクターを利用できません: {preset_id or 'ID未指定'}")
-            continue
-        if count <= 0:
-            issues.append(f"{record.get('name') or preset_id}の配置数が不正です。")
-            continue
-        enemy_count += count
-    if ally_count <= 0:
-        issues.append("味方編成が空です。")
-    if enemy_count <= 0:
-        issues.append("敵編成が空です。")
-    required = max(0, _safe_int(bo.get("required_ally_count"), 0))
-    if required > 0 and ally_count != required:
-        issues.append(f"味方人数が不一致です（必要:{required} / 現在:{ally_count}）。")
-    return {
-        "ready": not issues,
-        "issues": list(dict.fromkeys(issues)),
-        "warnings": [],
-        "ally_entry_count": ally_count,
-        "enemy_entry_count": enemy_count,
-        "required_ally_count": required,
-    }
-
-
-def _build_battle_only_candidate(state, resolved, store, *, gm_user=None, active_users=None):
-    candidate = copy.deepcopy(state if isinstance(state, dict) else {})
-    bo = _battle_only_defaults(candidate.get("battle_only"))
-    candidate["battle_only"] = bo
-    summary = {
-        "target_mode": "battle_only",
-        "added": {"ally": 0, "enemy": 0},
-        "removed": {"ally": 0, "enemy": 0},
-        "changes": [],
-        "new_character_count": resolved.get("new_character_count", 0),
-        "max_deployed_characters": MAX_DEPLOYED_CHARACTERS,
-        "warnings": [],
-        "issues": [],
-        "can_apply": True,
-        "ready": True,
-    }
-    stage_row = resolved.get("stage")
-    if stage_row:
-        stage = stage_row["record"]
-        bo["selected_stage_id"] = stage_row["record_id"]
-        bo["required_ally_count"] = max(0, _safe_int(stage.get("required_ally_count"), 0))
-        if bo["required_ally_count"] <= 0 and resolved["formations"].get("enemy"):
-            bo["required_ally_count"] = max(
-                0,
-                _safe_int(resolved["formations"]["enemy"]["record"].get("recommended_ally_count"), 0),
-            )
-        if stage_row["apply"].get("background"):
-            bo["stage_background_profile"] = _stage_background(stage)
-            apply_stage_background_to_state(candidate, bo["stage_background_profile"])
-            summary["changes"].append("背景")
-        if stage_row["apply"].get("field_effects"):
-            bo["stage_field_effect_profile"] = normalize_stage_field_effect_profile(stage.get("field_effect_profile"))
-            bo["stage_field_effect_enabled"] = True
-        if stage_row["apply"].get("stage_avatar"):
-            avatar = normalize_stage_avatar(stage.get("stage_avatar"))
-            bo["stage_avatar_profile"] = avatar
-            bo["stage_avatar_enabled"] = bool(avatar.get("enabled", True))
-        summary["changes"].append("ステージ")
-
-    if _replace_with_enemy_units(resolved):
-        summary["removed"]["enemy"] = sum(max(1, _safe_int(row.get("count"), 1))
-                                           for row in bo["enemy_entries"] if isinstance(row, dict))
-        bo["enemy_entries"] = []
-        bo["enemy_formation_id"] = None
-    gm_name, gm_id = _owner_for(None, active_users, gm_user)
-    for side in SIDES:
-        key = f"{side}_entries"
-        formation_key = f"{side}_formation_id"
-        formation = resolved["formations"].get(side)
-        if not formation:
-            continue
-        existing = bo.get(key) if isinstance(bo.get(key), list) else []
-        if formation["mode"] == "replace":
-            summary["removed"][side] += (
-                sum(max(1, _safe_int(row.get("count"), 1)) for row in existing if isinstance(row, dict))
-                if side == "enemy" else len(existing)
-            )
-            existing = []
-        rows = _formation_rows(formation["record"], side)
-        if side == "ally":
-            expanded = []
-            for row in rows:
-                owner_name, owner_id = _owner_for(resolved["ally_user_id"] or row.get("user_id"), active_users, gm_user)
-                _ = owner_name
-                expanded.extend({"preset_id": row["preset_id"], "user_id": owner_id or gm_id} for _ in range(row["count"]))
-            bo[key] = [*existing, *expanded]
-            summary["added"][side] += len(expanded)
-        else:
-            normalized = [
-                {
-                    "preset_id": row["preset_id"],
-                    "count": row["count"],
-                    "pattern_id": row.get("pattern_id"),
-                }
-                for row in rows
-            ]
-            bo[key] = [*existing, *normalized]
-            summary["added"][side] += sum(row["count"] for row in normalized)
-        bo[formation_key] = formation["record_id"]
-
-    for row in resolved["characters"]:
-        side = row["side"]
-        key = f"{side}_entries"
-        existing = bo.get(key) if isinstance(bo.get(key), list) else []
-        if side == "ally":
-            _, owner_id = _owner_for(row.get("user_id"), active_users, gm_user)
-            existing.extend({"preset_id": row["record_id"], "user_id": owner_id or gm_id} for _ in range(row["count"]))
-        else:
-            existing.append({"preset_id": row["record_id"], "count": row["count"], "pattern_id": None})
-        bo[key] = existing
-        summary["added"][side] += row["count"]
-
-    bo["ally_mode"] = "preset"
-    bo["status"] = "draft"
-    candidate["play_mode"] = "battle_only"
-    summary.update(_validate_battle_only_candidate(candidate, store, active_users))
-    return DeploymentBuild(candidate, summary, [])
-
-
-def build_deployment_candidate(
-    state,
-    resolved,
-    store,
-    *,
-    gm_user=None,
-    active_users=None,
-):
-    if resolved.get("target_mode") == "battle_only":
-        return _build_battle_only_candidate(
-            state,
-            resolved,
-            store,
-            gm_user=gm_user,
-            active_users=active_users,
-        )
-    return _build_normal_candidate(
-        state,
-        resolved,
-        store,
-        gm_user=gm_user,
-        active_users=active_users,
-    )
 
 
 def preview_deployment(state, request_data, store, **context):

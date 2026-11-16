@@ -240,14 +240,9 @@ def build_lobby_cards(user_id):
         vis = room.lobby_visibility or VIS_HIDDEN
         if vis == VIS_HIDDEN and not is_member and not admin_access:
             continue
-        play_mode = "normal"
-        if isinstance(room.data, dict):
-            pm = str(room.data.get("play_mode") or "normal").strip().lower()
-            play_mode = pm if pm in ("normal", "battle_only") else "normal"
         joinable = (not is_member) and (admin_access or vis == VIS_LISTED)
         cards.append({
             "name": room.name,
-            "play_mode": play_mode,
             "visibility": vis,
             "recruitment_status": room.recruitment_status,
             "description": room.description,

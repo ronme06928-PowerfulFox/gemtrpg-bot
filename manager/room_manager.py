@@ -13,6 +13,7 @@ from sqlalchemy import select
 # パフォーマンス計測（PERF_LOG=1 のときのみ state_updated のペイロードサイズを出力）
 _PERF_LOG = os.environ.get('PERF_LOG') == '1'
 
+from manager.db_migration import normalize_room_play_mode
 from extensions import db, socketio, active_room_states, user_sids
 from manager.data_manager import save_room_to_db
 from manager.utils import (
@@ -49,67 +50,6 @@ def _shutdown_log(level, message, *args):
     except (OSError, ValueError):
         # Interpreter teardown may close stdout between the checks above.
         return
-
-
-def _default_battle_only_state():
-    return {
-        "status": "lobby",
-        "ally_entries": [],
-        "enemy_entries": [],
-        "records": [],
-        "active_record_id": None,
-        "pending_auto_reset": False,
-        "pending_auto_reset_round": None,
-    }
-
-def _ensure_battle_only_defaults(state):
-    if not isinstance(state, dict):
-        return
-
-    play_mode = str(state.get('play_mode', 'normal') or 'normal').strip().lower()
-    if play_mode not in ('normal', 'battle_only'):
-        play_mode = 'normal'
-    state['play_mode'] = play_mode
-
-    bo_default = _default_battle_only_state()
-    battle_only = state.get('battle_only')
-    if not isinstance(battle_only, dict):
-        battle_only = {}
-        state['battle_only'] = battle_only
-
-    for k, v in bo_default.items():
-        if k not in battle_only:
-            battle_only[k] = copy.deepcopy(v) if isinstance(v, (dict, list)) else v
-
-    battle_only['status'] = str(battle_only.get('status', 'lobby') or 'lobby').strip().lower()
-    if battle_only['status'] not in ('lobby', 'draft', 'in_battle'):
-        battle_only['status'] = 'lobby'
-
-    if not isinstance(battle_only.get('ally_entries'), list):
-        battle_only['ally_entries'] = []
-    if not isinstance(battle_only.get('enemy_entries'), list):
-        battle_only['enemy_entries'] = []
-    if not isinstance(battle_only.get('records'), list):
-        battle_only['records'] = []
-
-    if 'stage_field_effect_enabled' not in battle_only:
-        battle_only['stage_field_effect_enabled'] = True
-    if 'stage_avatar_enabled' not in battle_only:
-        battle_only['stage_avatar_enabled'] = True
-    if not isinstance(battle_only.get('stage_field_effect_profile'), dict):
-        battle_only['stage_field_effect_profile'] = {}
-    if not isinstance(battle_only.get('stage_avatar_profile'), dict):
-        battle_only['stage_avatar_profile'] = {}
-
-    # Top-level stage fields are runtime-only. If a battle-only room is restored
-    # outside an active battle, remove stale runtime data so cards/effects do not
-    # resurrect after reset, reconnect, or page reload.
-    if play_mode == 'battle_only' and battle_only['status'] != 'in_battle':
-        state['field_effects'] = []
-        state['stage_field_effect_profile'] = {}
-        state['stage_field_effect_enabled'] = False
-        state['stage_avatar_profile'] = {}
-        state['stage_avatar_enabled'] = False
 
 
 def _normalize_log_text(text):
@@ -346,7 +286,7 @@ def get_room_state(room_name):
     if '_log_seq' not in state:
         state['_log_seq'] = len(state.get('logs', []))
 
-    _ensure_battle_only_defaults(state)
+    normalize_room_play_mode(state)
 
 
     if room_db is not None:

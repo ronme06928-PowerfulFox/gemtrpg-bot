@@ -87,17 +87,7 @@ def handle_claim(data, ctx):
     username = user_info.get('username', 'System')
     is_gm = str(user_info.get('attribute') or '').strip().upper() == 'GM'
     controller_user_id = str(presentation.get('controller_user_id') or '').strip()
-    controller_present = bool(
-        controller_user_id and ctx['is_user_in_room'](controller_user_id, room_id)
-    )
-    can_claim = bool(
-        user_id and (
-            user_id == controller_user_id
-            or is_gm
-            or (ctx['_is_battle_only_mode'](room_id) and not controller_present)
-        )
-    )
-    if not can_claim:
+    if not user_id or (user_id != controller_user_id and not is_gm):
         ctx['_emit_resolve_presentation'](room_id, battle_id, battle_state, to=request.sid)
         return
 

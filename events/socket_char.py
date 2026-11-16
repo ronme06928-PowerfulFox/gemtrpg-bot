@@ -383,8 +383,7 @@ def handle_move_character(data):
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
-    is_battle_only = str(state.get('play_mode') or 'normal').strip().lower() == 'battle_only'
-    if not is_battle_only and not is_authorized_for_character(
+    if not is_authorized_for_character(
         room, char_id, username, user_info.get("attribute", "Player")
     ):
         emit('move_denied', {'message': '権限がありません。'})
@@ -539,8 +538,7 @@ def handle_delete_character(data):
     char = next((c for c in state["characters"] if c.get('id') == char_id), None)
 
     if char:
-        is_battle_only = str(state.get('play_mode') or 'normal').strip().lower() == 'battle_only'
-        if not is_battle_only and not is_authorized_for_character(
+        if not is_authorized_for_character(
             room, char_id, username, user_info.get("attribute", "Player")
         ):
             emit('character_operation_denied', {'message': 'このキャラクターを操作する権限がありません。'}, to=request.sid)
@@ -648,8 +646,7 @@ def handle_update_token_scale(data):
 
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
-    is_battle_only = str(state.get('play_mode') or 'normal').strip().lower() == 'battle_only'
-    if not is_battle_only and not is_authorized_for_character(
+    if not is_authorized_for_character(
         room, char_id, username, user_info.get("attribute", "Player")
     ):
         emit('character_operation_denied', {'message': 'このキャラクターを操作する権限がありません。'}, to=request.sid)

@@ -19,14 +19,14 @@ A01は2026-10-17に章立てを再編し、日付付きの追補を本文へ統�
 ## GM：卓を準備・進行する
 
 1. [A02 GM編](implemented/A02_GM_Creator_Manual.md)の「GM権限とルーム管理」で参加コード、GM PIN、配置を確認します。
-2. 通常ルームでは、同書の[戦闘突入・戦闘終結](implemented/A02_GM_Creator_Manual.md#2-当日のセッションを進める)を先に読みます。戦闘専用モードとは開始手順が異なります。
+2. 通常ルームでは、同書の[戦闘突入・戦闘終結](implemented/A02_GM_Creator_Manual.md#2-当日のセッションを進める)を先に読みます。
 3. 同書の「GM向け解決フェーズ運用」で解決表示の進行、「プレイヤーの持ちキャラへの成果反映」で終了後の操作を確認します。
 
 裁定は[基本ルールブック](../typst_manual/全体マニュアル/README.md)の第5・6章と巻末、バフ・アイテム介入や画像操作は[F01](implemented/F01_Operations_Manual.md)のPart 1・Part 1-Cを参照してください。F01後半のサーバー運用手順を通読する必要はありません。
 
 ## 制作者：敵・編成・シナリオを作る
 
-1. [A02](implemented/A02_GM_Creator_Manual.md)の「敵行動チャート」「戦闘専用プリセット管理」「シナリオ用プリセットを別環境へ移す」を読みます。
+1. [A02](implemented/A02_GM_Creator_Manual.md)の「敵行動チャート」「ユニット・編成・ステージ」を読みます。
 2. 詳しい挙動は[D01 プレイモード仕様](implemented/D01_Play_Mode_Specs.md)、編集画面は[E02 UI仕様](implemented/E02_UI_Component_Specs.md)で確認します。
 3. 設計・検証が必要なら[F02 バランス設計](implemented/F02_Battle_Balance_Designer_Skill_Manual.md)、[F03 シミュレータCLI](implemented/F03_Battle_Balance_Simulator_CLI.md)へ進みます。F02のSkill利用部分とF03は開発環境を使う人向けです。
 

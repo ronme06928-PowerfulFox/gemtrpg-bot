@@ -1006,14 +1006,8 @@ window.setupVisualSidebarControls = function () {
 
     const saveBtn = document.getElementById('visual-save-btn');
     const roomPresetBtn = document.getElementById('visual-room-preset-btn');
-    const boBtn = document.getElementById('visual-bo-btn');
     const resetBtn = document.getElementById('visual-reset-btn');
     const statusMsg = document.getElementById('visual-status-msg');
-    const isBattleOnlyMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-    const canUseResetInRoom = isGM || isBattleOnlyMode;
-    const centerCtaId = 'visual-bo-center-cta';
-    const stageEffectCardId = 'visual-stage-effect-card';
-    const runtimeGlobal = (typeof window !== 'undefined') ? window : globalThis;
 
     // 追加ボタンを表示できるよう、ルーム操作エリアのレイアウトを拡張
     const actionContainer = document.getElementById('visual-room-actions');
@@ -1034,14 +1028,10 @@ window.setupVisualSidebarControls = function () {
             pveBtn.id = 'visual-pve-btn';
 
             const updateBtnText = () => {
-                const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-                const mode = boMode ? 'pve' : ((battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp');
+                const mode = battleState?.battle_mode || 'pvp';
                 pveBtn.textContent = (mode === 'pve') ? '戦闘モード: PvE' : '戦闘モード: PvP';
                 pveBtn.style.background = (mode === 'pve') ? '#28a745' : '#6c757d'; // Green for PvE, Gray for PvP
                 pveBtn.style.color = 'white';
-                pveBtn.disabled = boMode;
-                pveBtn.style.opacity = boMode ? '0.75' : '1';
-                pveBtn.style.cursor = boMode ? 'not-allowed' : 'pointer';
             };
 
             // 初期表示を遅延反映
@@ -1050,8 +1040,6 @@ window.setupVisualSidebarControls = function () {
 
             pveBtn.style.cssText = "padding: 5px; font-size: 0.8em; cursor: pointer; border: none; border-radius: 3px; background: #6c757d; color: white; flex: 1; min-width: 60px;";
             pveBtn.onclick = async () => {
-                const boMode = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-                if (boMode) return;
                 const currentMode = (battleState && battleState.battle_mode) ? battleState.battle_mode : 'pvp';
                 const nextMode = (currentMode === 'pve') ? 'pvp' : 'pve';
                 if (await window.showAppConfirm(`戦闘モードを変更しますか？\n${currentMode.toUpperCase()} -> ${nextMode.toUpperCase()}`, {
@@ -1069,297 +1057,6 @@ window.setupVisualSidebarControls = function () {
             setInterval(updateBtnText, 2000);
         }
     }
-
-    function removeBattleOnlyCenterCta() {
-        const exists = document.getElementById(centerCtaId);
-        if (exists) exists.remove();
-    }
-    runtimeGlobal.removeBattleOnlyCenterCta = removeBattleOnlyCenterCta;
-
-    function isBattleOnlyPreparationView() {
-        const bs = (battleState && typeof battleState === 'object') ? battleState : {};
-        const boMode = String(bs.play_mode || 'normal').toLowerCase() === 'battle_only';
-        const bo = (bs.battle_only && typeof bs.battle_only === 'object') ? bs.battle_only : {};
-        const status = String(bo.status || 'lobby').trim().toLowerCase();
-        const isPreparation = (status === 'lobby' || status === 'draft');
-        return boMode && isPreparation;
-    }
-
-    function shouldShowBattleOnlyCenterCta() {
-        const roomName = String((typeof currentRoomName !== 'undefined' ? currentRoomName : runtimeGlobal.currentRoomName) || '').trim();
-        const roomPortal = document.getElementById('room-portal');
-        const mainApp = document.getElementById('main-app-container');
-        const inRoomView = !!(mainApp && mainApp.style.display !== 'none' && (!roomPortal || roomPortal.style.display === 'none'));
-        const hasOpenModal = Array.from(document.querySelectorAll('.modal-backdrop')).some((el) => {
-            if (!el || !el.isConnected) return false;
-            const style = window.getComputedStyle(el);
-            if (style.display === 'none' || style.visibility === 'hidden') return false;
-            const opacity = Number(style.opacity || '1');
-            if (Number.isFinite(opacity) && opacity <= 0) return false;
-            const rect = el.getBoundingClientRect();
-            return rect.width > 0 && rect.height > 0;
-        });
-        const isVisualTab = !!document.querySelector('.tab-button.active[data-tab="visual"]');
-        return !!roomName && inRoomView && isVisualTab && !isGM && isBattleOnlyPreparationView() && !hasOpenModal;
-    }
-
-    function openBattleOnlyDraftFromUi() {
-        removeBattleOnlyCenterCta();
-        const boModeNow = String((battleState && battleState.play_mode) || 'normal').toLowerCase() === 'battle_only';
-        if (boModeNow && !isGM && typeof openBattleOnlyQuickStartModal === 'function') {
-            openBattleOnlyQuickStartModal();
-            return;
-        }
-        if (typeof window.openRoomEncounterQueue === 'function') {
-            window.openRoomEncounterQueue();
-            return;
-        }
-        statusMsg.textContent = "戦闘専用モーダルを読み込めませんでした。";
-    }
-
-    function syncBattleOnlyCenterCta() {
-        const exists = document.getElementById(centerCtaId);
-        const shouldShow = shouldShowBattleOnlyCenterCta();
-        if (!shouldShow) {
-            removeBattleOnlyCenterCta();
-            return;
-        }
-
-        const bo = (battleState && typeof battleState.battle_only === 'object') ? battleState.battle_only : {};
-        const status = String(bo.status || 'lobby').trim();
-        const statusLabel = (status === 'in_battle') ? '戦闘中' : (status === 'draft' ? '編成中' : '待機');
-        const formationId = String(bo.enemy_formation_id || '').trim();
-
-        const cta = exists || document.createElement('div');
-        cta.id = centerCtaId;
-        cta.style.position = 'fixed';
-        cta.style.left = '50%';
-        cta.style.top = '50%';
-        cta.style.transform = 'translate(-50%, -50%)';
-        cta.style.zIndex = '900';
-        cta.style.background = 'rgba(17, 24, 39, 0.86)';
-        cta.style.color = '#fff';
-        cta.style.padding = '10px 12px';
-        cta.style.borderRadius = '10px';
-        cta.style.border = '1px solid rgba(255,255,255,0.18)';
-        cta.style.boxShadow = '0 10px 24px rgba(0,0,0,0.30)';
-        cta.style.backdropFilter = 'blur(2px)';
-        cta.style.textAlign = 'center';
-        cta.innerHTML = `
-            <div style="font-size:12px; opacity:0.9; margin-bottom:6px;">戦闘専用モード / ${statusLabel}${formationId ? ` / 敵編成:${formationId}` : ''}</div>
-            <button id="visual-bo-center-cta-btn" style="padding:7px 12px; font-size:13px; border:0; border-radius:8px; cursor:pointer; background:#2563eb; color:#fff;">
-                かんたん戦闘突入
-            </button>
-        `;
-        if (!exists) document.body.appendChild(cta);
-        const btn = document.getElementById('visual-bo-center-cta-btn');
-        if (btn) btn.onclick = openBattleOnlyDraftFromUi;
-    }
-
-    function removeStageEffectCard() {
-        const exists = document.getElementById(stageEffectCardId);
-        if (exists) exists.remove();
-    }
-
-    function _normalizeStageAvatarProfile(raw) {
-        const src = (raw && typeof raw === 'object') ? raw : {};
-        return {
-            enabled: !!src.enabled,
-            name: String(src.name || '').trim(),
-            description: String(src.description || '').trim(),
-            icon: String(src.icon || '').trim(),
-        };
-    }
-
-    if (typeof runtimeGlobal.openStageFieldEffectDetailModal !== 'function') {
-        runtimeGlobal.openStageFieldEffectDetailModal = function (payload) {
-            const data = (payload && typeof payload === 'object') ? payload : {};
-            const stageId = String(data.stage_id || '').trim();
-            const stageName = String(data.stage_name || '').trim() || stageId || 'ステージ';
-            const profile = (data.stage_field_effect_profile && typeof data.stage_field_effect_profile === 'object')
-                ? data.stage_field_effect_profile
-                : {};
-            const rules = Array.isArray(profile.rules) ? profile.rules.filter((row) => row && typeof row === 'object') : [];
-            const avatar = _normalizeStageAvatarProfile(data.stage_avatar_profile);
-            const effectEnabled = !!data.stage_field_effect_enabled;
-            const avatarEnabled = !!data.stage_avatar_enabled;
-
-            const existing = document.getElementById('stage-field-effect-modal-backdrop');
-            if (existing) existing.remove();
-            const backdrop = document.createElement('div');
-            backdrop.id = 'stage-field-effect-modal-backdrop';
-            backdrop.className = 'modal-backdrop';
-            const modal = document.createElement('div');
-            modal.className = 'modal-content';
-            modal.style.cssText = 'max-width:920px; width:96vw; max-height:86vh; overflow:auto; padding:22px;';
-            modal.innerHTML = `
-                <div style="display:flex; justify-content:space-between; gap:10px; align-items:flex-start;">
-                    <div>
-                        <div style="font-size:18px; font-weight:700; color:#111827;">ステージ効果詳細</div>
-                        <div style="font-size:12px; color:#4b5563; margin-top:3px;">${_escapeResolveLogHtml(stageName)}${stageId ? ` (ID: ${_escapeResolveLogHtml(stageId)})` : ''}</div>
-                    </div>
-                    <button type="button" id="stage-field-effect-modal-close" class="bo-btn bo-btn--sm">閉じる</button>
-                </div>
-                <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; font-size:12px;">
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${effectEnabled ? '#ecfdf5' : '#f9fafb'}; color:${effectEnabled ? '#166534' : '#6b7280'};">ステージ効果: ${effectEnabled ? 'ON' : 'OFF'}</span>
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:${avatarEnabled ? '#eff6ff' : '#f9fafb'}; color:${avatarEnabled ? '#1d4ed8' : '#6b7280'};">ステージアバター: ${avatarEnabled ? 'ON' : 'OFF'}</span>
-                    <span style="padding:4px 8px; border-radius:999px; border:1px solid #d1d5db; background:#fff; color:#374151;">ルール数: ${rules.length}</span>
-                </div>
-                <div style="display:${avatarEnabled ? 'block' : 'none'}; margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#f8fafc;">
-                    <div style="font-size:12px; color:#6b7280;">ステージアバター（表示用）</div>
-                    <div style="margin-top:6px; display:flex; gap:10px; align-items:flex-start;">
-                        <div style="min-width:54px; height:54px; border-radius:10px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:700; background:#fff; color:#1f2937;">
-                            ${_escapeResolveLogHtml(avatar.icon || '場')}
-                        </div>
-                        <div style="min-width:0;">
-                            <div style="font-size:15px; font-weight:700; color:#111827;">${_escapeResolveLogHtml(avatar.name || stageName)}</div>
-                            <div style="font-size:13px; color:#374151; margin-top:4px;">${_escapeResolveLogHtml(avatar.description || '説明はありません。')}</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top:14px; border:1px solid #e5e7eb; border-radius:10px; padding:12px; background:#fff;">
-                    <div style="font-size:14px; font-weight:700; color:#111827;">効果ルール</div>
-                    ${rules.length
-                        ? `<ul style="margin:10px 0 0 0; padding-left:0; list-style:none;">${rules.map((row, idx) => {
-                            const rid = String(row.rule_id || '').trim() || `rule_${idx + 1}`;
-                            const type = String(row.type || '').trim() || 'UNKNOWN';
-                            const scope = String(row.scope || 'ALL').trim().toUpperCase() || 'ALL';
-                            const value = (row.value === undefined || row.value === null) ? '-' : String(row.value);
-                            const stateName = String(row.state_name || '').trim();
-                            const displayName = String(row.display_name || row.name || '').trim();
-                            const title = displayName || rid || type || `効果ルール ${idx + 1}`;
-                            const description = String(row.description || '').trim();
-                            const flavor = String(row.flavor_text || row.flavor || '').trim();
-                            const cond = (row.condition && typeof row.condition === 'object') ? ` / 条件: ${_escapeResolveLogHtml(JSON.stringify(row.condition))}` : '';
-                            const statePart = stateName ? ` / 状態: ${_escapeResolveLogHtml(stateName)}` : '';
-                            const descriptionHtml = description ? `<div style="margin-top:6px; color:#374151;">${_escapeResolveLogHtml(description)}</div>` : '';
-                            const flavorHtml = flavor ? `<div style="margin-top:8px; padding:8px 10px; border-left:3px solid #93c5fd; background:#eff6ff; color:#1e3a8a; font-style:italic;">${_escapeResolveLogHtml(flavor)}</div>` : '';
-                            return `<li style="margin-bottom:10px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:#f9fafb;"><div style="font-weight:700; color:#111827;">${_escapeResolveLogHtml(title)}</div><div style="margin-top:4px; font-size:12px; color:#4b5563;">ID:${_escapeResolveLogHtml(rid)} / 種類:${_escapeResolveLogHtml(type)} / 対象:${_escapeResolveLogHtml(scope)} / 値:${_escapeResolveLogHtml(value)}${statePart}${cond}</div>${descriptionHtml}${flavorHtml}</li>`;
-                        }).join('')}</ul>`
-                        : '<div style="margin-top:8px; color:#6b7280;">ステージ効果ルールは設定されていません。</div>'
-                    }
-                </div>
-            `;
-            backdrop.appendChild(modal);
-            document.body.appendChild(backdrop);
-            const close = () => backdrop.remove();
-            modal.querySelector('#stage-field-effect-modal-close')?.addEventListener('click', close);
-            backdrop.addEventListener('click', (evt) => {
-                if (evt.target === backdrop) close();
-            });
-        };
-    }
-
-    function getBattleOnlyStageDisplayState() {
-        const bs = (battleState && typeof battleState === 'object') ? battleState : {};
-        const boMode = String(bs.play_mode || 'normal').toLowerCase() === 'battle_only';
-        const bo = (bs.battle_only && typeof bs.battle_only === 'object') ? bs.battle_only : {};
-        const status = String(bo.status || 'lobby').trim().toLowerCase();
-        const stageProfile = (bo.stage_field_effect_profile && typeof bo.stage_field_effect_profile === 'object')
-            ? bo.stage_field_effect_profile
-            : ((bs.stage_field_effect_profile && typeof bs.stage_field_effect_profile === 'object') ? bs.stage_field_effect_profile : {});
-        const avatarProfile = (bo.stage_avatar_profile && typeof bo.stage_avatar_profile === 'object')
-            ? bo.stage_avatar_profile
-            : ((bs.stage_avatar_profile && typeof bs.stage_avatar_profile === 'object') ? bs.stage_avatar_profile : {});
-        const stageAvatarEnabled = Object.prototype.hasOwnProperty.call(bo, 'stage_avatar_enabled')
-            ? !!bo.stage_avatar_enabled
-            : (Object.prototype.hasOwnProperty.call(bs, 'stage_avatar_enabled') ? !!bs.stage_avatar_enabled : avatarProfile.enabled !== false);
-        const stageId = String(bo.selected_stage_id || '').trim();
-        const stageName = String(avatarProfile.name || stageId || '').trim() || 'ステージ';
-        const rules = Array.isArray(stageProfile.rules) ? stageProfile.rules.filter((row) => row && typeof row === 'object') : [];
-        return {
-            boMode,
-            status,
-            stageId,
-            stageName,
-            rules,
-            stage_field_effect_enabled: !!bo.stage_field_effect_enabled,
-            stage_avatar_enabled: stageAvatarEnabled,
-            stage_field_effect_profile: stageProfile,
-            stage_avatar_profile: avatarProfile,
-        };
-    }
-
-    function syncStageEffectCard() {
-        const info = getBattleOnlyStageDisplayState();
-        const roomName = String((typeof currentRoomName !== 'undefined' ? currentRoomName : runtimeGlobal.currentRoomName) || '').trim();
-        const hasRules = Array.isArray(info.rules) && info.rules.length > 0;
-        const hasAvatarContent = !!(
-            info.stage_avatar_enabled &&
-            (info.stageId || info.stage_avatar_profile.name || info.stage_avatar_profile.description || info.stage_avatar_profile.icon)
-        );
-        const hasStageContent = !!((info.stage_field_effect_enabled && hasRules) || hasAvatarContent);
-        const shouldShow = !!(roomName && info.boMode && info.status === 'in_battle' && hasStageContent);
-        if (!shouldShow) {
-            removeStageEffectCard();
-            return;
-        }
-        const exists = document.getElementById(stageEffectCardId);
-        const card = exists || document.createElement('div');
-        const sidebar = document.getElementById('visual-sidebar');
-        const sidebarWidth = Math.max(0, Math.round(sidebar?.getBoundingClientRect?.().width || 350));
-        const viewportWidth = Math.max(0, Math.round(window.innerWidth || document.documentElement?.clientWidth || 0));
-        const compactCard = viewportWidth > 0 && viewportWidth < (sidebarWidth + 360);
-        const cardWidth = compactCard
-            ? Math.max(180, Math.min(260, viewportWidth - 96))
-            : 260;
-        card.id = stageEffectCardId;
-        card.style.position = 'fixed';
-        card.style.left = compactCard ? '84px' : 'auto';
-        card.style.right = compactCard ? 'auto' : `${sidebarWidth + 16}px`;
-        card.style.top = compactCard ? '84px' : '72px';
-        card.style.zIndex = '860';
-        card.style.width = `${cardWidth}px`;
-        card.style.minWidth = '0';
-        card.style.maxWidth = compactCard ? 'calc(100vw - 96px)' : '320px';
-        card.style.background = 'rgba(255,255,255,0.96)';
-        card.style.border = '1px solid rgba(17,24,39,0.16)';
-        card.style.borderRadius = '10px';
-        card.style.boxShadow = '0 10px 24px rgba(0,0,0,0.18)';
-        card.style.padding = '10px';
-        const icon = _escapeResolveLogHtml(String(info.stage_avatar_enabled ? (info.stage_avatar_profile.icon || '場') : '場'));
-        const statusColor = info.stage_field_effect_enabled ? '#166534' : '#6b7280';
-        card.innerHTML = `
-            <div style="display:flex; gap:8px; align-items:center;">
-                <div style="width:36px; min-width:36px; height:36px; border-radius:8px; border:1px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:#111827; background:#fff;">${icon}</div>
-                <div style="min-width:0; flex:1;">
-                    <div style="font-size:12px; color:#6b7280;">ステージ効果</div>
-                    <div style="font-size:14px; font-weight:700; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_escapeResolveLogHtml(info.stageName)}</div>
-                </div>
-            </div>
-            <div style="margin-top:8px; display:flex; justify-content:space-between; gap:6px; font-size:12px; flex-wrap:wrap;">
-                <span style="color:${statusColor};">効果: ${info.stage_field_effect_enabled ? 'ON' : 'OFF'}</span>
-                <span style="color:${info.stage_avatar_enabled ? '#1d4ed8' : '#6b7280'};">アバター: ${info.stage_avatar_enabled ? 'ON' : 'OFF'}</span>
-                <span style="color:#374151;">ルール数: ${info.rules.length}</span>
-            </div>
-            <div style="margin-top:8px;">
-                <button type="button" id="visual-stage-effect-detail-btn" class="bo-btn bo-btn--sm" style="width:100%;">詳細</button>
-            </div>
-        `;
-        if (!exists) document.body.appendChild(card);
-        const btn = card.querySelector('#visual-stage-effect-detail-btn');
-        if (btn) {
-            btn.onclick = () => runtimeGlobal.openStageFieldEffectDetailModal({
-                stage_id: info.stageId,
-                stage_name: info.stageName,
-                stage_field_effect_enabled: info.stage_field_effect_enabled,
-                stage_avatar_enabled: info.stage_avatar_enabled,
-                stage_field_effect_profile: info.stage_field_effect_profile,
-                stage_avatar_profile: info.stage_avatar_profile,
-            });
-        }
-    }
-
-    syncBattleOnlyCenterCta();
-    if (runtimeGlobal.__boCenterCtaTimer) {
-        clearInterval(runtimeGlobal.__boCenterCtaTimer);
-    }
-    runtimeGlobal.__boCenterCtaTimer = setInterval(syncBattleOnlyCenterCta, 1200);
-    syncStageEffectCard();
-    if (runtimeGlobal.__boStageEffectCardTimer) {
-        clearInterval(runtimeGlobal.__boStageEffectCardTimer);
-    }
-    runtimeGlobal.__boStageEffectCardTimer = setInterval(syncStageEffectCard, 1200);
 
     if (isGM) {
         if (saveBtn) {
@@ -1380,21 +1077,11 @@ window.setupVisualSidebarControls = function () {
         if (roomPresetBtn) {
             roomPresetBtn.onclick = () => window.openRoomEncounterQueue();
         }
-        if (boBtn) {
-            boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
-            boBtn.textContent = '詳細調整';
-            boBtn.onclick = () => window.openBattleOnlyDraftModal();
-        }
     } else {
         if (saveBtn) saveBtn.style.display = 'none';
-        if (boBtn) {
-            boBtn.style.display = isBattleOnlyMode ? 'inline-block' : 'none';
-            boBtn.textContent = 'かんたん戦闘突入';
-            boBtn.onclick = openBattleOnlyDraftFromUi;
-        }
     }
     if (resetBtn) {
-        if (canUseResetInRoom) {
+        if (isGM) {
             resetBtn.style.display = 'inline-block';
             resetBtn.onclick = async () => {
                 if (typeof openResetTypeModal === 'function') {

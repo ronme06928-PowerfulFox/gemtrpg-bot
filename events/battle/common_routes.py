@@ -64,23 +64,10 @@ def _require_in_room(room):
     return True
 
 
-def _is_battle_only_mode(room):
-    state = get_room_state(room)
-    if not isinstance(state, dict):
-        return False
-    play_mode = str(state.get('play_mode') or 'normal').strip().lower()
-    return play_mode == 'battle_only'
-
-
-def _start_resolve_presentation_for_request(room_id, battle_state):
+def _start_resolve_presentation_for_request(_room_id, battle_state):
     user_info = get_user_info_from_sid(request.sid) or {}
     controller_user_id = user_info.get('user_id')
     controller_username = user_info.get('username')
-    room_state = get_room_state(room_id) or {}
-    if _is_battle_only_mode(room_id):
-        bo = room_state.get('battle_only') if isinstance(room_state.get('battle_only'), dict) else {}
-        controller_user_id = bo.get('controller_user_id') or controller_user_id
-        controller_username = bo.get('controller_username') or controller_username
     return start_resolve_presentation(
         battle_state,
         controller_user_id=controller_user_id,
@@ -112,33 +99,7 @@ def _complete_round_after_resolve(room, username, expected_round):
 
     end_result = process_full_round_end(room, username)
     flush_room_state_now(room)
-    if not _is_battle_only_mode(room):
-        return bool(end_result)
-
-    state = get_room_state(room)
-    if not isinstance(state, dict):
-        return False
-    ended = bool(state.get('is_round_ended', False)) if end_result is None else bool(end_result)
-    if not ended or int(state.get('round', 0) or 0) != before_round:
-        return False
-    if not state.get('is_round_ended', False):
-        return False
-
-    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
-    if bool(bo.get('pending_auto_reset', False)):
-        bo['pending_auto_reset'] = False
-        bo['pending_auto_reset_round'] = None
-        reset_battle_logic(room, 'full', '戦闘専用モード(自動リセット)')
-        broadcast_log(room, "[BattleOnly] 解決表示完了後にフィールドを自動リセットしました。", 'info')
-        flush_room_state_now(room)
-        return True
-
-    bo_status = str(bo.get('status', '') or '').strip().lower()
-    if bo_status and bo_status != 'in_battle':
-        return True
-    process_round_start(room, "戦闘専用モード")
-    flush_room_state_now(room)
-    return True
+    return bool(end_result)
 
 
 def _complete_empty_resolve(room_id, battle_state):
@@ -146,20 +107,6 @@ def _complete_empty_resolve(room_id, battle_state):
     username = user_info.get('username', 'System')
     expected_round = int(battle_state.get('round', 0) or 0)
     _complete_round_after_resolve(room_id, username, expected_round)
-
-
-def _get_battle_only_intent_control_policy(room):
-    state = get_room_state(room)
-    if not isinstance(state, dict):
-        return ("all", "", "")
-    bo = state.get('battle_only') if isinstance(state.get('battle_only'), dict) else {}
-    options = bo.get('options') if isinstance(bo.get('options'), dict) else {}
-    mode = str(options.get('intent_control_mode') or 'all').strip().lower()
-    if mode not in ('all', 'starter_only'):
-        mode = 'all'
-    controller_user_id = str(bo.get('controller_user_id') or '').strip()
-    controller_username = str(bo.get('controller_username') or '').strip()
-    return (mode, controller_user_id, controller_username)
 
 
 def _log_battle_recv(event_name, data=None, phase=None):
@@ -244,25 +191,13 @@ def on_request_end_round(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
-    is_battle_only = _is_battle_only_mode(room)
 
-    if attribute != 'GM' and not is_battle_only:
+    if attribute != 'GM':
         print(f"[Security] Player {username} tried to end round. Denied.")
         return
 
     before_state = get_room_state(room)
     before_round = int((before_state or {}).get('round', 0) or 0)
-    if is_battle_only:
-        battle_state = (before_state or {}).get('battle_state')
-        presentation = (
-            ((battle_state or {}).get('resolve') or {}).get('presentation')
-            if isinstance(battle_state, dict)
-            else None
-        )
-        if isinstance(presentation, dict) and presentation.get('status') == 'playing':
-            # Battle-only progression is committed by the shared server cursor.
-            # Legacy/local completion notifications must not skip the remaining display.
-            return
     expected_round = data.get('expected_round')
     if expected_round is not None:
         try:
@@ -287,9 +222,8 @@ def on_request_reset_battle(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
-    is_battle_only = _is_battle_only_mode(room)
 
-    if attribute != 'GM' and not is_battle_only:
+    if attribute != 'GM':
         print(f"[Security] Player {username} tried to reset battle. Denied.")
         return
 
@@ -652,37 +586,6 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     user_info = get_user_info_from_sid(request.sid) or {}
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
-
-    # battle_only は操作モードで宣言権限を切り替える:
-    # - all: 参加者全員が宣言操作可能
-    # - starter_only: 戦闘開始者またはGMのみ操作可能
-    if _is_battle_only_mode(room_id):
-        if str(attribute or '').strip().upper() == 'GM':
-            return True
-        mode, controller_user_id, controller_username = _get_battle_only_intent_control_policy(room_id)
-        if mode == 'starter_only':
-            req_user_id = str(user_info.get('user_id') or '').strip()
-            allowed_starter = False
-            if controller_user_id and req_user_id and controller_user_id == req_user_id:
-                allowed_starter = True
-            elif (not controller_user_id) and controller_username and str(username or '').strip() == controller_username:
-                allowed_starter = True
-            if not allowed_starter:
-                logger.warning(
-                    "[FLOW] %s_denied room=%s battle=%s slot=%s reason=starter_only user=%s",
-                    event_name, room_id, battle_id, slot_id, username
-                )
-                emit(
-                    'battle_error',
-                    {
-                        'message': 'starter_only permission denied',
-                        'slot_id': slot_id,
-                        'actor_id': actor_id
-                    },
-                    to=request.sid
-                )
-                return False
-        return True
 
     allowed = is_authorized_for_character(room_id, actor_id, username, attribute)
     if not allowed:
@@ -1263,7 +1166,7 @@ def on_battle_resolve_start(data):
         return
     battle_id = _resolve_battle_id_for_room(room_id, data)
     user_info = get_user_info_from_sid(request.sid) or {}
-    if str(user_info.get('attribute') or '').strip().upper() != 'GM' and not _is_battle_only_mode(room_id):
+    if str(user_info.get('attribute') or '').strip().upper() != 'GM':
         emit('battle_error', {'message': 'battle_resolve_start is GM only'}, to=request.sid)
         return
 

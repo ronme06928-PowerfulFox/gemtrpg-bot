@@ -445,12 +445,12 @@ function mainMenu() {
 
 function roomList() {
   const rooms = [
-    ['北境の街道', '通常ルーム', viewer.value === 'gm' ? 'GM・参加済み' : '募集中', '3 / 5人'],
-    ['採石場の模擬戦', '戦闘専用', '募集中', '2 / 4人'],
+    ['北境の街道', viewer.value === 'gm' ? 'GM・参加済み' : '募集中', '3 / 5人'],
+    ['採石場の模擬戦', '募集中', '2 / 4人'],
   ];
   return `<section class="workspace"><header class="workspace-head"><h2 tabindex="-1" data-view-title>ルーム一覧</h2></header>
-    <div class="panel-scroll stack">${rooms.map(([name, mode, status, count]) =>
-      `<article class="card stack"><div class="section-title"><h3>${name}</h3>${badge(mode)}${badge(status)}</div>
+    <div class="panel-scroll stack">${rooms.map(([name, status, count]) =>
+      `<article class="card stack"><div class="section-title"><h3>${name}</h3>${badge(status)}</div>
         <p>参加者 ${count}</p></article>`).join('')}</div></section>`;
 }
 

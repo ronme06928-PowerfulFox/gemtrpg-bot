@@ -53,7 +53,7 @@ def _authorized_normal_room(data):
         _emit_error(sid, "GM permission required")
         return None, None, None
     state = get_room_state(room)
-    if not isinstance(state, dict) or str(state.get("play_mode") or "normal").strip().lower() == "battle_only":
+    if not isinstance(state, dict):
         _emit_error(sid, "normal room combat session required")
         return None, None, None
     return room, state, str(info.get("username") or "GM")

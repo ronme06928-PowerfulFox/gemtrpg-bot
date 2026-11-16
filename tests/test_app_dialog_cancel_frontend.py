@@ -18,7 +18,7 @@ def test_dialog_validates_inside_the_window():
 
 def test_pin_prompts_do_not_alert_on_cancel():
     for start, end in [
-        ("async function createRoomByMode", "const payload = {"),
+        ("async function createNewRoom", "const payload = {"),
         ("async function deleteRoom", "const response = await fetchWithSession('/delete_room'"),
         ("async function joinRoom(", "const entryResponse = await fetchWithSession"),
     ]:

@@ -8,7 +8,7 @@
 
 | 単位 | 内容 | 保つ契約 |
 |---|---|---|
-| 本体の依存・読込先 | カタログ検証をmanagerへ、戦闘専用構築をmanagerへ移す。呼出し元を更新し、data/cacheのみを読む。Procfileを確認済みのapp:appに統一しwsgi.pyを削除 | スキル検証結果、生成キャラ、HTTP・Socket登録を維持。実際のRender Start Command・Gunicorn設定は変更しない |
+| 本体の依存・読込先 | カタログ検証をmanagerへ、戦闘専用構築をmanagerへ移す（当時。計画65で戦闘専用ルームを廃止）。呼出し元を更新し、data/cacheのみを読む。Procfileを確認済みのapp:appに統一しwsgi.pyを削除 | スキル検証結果、生成キャラ、HTTP・Socket登録を維持。実際のRender Start Command・Gunicorn設定は変更しない |
 | 旧文書・草稿・配置 | READMEを入口に旧3文書を統合。未参照草稿4本、重複テストと結果出力を整理。旧画像JSONをdata/archiveへ保管 | JSONの内容を保全。旧保存DB/JSON3本は_local/legacy_dataに原本を保持。履歴27本は保持。未使用CSS削除後のビルド結果が同じ |
 | 資料・運用補助 | 常設プロジェクト・操作手順・独立バックアップCLI・隔離診断と対応テストをGit管理可能にする | ツールは明示実行時だけ動作する。スケジュール登録・資格情報保存・本番復元・新規課金を行わない |
 

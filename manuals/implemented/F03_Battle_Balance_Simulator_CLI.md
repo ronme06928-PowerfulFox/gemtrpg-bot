@@ -9,7 +9,8 @@
 - `scripts/simulate_battle.py`: CLI 入口。引数解析、入力読み込み、出力整形を担当。
 - `manager/sim/battle_runner.py`: ヘッドレス戦闘実行、決定論ダイス、実行時パッチ、味方 intent 自動投入を担当。
 - `manager/sim/preset_loader.py`: ユニット管理の資源、味方/敵編成、ステージから一時 room_state を生成。
-- `manager/battle_only_runtime.py`: 自動配置などを共有する。実行時キャラクターは `manager/units/characters.py` で組み立てる。
+- `manager/sim/positions.py`: 味方・敵を自動配置する。実行時キャラクターは `manager/units/characters.py` で組み立てる。
+- `manager/battle/battle_result.py`: 全滅に基づく勝敗を判定する。
 - `manager/sim/reporting.py`: レポート dataclass、HP 集計、膠着理由判定、複数試行集計、コンソール整形を担当。
 - `tests/sim/test_simulate_battle.py`: シミュレータの回帰テスト。
 

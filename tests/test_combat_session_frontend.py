@@ -28,7 +28,6 @@ const cases = [
   [{ play_mode: 'normal', combat_phase: 'ready' }, true, false],
   [{ play_mode: 'normal', combat_phase: 'active' }, true, true],
   [{ play_mode: 'normal' }, true, true],
-  [{ play_mode: 'battle_only', combat_phase: 'active' }, true, false],
   [{ play_mode: 'normal', combat_phase: 'active' }, false, false],
 ];
 for (const [state, isGm, expected] of cases) {

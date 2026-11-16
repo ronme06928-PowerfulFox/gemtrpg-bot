@@ -450,9 +450,6 @@ function showEntryPortal() {
 }
 
 async function showRoomPortal() {
-    if (typeof window.removeBattleOnlyCenterCta === 'function') {
-        try { window.removeBattleOnlyCenterCta(); } catch (_e) {}
-    }
     if (typeof window.__boQuickStartCleanup === 'function') {
         try { window.__boQuickStartCleanup(); } catch (_e) {}
     }
@@ -482,7 +479,6 @@ async function showRoomPortal() {
         const response = await fetchWithSession('/list_rooms');
         if (!response.ok) throw new Error('サーバーからルーム一覧を取得できませんでした。');
         const data = await response.json();
-        // data: { rooms: [{name, owner_id, play_mode, battle_only_stage_id}, ...], current_user_id, is_gm }
         currentUserIsAppAdmin = !!data.is_app_admin;
         window.currentUserIsAppAdmin = currentUserIsAppAdmin;
         renderRoomPortal(data.rooms, data.current_user_id, data.is_gm);
@@ -533,7 +529,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
                 <input type="text" id="room-search-input" placeholder="ルームを検索">
                 <button id="refresh-room-list-btn" type="button" title="ルーム一覧を更新">更新</button>
                 <button id="create-room-btn" type="button" class="is-primary">＋ 新規ルーム作成</button>
-                <button id="create-battle-only-room-btn" type="button">戦闘専用ルーム作成</button>
             </div>
             <div id="room-list-container">
                 <h2>ルーム一覧</h2>
@@ -546,7 +541,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
     const roomList = document.getElementById('room-list');
     const searchInput = document.getElementById('room-search-input');
     const createBtn = document.getElementById('create-room-btn');
-    const createBattleOnlyBtn = document.getElementById('create-battle-only-room-btn');
     const refreshBtn = document.getElementById('refresh-room-list-btn');
     const emptyMsg = document.getElementById('room-list-empty');
     // ★追加: 更新ボタンのイベントリスナー
@@ -581,11 +575,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             const li = document.createElement('li');
             li.className = 'room-list-item';
 
-            const isBattleOnly = String(roomInfo.play_mode || 'normal').toLowerCase() === 'battle_only';
-            const modeBadge = isBattleOnly
-                ? '<span class="room-mode-badge battle-only">戦闘専用</span>'
-                : '<span class="room-mode-badge normal">通常</span>';
-
             const role = roomInfo.your_role;
             const isMember = !!roomInfo.is_member;
             // 個別カードのDTOが古くても、全体管理者には管理操作を表示する。
@@ -613,7 +602,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
             li.innerHTML = `
                 <div class="room-list-main">
                     <span class="room-list-name">${escapeRoomText(name)}</span>
-                    <div class="room-list-meta">${modeBadge}${roleBadge}${recruitBadge}</div>
+                    <div class="room-list-meta">${roleBadge}${recruitBadge}</div>
                     ${descHtml}
                 </div>
                 <div class="room-list-buttons">
@@ -642,9 +631,6 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 
     searchInput.addEventListener('input', (e) => populateList(e.target.value));
     createBtn.addEventListener('click', createNewRoom);
-    if (createBattleOnlyBtn) {
-        createBattleOnlyBtn.addEventListener('click', createBattleOnlyRoom);
-    }
     roomList.addEventListener('click', (e) => {
         const target = e.target;
         const roomName = target.dataset.roomName;
@@ -836,25 +822,12 @@ function validatePinOrMasterKey(value) {
 }
 
 async function createNewRoom() {
-    await createRoomByMode('normal');
-}
-
-async function createBattleOnlyRoom() {
-    await createRoomByMode('battle_only');
-}
-
-async function createRoomByMode(playMode) {
-    const isBattleOnly = playMode === 'battle_only';
-    const roomName = await showAppPrompt(isBattleOnly
-        ? '戦闘専用ルーム名を入力してください'
-        : 'ルーム名を入力してください',
-        {
-            title: isBattleOnly ? '戦闘専用ルーム作成' : '通常ルーム作成',
-            placeholder: isBattleOnly ? '戦闘専用ルーム名' : 'ルーム名',
-            confirmText: '作成',
-            required: true,
-        }
-    );
+    const roomName = await showAppPrompt('ルーム名を入力してください', {
+        title: '通常ルーム作成',
+        placeholder: 'ルーム名',
+        confirmText: '作成',
+        required: true,
+    });
     if (roomName === null) return;  // キャンセル
 
     const gmPin = await showAppPrompt('GM PINとして使う4桁の数字を入力してください。', {
@@ -867,9 +840,6 @@ async function createRoomByMode(playMode) {
     if (gmPin === null) return;  // キャンセル
 
     const payload = { room_name: roomName.trim(), gm_pin: String(gmPin).trim() };
-    if (isBattleOnly) {
-        payload.play_mode = 'battle_only';
-    }
 
     try {
         const response = await fetchWithSession('/create_room', {

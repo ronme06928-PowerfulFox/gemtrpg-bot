@@ -169,8 +169,7 @@
       const refs = state.refs;
       get('.unit-references').innerHTML = !state.selected ? '<p>未保存</p>' : !refs ? '<p>確認中…</p>' :
         ([...new Map(refs.references.map(ref => [ref.kind + ':' + ref.entry_id, ref])).values()]
-          .map(ref => `<p><code>${h(ref.entry_id)}</code> ${h(ref.display_name)}</p>`).join('') +
-         (refs.room_reference_count ? `<p>ルーム ${h(refs.room_reference_count)}件</p>` : '') || '<p>使用中の資源はありません。</p>');
+          .map(ref => `<p><code>${h(ref.entry_id)}</code> ${h(ref.display_name)}</p>`).join('') || '<p>使用中の資源はありません。</p>');
       const save = get('[data-unit-action="save"]');
       if (save) {
         save.disabled = state.conflict || !!Object.keys(state.check?.errors || {}).length;

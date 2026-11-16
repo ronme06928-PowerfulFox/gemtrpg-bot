@@ -64,15 +64,4 @@ def test_room_encounter_queue_e2e():
         pl.wait_for_function("battleState.characters.length > 0")
         assert pl.evaluate("!('encounter_queue' in battleState)")
 
-        battle_room = f"EncounterDraft-{token}"
-        post(gm, "/create_room", room_name=battle_room, gm_pin="5219", play_mode="battle_only")
-        gm.get_by_role("button", name="待機列に戻る").click()
-        dialog.get_by_role("button", name="閉じる").click()
-        enter(gm, battle_room, "GM")
-        dialog = save_stage(gm)
-        dialog.get_by_role("button", name="下書きへ反映").click()
-        dialog.get_by_role("button", name="確定", exact=True).click()
-        expect(dialog.get_by_text("下書きに反映しました")).to_be_visible()
-        dialog.get_by_role("button", name="詳細調整").click()
-        expect(gm.locator("#bo-draft-backdrop")).to_be_visible()
         browser.close()
