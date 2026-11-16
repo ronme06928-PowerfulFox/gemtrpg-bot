@@ -259,6 +259,7 @@ function showEntryPortal() {
     roomPortal.style.display = 'none';
     setRoomVisible(false);
     entryPortal.style.display = 'block';
+    window.AppLoading.end();
 
     const entryMsg = document.getElementById('entry-message');
     const setMsg = (text, ok) => {
@@ -864,6 +865,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
             }
         }
 
+        window.AppLoading.begin({title: roomName, step: 'ルームを読み込み中'});
         const entryResponse = await fetchWithSession('/api/enter_room', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -888,6 +890,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
             }
             initialState = await response.json();
         }
+        window.AppLoading.step('盤面を準備中');
         battleState = initialState;
         currentRoomName = roomName;
         socket.emit('join_room', {
@@ -900,24 +903,26 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         roomPortal.style.display = 'none';
         hideMenuScreens();
         enterRoomHistory();
+        // 前のルームの盤面を見せないよう、中身を消してから表示し、新しい盤面を組み立てる。
+        mainContent.innerHTML = '';
         setRoomVisible(true);
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
         updateHeaderUserInfo();
-
-        // === ▼▼▼ 修正点: デフォルトタブをビジュアルバトルフィールドに変更 ▼▼▼
-        loadTabContent('visual');
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        const defaultTab = document.querySelector('.tab-button[data-tab="visual"]');
-        if (defaultTab) {
-            defaultTab.classList.add('active');
-        }
-        // === ▲▲▲ 修正ここまで ▲▲▲
-
+        await loadTabContent('visual');
+        await window.AppLoading.waitForImage(roomBackgroundUrl(battleState));
+        await window.AppLoading.end();
     } catch (error) {
+        window.AppLoading.end();
         console.error('Error joining room:', error);
         window.showAppNotice(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`, {kind: 'error'});
         showRoomPortal();
     }
+}
+
+function roomBackgroundUrl(state) {
+    return state?.mode === 'exploration'
+        ? state.exploration?.backgroundImage
+        : state?.battle_map_data?.background_image;
 }
 
 function updateHeaderUserInfo() {
@@ -1219,6 +1224,7 @@ async function checkSessionStatus() {
             const recovered = await attemptLocalTokenRecovery();
             if (!recovered) showEntryPortal();
         } else {
+            window.AppLoading.end();
             entryPortal.innerHTML = `<h2 style="color: red;">サーバー接続エラー</h2><p>${error.message}</p><p>app.py を起動してください。</p>`;
             entryPortal.style.display = 'block';
         }
@@ -1226,6 +1232,7 @@ async function checkSessionStatus() {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    window.AppLoading.begin({title: 'ジェムリアTRPG', step: '接続中'});
     checkSessionStatus();
 
     if (window.Glossary && typeof window.Glossary.initOnce === 'function') {

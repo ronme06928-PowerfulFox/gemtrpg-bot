@@ -125,12 +125,16 @@
     showUserManagement();
   }
 
-  function showScreen(name) {
-    if (name === 'sessions') showRoomPortal();
-    else if (name === 'help') showHelp();
-    else if (name === 'users') showUsers();
-    else if (WORKSPACES[name]) showWorkspace(name);
-    else showMainMenu();
+  async function showScreen(name) {
+    try {
+      if (name === 'sessions') await showRoomPortal();
+      else if (name === 'help') showHelp();
+      else if (name === 'users') showUsers();
+      else if (WORKSPACES[name]) showWorkspace(name);
+      else showMainMenu();
+    } finally {
+      window.AppLoading.end();
+    }
   }
 
   let leaveApproved = false;  // 画面の中の操作で確認を済ませたとき、hashchange で聞き直さない。
@@ -165,8 +169,10 @@
       defaultFocus: 'cancel', title: 'ルーム一覧へ戻る', confirmText: '戻る',
     });
     if (!ok) return false;
+    window.AppLoading.begin({title: typeof currentRoomName === 'string' ? currentRoomName : '', step: 'ルームを出ています'});
     const leaveResult = await leaveCurrentSocketRoom();
     if (!leaveResult?.ok) {
+      window.AppLoading.end();
       console.warn('Socket room leave acknowledgement timed out.', leaveResult);
       window.showAppNotice('ルームからの退出を確認できませんでした。接続を確認して、もう一度お試しください。', {kind: 'error'});
       return false;

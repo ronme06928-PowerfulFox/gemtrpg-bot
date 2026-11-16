@@ -36,6 +36,7 @@ const CLASSIC_SCRIPTS = [
   'js/common/log_core.js',
   'js/common/char_json.js',
   'js/common/system_window.js',
+  'js/common/loading_screen.js',
   'js/sound_fx.js',
   'js/fx/fx_core.js',
   'js/fx/fx_effects.js',
