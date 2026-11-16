@@ -23,8 +23,8 @@
 | 配置 | `manager/preset_deployment.py` の戦闘専用の組み立て（`_battle_only_defaults`・`_validate_battle_only_candidate`・`_build_battle_only_candidate`、`target_mode` の分岐）、待機列の「下書きへ反映」 |
 | 画面 | `static/js/modals/battle_only_draft_modal.js`・`battle_only_quick_start_modal.js`・`battle_only_participant_modal.js`（計2,152行）、`visual_ui.js` の戦闘専用パネル、`static/4_visual_battle.html` の「戦闘専用」ボタン |
 | GM なしで進めるための特別扱い | §3 の8か所 |
-| テスト | 戦闘専用だけを確かめるファイル（§5.4） |
-| 資料 | D01 Part 2・Part 5 §3、A02 §2.6 ほか（§5.5） |
+| テスト | 戦闘専用だけを確かめるファイル（§5.5） |
+| 資料 | D01 Part 2・Part 5 §3、A02 §2.6 ほか（§5.6） |
 
 ### 移すもの（消さない）
 
@@ -39,6 +39,7 @@
 - 通常ルームの挙動（待機列と登場、戦闘突入・終結、戦績、R開始・R終了、PvE の切り替え、解決表示の進行役）。§3 の分岐を消しても、通常ルーム側の条件（GM 限定・所有者の確認）はそのまま残る。
 - ユニット管理（ユニット・編成・ステージ）の項目と画面。ステージの味方編成は待機列の登場で使えるので残す。
 - シミュレーター CLI の使い方と結果（F03）。
+- 動画用に固めた解決パネルの写し（`typst_manual/動画/01_1ラウンドの流れ/components/resolve-panel/`・`out/`）。撮った時点の写しなので直さない。
 
 ## 3. GM なしで進めるための特別扱い（消す・ホロウで作り直す）
 
@@ -112,7 +113,7 @@ AGENTS.md の順（資料 → テスト → 実装 → 不要コード・資料�
 | 戦闘専用の場合を消し、通常ルームの場合を残す | `test_preset_deployment.py`、`test_preset_deployment_socket.py`、`test_reset_summon_cleanup.py`、`test_resolve_presentation.py`、`test_units.py`、`test_unit_workspace.py`、`test_socket_room_auth.py`、`test_token_move_differential.py`、`test_select_resolve_smoke.py`、`test_combat_session_room_create.py`、`test_combat_session_phase0.py`、`test_combat_session_frontend.py`、`test_stage_field_effects_runtime.py`、`test_reflect_radiance_results.py`、`test_persistence_process_recovery.py`、`test_immediate_round_limit.py`、`tests/e2e/test_room_preset_apply_e2e.py`、`tests/sim/test_simulate_battle.py` |
 | 足す | ルームの作成で `play_mode` を送っても通常ルームになる。`battle_only` の項目と `play_mode: "battle_only"` を持つ保存済みのルームが、読み込みと起動時の移行で通常ルームになる。§3 の1〜3・6が、PL では拒否される（通常ルームの既存のテストで足りていれば足さない）。`estimate_battle_result` の4つの結果 |
 
-全件テストの後、`grep -rnE "battle_only|request_bo_|_bo_" --include=*.py --include=*.js .`（`tests`・`static/dist`・`.venv` を除く）で残りがないことを確かめる。
+全件テストの後、`grep -rnE "battle_only|request_bo_|_bo_" --include=*.py --include=*.js .`（`tests`・`static/dist`・`.venv`・`typst_manual`・`.claude` を除く）で残りがないことを確かめる。
 
 ### 5.6 資料（刊行物を除く）
 
