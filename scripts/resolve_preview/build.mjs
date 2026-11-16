@@ -1,3 +1,4 @@
+import { extractStagePaletteCss } from '../fx_gallery/panel_css.mjs';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,7 +34,7 @@ const html = `<title>舞台型の解決パネル</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="claude:viewport-fit-sides" content="cover">
 ${fonts}
-<style>${await read('static/css/modules/motion_fx.css')}\n${await read('scripts/resolve_preview/page.css')}</style>
+<style>${extractStagePaletteCss(await read('static/css/modules/common_ui.css'))}\n${await read('static/css/modules/motion_fx.css')}\n${await read('scripts/resolve_preview/page.css')}</style>
 <main id="resolve-preview" data-build-inputs="${inputs}"></main>
 <script>${script}</script>
 `;

@@ -2,24 +2,8 @@
 
 :root {
   --fx-scale: 1;
-  --fx-damage: #ff4444;
-  --fx-heal: #44ff44;
-  --fx-mp-cost: #4488ff;
-  --fx-mp-heal: #00ccff;
-  --fx-state: #ff44ff;
-  --fx-number-font: 'Cinzel', Georgia, serif;
-  --fx-effect-font: 'Zen Antique', 'Yu Mincho', serif;
-  --fx-win: #ffd56b;
-  --fx-ally: #ff7373;
-  --fx-white: #fff;
-  --fx-neutral: #e9e7df;
-  --fx-self: #cf95ff;
-  --fx-crystal: #bfe8ff;
-  --fx-shadow: #101322;
-  --fx-attack-enemy-edge: #ff9d2e;
-  --fx-attack-ally-edge: #ff2f55;
-  --fx-attack-neutral-edge: #a9b4c8;
-  --fx-attack-smoke: #282430;
+  --fx-number-font: "Cinzel", Georgia, serif;
+  --fx-effect-font: "Zen Antique", "Yu Mincho", serif;
 }
 
 .fx-root {
@@ -42,10 +26,10 @@
   display: grid;
   place-items: center;
   font-size: calc(32px * var(--fx-scale));
-  color: var(--fx-win);
-  background: #1c202e;
+  color: var(--ui-fx-win);
+  background: var(--ui-fx-roll-shadow);
   border-radius: 5px;
-  text-shadow: 0 2px 3px #000;
+  text-shadow: 0 2px 3px var(--ui-fx-black);
 }
 
 .fx-clash-flash {
@@ -55,10 +39,10 @@
   width: calc(100px * var(--fx-scale));
   height: calc(100px * var(--fx-scale));
   border-radius: 50%;
-  background: radial-gradient(circle, #fff8d9 0%, #ffd56b88 25%, transparent 68%);
-  color: #fff6d0;
+  background: radial-gradient(circle, var(--ui-fx-roll-highlight) 0%, color-mix(in srgb, var(--ui-fx-win) 53%, transparent) 25%, transparent 68%);
+  color: var(--ui-fx-roll-text);
   font: 900 calc(24px * var(--fx-scale)) var(--fx-number-font);
-  text-shadow: 0 0 14px #ffe6a6;
+  text-shadow: 0 0 14px var(--ui-fx-damage-text);
 }
 
 .fx-clash-shade {
@@ -67,11 +51,11 @@
 }
 
 .fx-clash-shade.winner {
-  background: linear-gradient(135deg, #ffe5a61a, #fff1b800);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ui-fx-damage-text) 10%, transparent), transparent);
 }
 
 .fx-clash-shade.loser {
-  background: #0000001a;
+  background: color-mix(in srgb, var(--ui-fx-black) 10%, transparent);
 }
 
 .fx-clash-shade.light,
@@ -86,7 +70,7 @@
 }
 
 .fx-attack-flash {
-  color: var(--fx-win);
+  color: var(--ui-fx-win);
   position: absolute;
   width: calc(180px * var(--fx-scale));
   height: calc(5px * var(--fx-scale));
@@ -102,13 +86,13 @@
 
 .fx-attack {
   position: absolute;
-  color: var(--fx-win);
+  color: var(--ui-fx-win);
 }
 
-.fx-attack.ally, .fx-attack-flash.ally { color: var(--fx-ally); }
-.fx-attack.neutral, .fx-attack-flash.neutral { color: var(--fx-neutral); }
+.fx-attack.ally, .fx-attack-flash.ally { color: var(--ui-fx-ally); }
+.fx-attack.neutral, .fx-attack-flash.neutral { color: var(--ui-fx-neutral); }
 .fx-attack-canvas { position: absolute; display: block; pointer-events: none; }
-.fx-impact-flash { position: absolute; border-radius: 18px; background: color-mix(in srgb, var(--fx-white) 14%, transparent); }
+.fx-impact-flash { position: absolute; border-radius: 18px; background: color-mix(in srgb, var(--ui-fx-white) 14%, transparent); }
 
 .fx-resolve-damage {
   position: absolute;
@@ -119,18 +103,18 @@
   font-size: calc(46px * var(--fx-scale));
   /* 縦に積む行の高さ（本体52px・追加36px）に字の高さをそろえる。字体の既定の行の高さは約1.65倍ある。 */
   line-height: 1;
-  color: var(--fx-win);
-  text-shadow: -2px -2px 0 #171323, 2px 2px 0 #171323, 0 0 8px #000;
-  -webkit-text-stroke: 0.6px #332a20;
+  color: var(--ui-fx-win);
+  text-shadow: -2px -2px 0 var(--ui-fx-damage-shadow), 2px 2px 0 var(--ui-fx-damage-shadow), 0 0 8px var(--ui-fx-black);
+  -webkit-text-stroke: 0.6px var(--ui-fx-dice-shadow);
 }
 
-.fx-resolve-damage.ally { color: #ff7373; }
+.fx-resolve-damage.ally { color: var(--ui-fx-ally); }
 /* 追加ダメージは本体と同じ受けた側の色。違いは大きさとアイコンで表す（計画58 §5.4）。 */
 .fx-resolve-damage.extra { font-size: calc(30px * var(--fx-scale)); }
 /* 広域-合算の丸アイコン（約57pxおき）の上の数字。本体の46pxでは隣の数字と重なるため小さくする。 */
 .fx-resolve-damage.chip { font-size: calc(30px * var(--fx-scale)); }
 .fx-damage-icon { width: 0.9em; height: 0.9em; object-fit: contain; }
-.fx-damage-minus { width: 0.38em; height: 0.1em; background: currentColor; box-shadow: 0 2px 2px #000; }
+.fx-damage-minus { width: 0.38em; height: 0.1em; background: currentColor; box-shadow: 0 2px 2px var(--ui-fx-black); }
 
 .fx-chat-dice-slot {
   position: relative;
@@ -145,31 +129,31 @@
 .fx-chat-dice { position: absolute; inset: 0; display: grid; place-items: center; }
 .fx-chat-total { font-family: var(--fx-number-font); font-weight: 900; }
 
-.fx-effect-band { position: absolute; width: 132px; color: var(--fx-win); text-align: right; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow); }
+.fx-effect-band { position: absolute; width: 132px; color: var(--ui-fx-win); text-align: right; text-shadow: 0 2px 3px var(--ui-fx-shadow), 0 0 8px var(--ui-fx-shadow); }
 .fx-effect-band.attacker { text-align: left; }
 .fx-effect-band.attacker > div { left: 0; right: auto; }
-.fx-effect-band .ally { color: var(--fx-ally); }
-.fx-effect-band .self { color: var(--fx-self); }
-.fx-effect-title { width: 100%; height: 40px; line-height: 40px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; white-space: nowrap; font: 900 calc(28px * var(--fx-scale))/40px var(--fx-effect-font); }
-.fx-effect-result { width: 100%; height: 32px; line-height: 32px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--fx-shadow), 0 0 8px var(--fx-shadow), 0 0 2px #000; display: flex; gap: 0.2em; align-items: center; justify-content: flex-end; white-space: nowrap; font: 700 calc(22px * var(--fx-scale))/32px var(--fx-effect-font); }
+.fx-effect-band .ally { color: var(--ui-fx-ally); }
+.fx-effect-band .self { color: var(--ui-fx-self); }
+.fx-effect-title { width: 100%; height: 40px; line-height: 40px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--ui-fx-shadow), 0 0 8px var(--ui-fx-shadow), 0 0 2px var(--ui-fx-black); white-space: nowrap; font: 900 calc(28px * var(--fx-scale))/40px var(--fx-effect-font); }
+.fx-effect-result { width: 100%; height: 32px; line-height: 32px; box-sizing: border-box; position: absolute; right: 0; bottom: 0; padding: 0 8px; text-shadow: 0 2px 3px var(--ui-fx-shadow), 0 0 8px var(--ui-fx-shadow), 0 0 2px var(--ui-fx-black); display: flex; gap: 0.2em; align-items: center; justify-content: flex-end; white-space: nowrap; font: 700 calc(22px * var(--fx-scale))/32px var(--fx-effect-font); }
 .fx-effect-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fx-effect-title .fx-effect-label { display: block; }
 .fx-effect-result .fx-effect-label { flex: 0 1 auto; }
 .fx-effect-band.attacker .fx-effect-result { justify-content: flex-start; }
 .fx-effect-result .fx-damage-minus, .fx-effect-number { flex-shrink: 0; }
 .fx-effect-number { font: 900 1em var(--fx-number-font); }
-.fx-ko { position: absolute; color: var(--fx-crystal); }
+.fx-ko { position: absolute; color: var(--ui-fx-crystal); }
 .fx-ko-svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; }
-.fx-ko-face { fill: #dff4ff18; stroke: currentColor; stroke-width: 0.4; }
-.fx-ko-crack { fill: none; stroke: var(--fx-white); stroke-linecap: round; filter: drop-shadow(0 0 1px #cdefff); }
-.fx-ko-facet { fill: #d6f0ff; stroke: #effbff; stroke-width: 0.25; }
-.fx-ko-star { fill: #fff; }
-.fx-ko-particle { fill: #fff; }
-.fx-ko-sweep { fill: none; stroke: #effbff; stroke-width: 5; filter: blur(0.5px); }
-.fx-ko-glint { fill: none; stroke: #fff; stroke-width: 0.65; }
-.fx-ko-shade { position: absolute; inset: 0; background: #080d1988; backdrop-filter: grayscale(1) brightness(0.55); -webkit-backdrop-filter: grayscale(1) brightness(0.55); }
-.fx-ko-flash { position: absolute; inset: 0; background: #fff; }
-.fx-ko-label { position: absolute; top: 50%; transform: translateY(-50%); width: 100%; text-align: center; white-space: nowrap; font: 900 calc(40px * var(--fx-scale)) var(--fx-effect-font); color: var(--fx-white); text-shadow: 0 2px 4px var(--fx-shadow), 0 0 12px #000; }
+.fx-ko-face { fill: color-mix(in srgb, var(--ui-fx-ko-facet) 9%, transparent); stroke: currentColor; stroke-width: 0.4; }
+.fx-ko-crack { fill: none; stroke: var(--ui-fx-white); stroke-linecap: round; filter: drop-shadow(0 0 1px var(--ui-fx-ko-crack)); }
+.fx-ko-facet { fill: var(--ui-fx-ko-facet); stroke: var(--ui-fx-ko-glint); stroke-width: 0.25; }
+.fx-ko-star { fill: var(--ui-fx-white); }
+.fx-ko-particle { fill: var(--ui-fx-white); }
+.fx-ko-sweep { fill: none; stroke: var(--ui-fx-ko-glint); stroke-width: 5; filter: blur(0.5px); }
+.fx-ko-glint { fill: none; stroke: var(--ui-fx-white); stroke-width: 0.65; }
+.fx-ko-shade { position: absolute; inset: 0; background: color-mix(in srgb, var(--ui-fx-shadow) 53%, transparent); backdrop-filter: grayscale(1) brightness(0.55); -webkit-backdrop-filter: grayscale(1) brightness(0.55); }
+.fx-ko-flash { position: absolute; inset: 0; background: var(--ui-fx-white); }
+.fx-ko-label { position: absolute; top: 50%; transform: translateY(-50%); width: 100%; text-align: center; white-space: nowrap; font: 900 calc(40px * var(--fx-scale)) var(--fx-effect-font); color: var(--ui-fx-white); text-shadow: 0 2px 4px var(--ui-fx-shadow), 0 0 12px var(--ui-fx-black); }
 .fx-ko.light .fx-ko-crack { filter: none; }
 .fx-ko.chip .fx-ko-svg, .fx-ko.chip .fx-ko-shade, .fx-ko.chip .fx-ko-flash { border-radius: 50%; }
 
@@ -189,54 +173,54 @@
   white-space: nowrap;
   z-index: 980; /* Resolve overlay より前に出しつつ、モーダル全体は邪魔しない */
   text-shadow:
-    -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
-    -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff,
-    0 0 6px rgba(0, 0, 0, 1.0), 0 0 10px rgba(0, 0, 0, 0.8);
+    -2px -2px 0 var(--ui-fx-white), 2px -2px 0 var(--ui-fx-white), -2px 2px 0 var(--ui-fx-white), 2px 2px 0 var(--ui-fx-white),
+    -1px -1px 0 var(--ui-fx-white), 1px -1px 0 var(--ui-fx-white), -1px 1px 0 var(--ui-fx-white), 1px 1px 0 var(--ui-fx-white),
+    0 0 6px var(--ui-fx-black), 0 0 10px color-mix(in srgb, var(--ui-fx-black) 80%, transparent);
 }
 
 .fx-float-text.damage,
 .fx-float-text.src-match_loss,
 .fx-float-text.src-one_sided {
-  color: var(--fx-damage);
+  color: var(--ui-fx-damage);
 }
 
 .fx-float-text.heal {
-  color: var(--fx-heal);
+  color: var(--ui-fx-heal);
 }
 
 .fx-float-text.mp-cost {
-  color: var(--fx-mp-cost);
+  color: var(--ui-fx-mp-cost);
 }
 
 .fx-float-text.mp-heal {
-  color: var(--fx-mp-heal);
+  color: var(--ui-fx-mp-heal);
 }
 
 .fx-float-text.state-change {
-  color: var(--fx-state);
+  color: var(--ui-fx-state);
   font-size: calc(14px * var(--fx-scale));
 }
 
 /* ダメージ発生源別の色分け */
 .fx-float-text.src-bleed,
 .fx-float-text.src-bleed_flood {
-  color: #cc0000;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(139, 0, 0, 0.8);
+  color: var(--ui-fx-bleed);
+  text-shadow: 0 0 4px color-mix(in srgb, var(--ui-fx-black) 90%, transparent), 0 0 8px color-mix(in srgb, var(--ui-fx-bleed-shadow) 80%, transparent);
 }
 
 .fx-float-text.src-thorns {
-  color: #228b22;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 100, 0, 0.8);
+  color: var(--ui-fx-thorns);
+  text-shadow: 0 0 4px color-mix(in srgb, var(--ui-fx-black) 90%, transparent), 0 0 8px color-mix(in srgb, var(--ui-fx-thorns-shadow) 80%, transparent);
 }
 
 .fx-float-text.src-rupture {
-  color: #08f500;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(255, 140, 0, 0.8);
+  color: var(--ui-fx-rupture);
+  text-shadow: 0 0 4px color-mix(in srgb, var(--ui-fx-black) 90%, transparent), 0 0 8px color-mix(in srgb, var(--ui-fx-rupture-shadow) 80%, transparent);
 }
 
 .fx-float-text.src-fissure {
-  color: #8a2be2;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.9), 0 0 8px rgba(138, 43, 226, 0.8);
+  color: var(--ui-fx-fissure);
+  text-shadow: 0 0 4px color-mix(in srgb, var(--ui-fx-black) 90%, transparent), 0 0 8px color-mix(in srgb, var(--ui-fx-fissure) 80%, transparent);
 }
 
 /* ラウンド開始のバナー（round-banner） */
@@ -252,13 +236,13 @@
 .fx-round-banner .round-banner-text {
   font-size: calc(64px * var(--fx-scale));
   font-weight: 900;
-  color: #fff;
+  color: var(--ui-fx-white);
   letter-spacing: 4px;
   padding: 18px 52px;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(20, 24, 38, 0.6), rgba(20, 24, 38, 0.2));
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  text-shadow: 3px 3px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 0 0 24px rgba(255, 200, 60, 0.85);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ui-fx-banner-bg) 60%, transparent), color-mix(in srgb, var(--ui-fx-banner-bg) 20%, transparent));
+  border: 2px solid color-mix(in srgb, var(--ui-fx-white) 35%, transparent);
+  text-shadow: 3px 3px 0 var(--ui-fx-black), -2px -2px 0 var(--ui-fx-black), 2px -2px 0 var(--ui-fx-black), -2px 2px 0 var(--ui-fx-black), 0 0 24px color-mix(in srgb, var(--ui-fx-banner-glow) 85%, transparent);
 }
 
 /* アクションドックの ✨ から開く、演出の強さの3択 */
@@ -270,22 +254,22 @@
   gap: 4px;
   padding: 6px;
   border-radius: 8px;
-  background: #fff;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  background: var(--ui-fx-white);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--ui-fx-black) 25%, transparent);
 }
 
 .fx-level-menu button {
   min-width: 72px;
   padding: 6px 12px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--ui-fx-menu-border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--ui-fx-white);
   cursor: pointer;
 }
 
 .fx-level-menu button.active {
-  border-color: #ff9800;
-  background: #fff3e0;
+  border-color: var(--ui-fx-menu-active);
+  background: var(--ui-fx-menu-text);
   font-weight: bold;
 }
 
@@ -293,29 +277,16 @@
 .fx-effect-icon { width: 24px; height: 24px; flex-shrink: 0; object-fit: contain; }
 
 .fx-effect-viewport { position: absolute; bottom: 0; width: 100%; overflow: hidden; }
-/* PR5: shared palette for the prototype-B gem and subdued conclusion. */
-:root {
-  --fx-gem-gold: #ffe08a;
-  --fx-gem-blue: #bfe8ff;
-  --fx-gem-pink: #ff9cc4;
-  --fx-gem-purple: #c4b0ff;
-  --fx-gem-green: #9ff3d0;
-  --fx-gem-deep: #3a2a8a;
-  --fx-gem-shade: #04060e;
-  --fx-gem-outline: #0a0e1c;
-  --fx-gem-ally-team: #007bff;
-  --fx-gem-enemy-team: #dc3545;
-}
-.fx-gem-dim { position: absolute; inset: 0; background: var(--fx-gem-shade); }
+.fx-gem-dim { position: absolute; inset: 0; background: var(--gem-fx-shade); }
 .fx-gem-b-figure { position: absolute; transform: translateX(-50%); }
-.fx-gem-namecard { position: absolute; white-space: nowrap; font-family: 'Zen Antique', serif; line-height: 1; color: var(--fx-white);
-  -webkit-text-stroke: .16em var(--fx-gem-outline); paint-order: stroke fill;
-  text-shadow: 0 0 16px var(--fx-gem-ally-team), 0 0 6px var(--fx-gem-ally-team); }
-.fx-gem-namecard.enemy { text-shadow: 0 0 16px var(--fx-gem-enemy-team), 0 0 6px var(--fx-gem-enemy-team); }
+.fx-gem-namecard { position: absolute; white-space: nowrap; font-family: "Zen Antique", serif; line-height: 1; color: var(--ui-fx-white);
+  -webkit-text-stroke: .16em var(--gem-fx-outline); paint-order: stroke fill;
+  text-shadow: 0 0 16px var(--gem-fx-ally-team), 0 0 6px var(--gem-fx-ally-team); }
+.fx-gem-namecard.enemy { text-shadow: 0 0 16px var(--gem-fx-enemy-team), 0 0 6px var(--gem-fx-enemy-team); }
 .fx-gem-light .fx-gem-namecard, .fx-gem-light .fx-gem-title { text-shadow: none; }
 .fx-gem-b-text { position: absolute; text-align: center; white-space: nowrap; line-height: 1; padding: .28em 1.4em;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--fx-gem-shade) 78%, transparent) 16%, color-mix(in srgb, var(--fx-gem-shade) 78%, transparent) 84%, transparent); }
-.fx-gem-title { font-family: 'Zen Antique', serif; color: var(--fx-gem-gold); text-shadow: 0 0 10px var(--fx-gem-gold); }
-.fx-gem-label { margin-bottom: .3em; font: 400 .36em 'Zen Antique', serif; letter-spacing: .3em; color: var(--fx-gem-gold); }
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--gem-fx-shade) 78%, transparent) 16%, color-mix(in srgb, var(--gem-fx-shade) 78%, transparent) 84%, transparent); }
+.fx-gem-title { font-family: "Zen Antique", serif; color: var(--gem-fx-gold); text-shadow: 0 0 10px var(--gem-fx-gold); }
+.fx-gem-label { margin-bottom: .3em; font: 400 .36em "Zen Antique", serif; letter-spacing: .3em; color: var(--gem-fx-gold); }
 .resolve-flow-panel.kind-gem_blessing_prelude { pointer-events: none; background: transparent; }
 .resolve-gem-prelude { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); pointer-events: auto; z-index: 2; }

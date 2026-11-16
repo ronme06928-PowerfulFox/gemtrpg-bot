@@ -4,22 +4,22 @@
     top: -35px;
     left: 50%;
     transform: translateX(-50%);
-    background: linear-gradient(135deg, #ff9800, #ff5722);
-    color: white;
-    border: 2px solid #fff;
+    background: linear-gradient(135deg, var(--ui-match-trigger), var(--ui-match-trigger-deep));
+    color: var(--ui-match-white);
+    border: 2px solid var(--ui-match-white);
     border-radius: 20px;
     padding: 5px 15px;
     font-size: 13px;
     font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 8px color-mix(in srgb, var(--ui-match-black) 40%, transparent);
     z-index: 200;
     white-space: nowrap;
     animation: bounce-btn 1.5s infinite;
 }
 
 .wide-attack-trigger-btn:hover {
-    background: linear-gradient(135deg, #ffb74d, #ff8a65);
+    background: linear-gradient(135deg, var(--ui-match-trigger-hover), var(--ui-match-trigger-deep-hover));
     transform: translateX(-50%) scale(1.05);
 }
 
@@ -35,126 +35,42 @@
     }
 }
 
-/* 広範囲マッチモーダル (全体幅拡張とフレックスレイアウト) */
-.wide-visual-modal {
-    width: 1400px;
-    /* ★変更: 1200px -> 1400px (余裕を持たせる) */
-    max-width: 98%;
-    /* ★変更: 95% -> 98% */
-    background: #f8f9fa;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    max-height: 90vh;
-}
 
-.wide-visual-header {
-    padding: 15px 20px;
-    background: #343a40;
-    color: white;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-radius: 8px 8px 0 0;
-}
 
-/* モーダルボディ：カラム構造に変更 */
-.wide-visual-body {
-    padding: 0;
-    flex: 1;
-    display: flex;
-    /* Flexbox */
-    overflow: hidden;
-}
 
-/* 左カラム: 攻撃側 */
-.wide-col-attacker {
-    flex: 0 0 450px;
-    /* ★変更: 350px -> 450px (ボタンが見えるよう拡張) */
-    padding: 20px;
-    border-right: 1px solid #ddd;
-    background: #fff;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
 
 .wide-attacker-section {
-    background: #f9f9f9;
+    background: var(--ui-match-soft);
     padding: 15px;
-    border: 1px solid #eee;
+    border: 1px solid var(--ui-match-line-soft);
     border-radius: 5px;
 }
 
-/* 右カラム: 防御側リスト */
-.wide-col-defenders {
-    flex: 1;
-    padding: 20px;
-    background: #f4f6f9;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
 
 /* 防御側 行アイテム (横長レイアウト) */
 .wide-defender-row {
     display: flex;
     align-items: flex-start;
     gap: 15px;
-    background: #fff;
-    border: 1px solid #ccc;
+    background: var(--ui-match-white);
+    border: 1px solid var(--ui-match-control);
     border-radius: 5px;
     padding: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px color-mix(in srgb, var(--ui-match-black) 5%, transparent);
 }
 
 .wide-defender-row.locked {
-    background-color: #f0f0f0;
+    background-color: var(--ui-match-neutral-soft);
     opacity: 0.9;
 }
 
-/* 行内: キャラ情報 */
-.wide-def-info {
-    flex: 0 0 140px;
-    font-weight: bold;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
 
-.wide-def-status {
-    font-size: 0.8em;
-    color: #999;
-}
 
-/* 行内: 操作エリア */
-.wide-def-controls {
-    flex: 0 0 240px;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
 
-/* 行内: スキル詳細エリア (伸縮) */
-.wide-def-desc {
-    flex: 1;
-    min-width: 0;
-    /* テキスト折り返し用 */
-    background: #fafafa;
-    border: 1px dashed #ddd;
-    border-radius: 4px;
-    padding: 8px;
-    font-size: 0.85em;
-    color: #555;
-    max-height: 120px;
-    overflow-y: auto;
-}
 
 .wide-mode-badge {
-    background: #17a2b8;
-    color: white;
+    background: var(--ui-match-info);
+    color: var(--ui-match-white);
     padding: 4px 10px;
     border-radius: 15px;
     font-size: 0.85em;
@@ -171,13 +87,13 @@
     padding: 15px;
     /* 最初から余白確保 */
 
-    background: #fdfdfd;
-    color: #333;
+    background: var(--ui-match-paper);
+    color: var(--ui-match-text);
     border-radius: 8px;
     font-size: 0.9em;
-    border: 1px solid #ccc;
+    border: 1px solid var(--ui-match-control);
     /* 最初から枠線を表示 */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 2px 5px color-mix(in srgb, var(--ui-match-black) 5%, transparent);
 
     /* テキスト折り返し設定 */
     white-space: normal;
@@ -209,44 +125,10 @@
     margin-left: 10px;
 }
 
-/* サイドバーのヘッダー部分 */
-.skill-detail-sidebar .skill-detail-header {
-    border-bottom: 2px solid #007bff;
-    margin-bottom: 10px;
-    padding-bottom: 5px;
-}
-
-/* サイドバー本文 */
-.skill-detail-sidebar .skill-desc-section {
-    margin-bottom: 8px;
-    line-height: 1.5;
-}
 
 
-/* ビジュアルバトルの対戦モーダルレイアウト */
-.duel-modal-content.resizable-modal {
-    width: auto;
-    /* 最小幅を固定 */
-    min-width: 800px;
-    /* 最大幅を制限 */
-    max-width: 95vw;
-    /* 画面外にはみ出さない */
-    background: #2c3e50;
-    color: white;
-    padding: 20px;
-    transition: width 0.3s ease;
-    /* モーダル全体の伸縮を滑らかに */
-    display: flex;
-    /* flexで中央寄せ */
-    flex-direction: column;
-}
 
-.duel-title {
-    text-align: center;
-    margin-top: 0;
-    border-bottom: 1px solid #555;
-    padding-bottom: 10px;
-}
+
 
 .duel-container {
     display: flex;
@@ -263,7 +145,7 @@
     width: 300px;
     flex-shrink: 0;
     /* 幅固定 (レイアウト崩れ防止) */
-    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--ui-match-white) 10%, transparent);
     padding: 15px;
     border-radius: 8px;
     display: flex;
@@ -274,18 +156,18 @@
 }
 
 .duel-side.attacker {
-    border: 2px solid #dc3545;
+    border: 2px solid var(--ui-match-enemy);
 }
 
 .duel-side.defender {
-    border: 2px solid #007bff;
+    border: 2px solid var(--ui-match-ally);
 }
 
 .side-title {
     margin: 0;
     text-align: center;
     font-size: 1.1em;
-    color: #ddd;
+    color: var(--ui-match-line);
 }
 
 .duel-char-name {
@@ -293,7 +175,7 @@
     font-weight: bold;
     font-size: 1.2em;
     margin-bottom: 5px;
-    color: #fff;
+    color: var(--ui-match-white);
 }
 
 .duel-form-group {
@@ -303,43 +185,28 @@
 
 .duel-form-group label {
     font-size: 0.9em;
-    color: #ccc;
+    color: var(--ui-match-control);
     margin-bottom: 3px;
 }
 
-.duel-select,
-.duel-input {
+
+
+.duel-select {
     padding: 8px;
     border-radius: 4px;
-    border: 1px solid #555;
-    background: #fff;
+    border: 1px solid var(--ui-match-sub);
+    background: var(--ui-match-white);
     font-size: 14px;
-}
-
-.duel-preview {
-    text-align: center;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 5px;
-    border-radius: 4px;
-    font-family: monospace;
-    color: #ffc107;
 }
 
 .duel-vs {
     font-size: 2em;
     font-weight: bold;
-    color: #ffc107;
+    color: var(--ui-match-warning);
     margin: 0 20px;
     font-style: italic;
 }
 
-.duel-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    border-top: 1px solid #555;
-    padding-top: 15px;
-}
 
 .duel-btn {
     padding: 10px 20px;
@@ -351,21 +218,21 @@
 }
 
 .duel-btn.primary {
-    background-color: #e74c3c;
-    color: white;
+    background-color: var(--ui-match-danger);
+    color: var(--ui-match-white);
 }
 
 .duel-btn.primary:hover {
-    background-color: #c0392b;
+    background-color: var(--ui-match-danger-strong);
 }
 
 .duel-btn.secondary {
-    background-color: #95a5a6;
-    color: white;
+    background-color: var(--ui-match-secondary);
+    color: var(--ui-match-white);
 }
 
 .duel-btn.secondary:hover {
-    background-color: #7f8c8d;
+    background-color: var(--ui-match-secondary-strong);
 }
 
 .duel-control-btns {
@@ -375,60 +242,60 @@
 }
 
 .duel-btn.calc {
-    background-color: #17a2b8;
-    color: white;
+    background-color: var(--ui-match-info);
+    color: var(--ui-match-white);
     flex: 1;
 }
 
 .duel-btn.calc:hover {
-    background-color: #138496;
+    background-color: var(--ui-match-info-strong);
 }
 
 .duel-btn.declare {
-    background-color: #28a745;
-    color: white;
+    background-color: var(--ui-match-add);
+    color: var(--ui-match-white);
     flex: 1;
 }
 
 .duel-btn.declare:hover {
-    background-color: #218838;
+    background-color: var(--ui-match-add-strong);
 }
 
 .duel-btn.declare:disabled {
-    background-color: #6c757d;
+    background-color: var(--ui-match-muted-strong);
     cursor: not-allowed;
     opacity: 0.6;
 }
 
 .duel-btn.declare.locked {
-    background-color: #e0a800;
-    color: #000;
+    background-color: var(--ui-match-warning-strong);
+    color: var(--ui-match-black);
 }
 
 .duel-preview-area {
     margin-top: 15px;
     padding: 10px;
-    background: rgba(0, 0, 0, 0.4);
+    background: color-mix(in srgb, var(--ui-match-black) 40%, transparent);
     border-radius: 4px;
-    border: 1px dashed #666;
+    border: 1px dashed var(--ui-match-sub-light);
     min-height: 60px;
 }
 
 .duel-preview-area.ready {
     border-style: solid;
-    border-color: #ffc107;
+    border-color: var(--ui-match-warning);
 }
 
 .preview-command {
     font-family: monospace;
     font-size: 1.1em;
-    color: #fff;
+    color: var(--ui-match-white);
     margin-bottom: 5px;
 }
 
 .preview-damage {
     font-weight: bold;
-    color: #ffc107;
+    color: var(--ui-match-warning);
 }
 
 .duel-center-info {
@@ -440,7 +307,7 @@
 
 .duel-status {
     margin-top: 5px;
-    color: #ccc;
+    color: var(--ui-match-control);
     font-size: 0.9em;
 }
 
@@ -459,8 +326,8 @@
     position: relative;
     width: 28px;
     height: 28px;
-    background-color: #fff;
-    border: 2px solid #555;
+    background-color: var(--ui-match-white);
+    border: 2px solid var(--ui-match-sub);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -477,8 +344,8 @@
     position: absolute;
     bottom: -4px;
     right: -4px;
-    background-color: #dc3545;
-    color: #fff;
+    background-color: var(--ui-match-enemy);
+    color: var(--ui-match-white);
     font-size: 10px;
     font-weight: bold;
     padding: 1px 4px;
@@ -501,20 +368,20 @@
     display: flex;
     gap: 20px;
     padding: 20px;
-    background: #f8f9fa;
+    background: var(--ui-match-panel);
 }
 
 .wide-attacker-section {
     flex: 0 0 400px;
-    background: #fff;
-    border: 2px solid #dc3545;
+    background: var(--ui-match-white);
+    border: 2px solid var(--ui-match-enemy);
     border-radius: 8px;
     padding: 15px;
 }
 
 .wide-attacker-section h4 {
     margin: 0 0 15px 0;
-    color: #dc3545;
+    color: var(--ui-match-enemy);
 }
 
 .wide-attacker-controls {
@@ -530,7 +397,7 @@
 }
 
 .wide-result-display {
-    background: #f0f0f0;
+    background: var(--ui-match-neutral-soft);
     padding: 10px;
     border-radius: 4px;
     font-family: monospace;
@@ -544,21 +411,21 @@
     justify-content: center;
     font-size: 2em;
     font-weight: bold;
-    color: #ffc107;
+    color: var(--ui-match-warning);
     padding: 0 10px;
 }
 
 .wide-defenders-section {
     flex: 1;
-    background: #fff;
-    border: 2px solid #007bff;
+    background: var(--ui-match-white);
+    border: 2px solid var(--ui-match-ally);
     border-radius: 8px;
     padding: 15px;
 }
 
 .wide-defenders-section h4 {
     margin: 0 0 15px 0;
-    color: #007bff;
+    color: var(--ui-match-ally);
 }
 
 .wide-defenders-list {
@@ -570,16 +437,16 @@
 }
 
 .wide-defender-card {
-    background: #f8f9fa;
-    border: 1px solid #ddd;
+    background: var(--ui-match-panel);
+    border: 1px solid var(--ui-match-line);
     border-radius: 6px;
     padding: 12px;
     transition: all 0.3s ease;
 }
 
 .wide-defender-card.declared {
-    background: #d4edda;
-    border-color: #28a745;
+    background: var(--ui-match-add-border);
+    border-color: var(--ui-match-add);
 }
 
 .wide-defender-header {
@@ -594,17 +461,10 @@
     font-size: 1.1em;
 }
 
-.wide-defender-header .owner-badge {
-    background: #6c757d;
-    color: #fff;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-size: 0.75em;
-}
 
 .wide-defender-header .declared-badge {
-    background: #28a745;
-    color: #fff;
+    background: var(--ui-match-add);
+    color: var(--ui-match-white);
     padding: 2px 8px;
     border-radius: 10px;
     font-size: 0.75em;
@@ -617,8 +477,8 @@
     padding: 8px;
     margin-top: 10px;
     font-size: 1em;
-    background: #28a745;
-    color: #fff;
+    background: var(--ui-match-add);
+    color: var(--ui-match-white);
     border-radius: 4px;
 }
 
@@ -637,25 +497,17 @@
 
 .wide-defender-result {
     font-family: monospace;
-    color: #666;
+    color: var(--ui-match-sub-light);
     padding: 5px 0;
     font-size: 0.9em;
 }
 
-.wide-match-footer {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    padding: 15px 20px;
-    background: #343a40;
-    border-radius: 0 0 8px 8px;
-}
 
 .wide-mode-select {
     display: flex;
     align-items: center;
     gap: 10px;
-    color: #fff;
+    color: var(--ui-match-white);
 }
 
 .wide-mode-select select {
@@ -669,8 +521,8 @@
 
 /* Wide Match Skill Detail Area */
 .wide-skill-detail-area {
-    background: #f8f9fa;
-    border: 1px dashed #ccc;
+    background: var(--ui-match-panel);
+    border: 1px dashed var(--ui-match-control);
     border-radius: 4px;
     padding: 10px;
     margin: 4px 0 0 0;
@@ -681,45 +533,20 @@
 }
 
 .wide-skill-detail-area .placeholder {
-    color: #999;
+    color: var(--ui-match-muted);
     font-style: italic;
     font-size: 0.9em;
 }
 
-.wide-skill-detail .skill-power-range {
-    color: #dc3545;
-    font-size: 1.3em;
-    /* Increased from 1.1em */
-    font-weight: bold;
-    margin-bottom: 8px;
-}
 
-.wide-skill-detail .skill-category {
-    background: #007bff;
-    color: #fff;
-    padding: 4px 10px;
-    border-radius: 12px;
-    font-size: 0.95em;
-    /* Increased from 0.85em */
-    margin-right: 8px;
-}
 
-.wide-skill-detail .skill-tags {
-    margin-bottom: 8px;
-}
 
-.wide-skill-detail .skill-effect {
-    white-space: pre-wrap;
-    line-height: 1.5;
-    color: #333;
-    font-size: 1.05em;
-}
 
 .wide-mode-badge {
     margin-top: 0;
     padding: 8px 15px;
-    background: #6f42c1;
-    color: #fff;
+    background: var(--ui-match-wide-badge);
+    color: var(--ui-match-white);
     border-radius: 20px;
     text-align: center;
     display: inline-block;
@@ -778,12 +605,12 @@
     width: 100%;
     /* Ensure it doesn't grow to fill space */
     flex: 0 0 auto;
-    background: linear-gradient(135deg, #fff 0%, #fff5f5 100%);
-    border: 2px solid #dc3545;
+    background: linear-gradient(135deg, var(--ui-match-white), var(--ui-match-opponent-soft));
+    border: 2px solid var(--ui-match-enemy);
     border-radius: 8px;
     padding: 12px;
     box-sizing: border-box;
-    box-shadow: 0 1px 4px rgba(220, 53, 69, 0.1);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--ui-match-enemy) 10%, transparent);
 }
 
 #wide-match-container .wide-attacker-section h4 {
@@ -821,20 +648,20 @@
     text-align: center;
     font-size: 20px;
     font-weight: bold;
-    color: #6c757d;
+    color: var(--ui-match-muted-strong);
     padding: 5px;
-    background: linear-gradient(90deg, transparent, #e9ecef, transparent);
+    background: linear-gradient(90deg, transparent, var(--ui-match-control-soft), transparent);
     border-radius: 3px;
 }
 
 #wide-match-container .wide-defenders-section {
     width: 100%;
-    background: linear-gradient(135deg, #fff 0%, #f0f8ff 100%);
-    border: 2px solid #007bff;
+    background: linear-gradient(135deg, var(--ui-match-white), var(--ui-match-attacker-soft));
+    border: 2px solid var(--ui-match-ally);
     border-radius: 8px;
     padding: 12px;
     box-sizing: border-box;
-    box-shadow: 0 1px 4px rgba(0, 123, 255, 0.1);
+    box-shadow: 0 1px 4px color-mix(in srgb, var(--ui-match-ally) 10%, transparent);
 }
 
 #wide-match-container .wide-defenders-section h4 {
@@ -849,15 +676,15 @@
 }
 
 #wide-match-container .wide-defender-card {
-    background: #fff;
-    border: 1px solid #e0e0e0;
+    background: var(--ui-match-white);
+    border: 1px solid var(--ui-match-input-border);
     border-radius: 6px;
     padding: 8px;
 }
 
 #wide-match-container .wide-defender-card.declared {
-    border-color: #28a745;
-    background: #f0fff0;
+    border-color: var(--ui-match-add);
+    background: var(--ui-match-result-soft);
 }
 
 #wide-match-container .wide-defender-header {
@@ -873,13 +700,6 @@
     font-size: 1.1em;
 }
 
-#wide-match-container .wide-defender-header .owner-badge {
-    font-size: 0.9em;
-    background: #6c757d;
-    color: #fff;
-    padding: 3px 8px;
-    border-radius: 4px;
-}
 
 #wide-match-container .wide-defender-body {
     display: flex;
@@ -898,35 +718,25 @@
 #wide-match-container .wide-defender-result {
     margin-top: 6px;
     font-size: 1.05em;
-    color: #666;
+    color: var(--ui-match-sub-light);
 }
 
 #wide-match-container .wide-result-display {
     margin-top: 4px;
     padding: 4px 8px;
-    background: #e9ecef;
+    background: var(--ui-match-control-soft);
     border-radius: 4px;
     /* Removed min-height to allow collapse */
 }
 
-#wide-match-container .wide-match-footer {
-    flex: 0 0 100%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background: #343a40;
-    border-radius: 0 0 8px 8px;
-    margin: 0 -20px -20px -20px;
-}
 
 #wide-match-container .wide-status .ready {
     font-weight: bold;
 }
 
 #wide-match-container .declared-badge {
-    background: #28a745;
-    color: #fff;
+    background: var(--ui-match-add);
+    color: var(--ui-match-white);
     padding: 3px 8px;
     border-radius: 4px;
     font-size: 0.85em;

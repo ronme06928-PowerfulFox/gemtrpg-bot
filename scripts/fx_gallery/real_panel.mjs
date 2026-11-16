@@ -30,6 +30,7 @@ export function createRealStage(host, scene, width = null) {
   panel.id = flow._panelId;
   panel.className = 'resolve-flow-panel';
   panel.setAttribute('data-gallery-resolve-panel', '');
+  panel.dataset.theme = 'stage';
   stackPlans.set(panel, resolveOutcomePlan(flow, scene.step, scene.state));
   viewport.append(panel);
 

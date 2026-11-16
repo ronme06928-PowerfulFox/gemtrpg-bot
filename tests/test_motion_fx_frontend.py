@@ -45,8 +45,8 @@ function makeElement(doc, tag) {
 }
 function makeDocument() {
   const doc = {};
-  const tokens={'--fx-win':'#ffd56b','--fx-ally':'#ff7373','--fx-neutral':'#e9e7df','--fx-white':'#ffffff',
-    '--fx-attack-enemy-edge':'#ff9d2e','--fx-attack-ally-edge':'#ff2f55','--fx-attack-neutral-edge':'#a9b4c8','--fx-attack-smoke':'#282430'};
+  const tokens={'--ui-fx-win':'#ffd56b','--ui-fx-ally':'#ff7373','--ui-fx-neutral':'#e9e7df','--ui-fx-white':'#ffffff',
+    '--ui-fx-attack-enemy-edge':'#ff9d2e','--ui-fx-attack-ally-edge':'#ff2f55','--ui-fx-attack-neutral-edge':'#a9b4c8','--ui-fx-attack-smoke':'#282430'};
   doc.defaultView={devicePixelRatio:1,getComputedStyle:()=>({getPropertyValue:key=>tokens[key]||''})};
   doc.createElement = (tag) => makeElement(doc, tag);
   doc.createElementNS = (_,tag) => doc.createElement(tag);

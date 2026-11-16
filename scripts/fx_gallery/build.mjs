@@ -1,6 +1,6 @@
 import { resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { sceneSamples, effectSamples } from './samples.mjs';
-import { extractResolvePanelCss, GALLERY_PANEL_SELECTOR } from './panel_css.mjs';
+import { extractResolvePanelCss, extractStagePaletteCss, GALLERY_PANEL_SELECTOR } from './panel_css.mjs';
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -36,7 +36,7 @@ const script = source => `<script>${source.replace(/<\/script/gi, '<\\/script')}
 const html = `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ジェムリア · 演出の一覧</title>${fonts}
-<style>${extractResolvePanelCss(await read('static/css/modules/visual_battle.css'))}\n${(await read('static/css/modules/motion_fx.css')).split('#resolve-flow-panel').join(GALLERY_PANEL_SELECTOR)}\n${await read('scripts/fx_gallery/gallery.css')}</style></head>
+<style>${extractStagePaletteCss(await read('static/css/modules/common_ui.css'))}\n${extractResolvePanelCss(await read('static/css/modules/visual_battle.css'))}\n${(await read('static/css/modules/motion_fx.css')).split('#resolve-flow-panel').join(GALLERY_PANEL_SELECTOR)}\n${await read('scripts/fx_gallery/gallery.css')}</style></head>
 <body><header><p class="eyebrow">GEMLIA / MOTION STUDIES</p><h1>演出の一覧</h1>
 <p>光、数字、結晶。時刻を動かして、ひとつずつ確かめる。</p>
 <nav><a href="#scenes">結果の場面 · ${sceneSamples.length}</a><a href="#effects">演出単体 · ${new Set(effectSamples.map(sample => sample.effect)).size}</a></nav>

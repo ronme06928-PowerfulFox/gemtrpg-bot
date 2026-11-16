@@ -1,3 +1,4 @@
+import { extractStagePaletteCss } from '../fx_gallery/panel_css.mjs';
 // 演出の試作（計画52 PR4.5e の攻撃、PR5 の宝石の加護と戦闘の終わり）をそれぞれ1枚のHTMLにまとめる。本番のバンドルには入らない。
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -11,7 +12,7 @@ const outDir = join(root, '_local', 'fx_proto');
 await mkdir(outDir, { recursive: true });
 
 // 置き換えは関数で渡し、中身の「$」を置換の記号として読ませない。
-const css = await read('static/css/modules/motion_fx.css');
+const css = extractStagePaletteCss(await read('static/css/modules/common_ui.css')) + '\n' + await read('static/css/modules/motion_fx.css');
 const attackJs = await scriptsOf(['static/js/fx/fx_core.js', 'static/js/fx/fx_effects.js', 'scripts/fx_proto/proto.js']);
 const attack = (await read('scripts/fx_proto/page.html'))
   .replace('__MOTION_FX_CSS__', () => css).replace('__FX_SCRIPTS__', () => attackJs);

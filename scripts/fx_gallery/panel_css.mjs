@@ -35,3 +35,11 @@ export function extractResolvePanelCss(css) {
   }
   return out.join('\n');
 }
+
+export function extractStagePaletteCss(css) {
+  return blocks(css)
+    .filter(({ prelude, body }) => prelude === '[data-theme="stage"]' ||
+      (prelude === ':root' && body.includes('--ui-fx-damage:')))
+    .map(({ prelude, body }) => `${prelude} {${body}}`)
+    .join('\n');
+}

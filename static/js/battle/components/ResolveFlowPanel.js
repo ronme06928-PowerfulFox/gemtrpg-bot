@@ -1484,6 +1484,7 @@ class ResolveFlowPanel {
         if (!panel) {
             panel = document.createElement('div');
             panel.id = this._panelId;
+            panel.dataset.theme = 'stage';
             panel.className = 'resolve-flow-panel';
             panel.innerHTML = `
                 <div class="resolve-flow-overlay"></div>

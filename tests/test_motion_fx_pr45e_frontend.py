@@ -33,13 +33,13 @@ for(const kind of ['slash','strike','pierce'])for(const level of ['light','norma
 def test_canvas_theme_is_read_once_from_css_and_geometry_holds_until_stop():
     _run_node(r"""
 const Fx=loadShared({}),doc=makeDocument();
-const values={'--fx-win':'#123456','--fx-ally':'#654321','--fx-neutral':'#246810','--fx-white':'#abcdef',
- '--fx-attack-enemy-edge':'#010203','--fx-attack-ally-edge':'#040506','--fx-attack-neutral-edge':'#070809','--fx-attack-smoke':'#111213'};
+const values={'--ui-fx-win':'#123456','--ui-fx-ally':'#654321','--ui-fx-neutral':'#246810','--ui-fx-white':'#abcdef',
+ '--ui-fx-attack-enemy-edge':'#010203','--ui-fx-attack-ally-edge':'#040506','--ui-fx-attack-neutral-edge':'#070809','--ui-fx-attack-smoke':'#111213'};
 doc.defaultView.devicePixelRatio=4;
 doc.defaultView.getComputedStyle=()=>({getPropertyValue:key=>values[key]});
 for(const kind of ['slash','strike','pierce'])for(const tone of ['enemy','ally','neutral']) {
  const fx=Object.create(Fx.get('attack-'+kind));fx.mount(doc.createElement('div'),{level:'normal',tier:'large',tone,width:590,height:420});
- assert.strictEqual(fx.colors.main,values[{'enemy':'--fx-win','ally':'--fx-ally','neutral':'--fx-neutral'}[tone]]);
+ assert.strictEqual(fx.colors.main,values[{'enemy':'--ui-fx-win','ally':'--ui-fx-ally','neutral':'--ui-fx-neutral'}[tone]]);
  assert.strictEqual(fx.colors.white,'#abcdef');assert.ok(fx.dpr<=2);
  doc.defaultView.getComputedStyle=()=>{throw Error('render must not read style');};
  fx.render(0.7);const hold=JSON.stringify(fx.shape);fx.render(0.75);assert.strictEqual(JSON.stringify(fx.shape),hold);

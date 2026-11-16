@@ -327,9 +327,9 @@
     const view = root.ownerDocument.defaultView;
     const style = view.getComputedStyle(this.el);
     const tone = ['ally', 'neutral'].includes(params.tone) ? params.tone : 'enemy';
-    this.colors = { main: style.getPropertyValue({ enemy: '--fx-win', ally: '--fx-ally', neutral: '--fx-neutral' }[tone]).trim(),
-      edge: style.getPropertyValue(`--fx-attack-${tone}-edge`).trim(), white: style.getPropertyValue('--fx-white').trim(),
-      smoke: style.getPropertyValue('--fx-attack-smoke').trim() };
+    this.colors = { main: style.getPropertyValue({ enemy: '--ui-fx-win', ally: '--ui-fx-ally', neutral: '--ui-fx-neutral' }[tone]).trim(),
+      edge: style.getPropertyValue(`--ui-fx-attack-${tone}-edge`).trim(), white: style.getPropertyValue('--ui-fx-white').trim(),
+      smoke: style.getPropertyValue('--ui-fx-attack-smoke').trim() };
     // 余白は四方に箱の半分。拡大率に加えて画素数も制限し、一覧の多数の見本でもメモリを絞る。
     this.pad = 0.5;
     const w = this.W * s, h = this.H * s;
@@ -910,9 +910,9 @@
   const rnd = (i, k) => { const x = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453; return x - Math.floor(x); };
   function colors(root) {
     const css = root.ownerDocument.defaultView.getComputedStyle(root);
-    const read = key => css.getPropertyValue(`--fx-${key}`).trim();
-    return { gems: ['gem-gold', 'gem-blue', 'gem-pink', 'gem-purple', 'gem-green'].map(read),
-      gold: read('gem-gold'), white: read('white'), blue: read('gem-blue'), deep: read('gem-deep'), shade: read('gem-shade') };
+    const read = key => css.getPropertyValue('--gem-fx-' + key).trim();
+    return { gems: ['gold', 'blue', 'pink', 'purple', 'green'].map(read),
+      gold: read('gold'), white: css.getPropertyValue('--ui-fx-white').trim(), blue: read('blue'), deep: read('deep'), shade: read('shade') };
   }
   const MIN_FIT = 0.55;
   Fx.conclusionParams = (card, title, host) => {
