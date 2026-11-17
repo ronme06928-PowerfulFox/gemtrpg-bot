@@ -10,6 +10,7 @@
   const button = (label, action, extra = '', attrs = '') => `<button type="button" class="cat-button ${extra}" data-action="${action}" ${attrs}>${label}</button>`;
   const badge = status => status === 'published' ? '' : `<span class="cat-badge" data-status="${h(window.CatalogGlossary.statuses[status])}">${h(window.CatalogGlossary.statuses[status])}</span>`;
   const jsonBlock = payload => `<details class="cat-json"><summary>JSON</summary><pre>${h(pretty(payload))}</pre></details>`;
+  const marksOf = payload => Array.isArray(payload.marks) ? payload.marks : [];
 
   function referenceFold(label, references) {
     const grouped = new Map();
@@ -32,7 +33,7 @@
     if (!problems.length) return '<section class="cat-problems" aria-label="検査の問題"><p>問題はありません。</p></section>';
     return `<section class="cat-problems" aria-label="検査の問題">${[['error', 'エラー'], ['warning', '注意']].map(([level, label]) => {
       const rows = problems.filter(problem => problem.level === level);
-      return rows.length ? `<div class="cat-problem-group is-${level}"><h4>${label}（${rows.length}件）</h4><ul>${rows.map(problem => `<li>${h(model.fields.find(field => field[0] === problem.field)?.[1] || problem.field)}：${h(problem.message)}</li>`).join('')}</ul></div>` : '';
+      return rows.length ? `<div class="cat-problem-group is-${level}"><h4>${label}（${rows.length}件）</h4><ul>${rows.map(problem => `<li>${h(problem.field === 'marks' ? '印' : model.fields.find(field => field[0] === problem.field)?.[1] || problem.field)}：${h(problem.message)}</li>`).join('')}</ul></div>` : '';
     }).join('')}</section>`;
   }
 
@@ -49,6 +50,7 @@
     const infoTools = window.CatalogInfo.mount(panel);
     const power = window.CatalogPower.mount(panel, (payload, params) => request('powerPreview', payload, params));
     let leaveResolve, leaveFocus, nextFocus;
+    let inspectionTimer, inspectionToken = 0;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
     const trail = [...(options.trail || [])];
@@ -58,6 +60,9 @@
       linkQuery: '', linkIndex: -1, linkOpen: false, aliasInput: '',
       listRequest: 0, detailRequest: 0, tab: 'form', errors: {}, payload: {}, jsonText: '' };
     const author = () => !!(state.user.is_app_admin || state.user.is_catalog_author);
+    const markLabels = () => state.overview.marks?.kinds.includes(state.kind) ? state.overview.marks.labels : null;
+    const markBadges = payload => Object.entries(markLabels() || {}).filter(([key]) => marksOf(payload).includes(key))
+      .map(([key, label]) => `<span class="cat-chip cat-mark" data-catalog-mark="${h(key)}">${h(label)}</span>`).join('');
     const rows = () => model.rows(state.data);
     const selected = () => rows().find(row => row.key === state.selected);
     const entry = id => state.data.entries.find(row => row.entry_id === id);
@@ -185,12 +190,14 @@
       const statuses = ['published','deprecated',...(author() ? ['draft','pending','rejected'] : [])];
       const category = state.kind === 'skill' ? ''
         : model.categories.length ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="category"><option value="">すべての分類</option>${model.categories.map(value=>`<option ${state.filters.category === value ? 'selected' : ''}>${h(value)}</option>`).join('')}</select></label>` : '';
+      const labels = markLabels();
+      const marks = labels ? `<label class="cat-field"><span class="cat-visually-hidden">印</span><select data-filter="mark"><option value="">すべての印</option>${Object.entries(labels).map(([key,label])=>`<option value="${h(key)}" ${state.filters.mark === key ? 'selected' : ''}>${h(label)}</option>`).join('')}</select></label>` : '';
       const tabs = state.kind === 'skill' ? '' : `<nav class="cat-kind-tabs" aria-label="種類">${Object.values(models).filter(Boolean).map(definition=>{
         const tally = state.overview.counts[definition.kind] || {};
         const extra = author() ? [['draft','下書き'],['pending','承認待ち']].filter(([key])=>tally[key]).map(([key,label])=>`<span class="cat-tab-count" data-count="${key}">${label}${tally[key]}</span>`).join('') : '';
         return `<button type="button" data-kind="${definition.kind}" aria-pressed="${state.kind === definition.kind}">${definition.label} <strong>${tally.published || 0}</strong>${extra}</button>`;
       }).join('')}</nav>`;
-      return `${tabs}<div class="cat-filters"><label class="cat-field cat-search"><span class="cat-visually-hidden">探す</span><input type="search" data-filter="search" value="${h(state.filters.search)}" placeholder="ID・名前・説明"></label><nav class="cat-statuses" aria-label="状態">${statuses.map(status=>`<button type="button" data-status="${status}" class="${state.filters.status === status ? 'is-active' : ''}" aria-pressed="${state.filters.status === status}">${model.statuses[status]} ${counts[status] || 0}</button>`).join('')}</nav>${category}${author() ? button('＋新しく作る','new') : ''}</div>`;
+      return `${tabs}<div class="cat-filters"><label class="cat-field cat-search"><span class="cat-visually-hidden">探す</span><input type="search" data-filter="search" value="${h(state.filters.search)}" placeholder="ID・名前・説明"></label><nav class="cat-statuses" aria-label="状態">${statuses.map(status=>`<button type="button" data-status="${status}" class="${state.filters.status === status ? 'is-active' : ''}" aria-pressed="${state.filters.status === status}">${model.statuses[status]} ${counts[status] || 0}</button>`).join('')}</nav>${category}${marks}${author() ? button('＋新しく作る','new') : ''}</div>`;
     }
     function renderBrowse() {
       header();
@@ -205,10 +212,11 @@
       scene.innerHTML = `<section class="cat-pending"><div class="cat-editbar">${button('← 戻る','back')}<h3>承認待ち（すべての種類）</h3></div><div class="cat-pending-list">${(state.overview.pending || []).map(row=>`<button type="button" class="bo-workspace__record" data-ui-kind="${h(row.kind)}" data-ui-skill-prefix="${row.kind === 'skill' ? h(row.target_id.split('-')[0]) : ''}" data-pending-id="${row.id}" data-pending-kind="${h(row.kind)}"><strong>${h(models[row.kind].label)} · ${h(row.target_id)} ${h(nameOf(row.payload))}</strong><span>${h(row.created_by_name || '削除済みユーザー')}</span></button>`).join('') || '<p class="cat-empty">承認待ちはありません。</p>'}</div></section>`;
     }
     function renderList() {
-      const filtered = model.filter(rows(), state.filters);
+      const mark = state.filters.mark;
+      const filtered = model.filter(rows(), state.filters).filter(row => !mark || marksOf(row.payload).includes(mark));
       if (!filtered.some(row => row.key === state.selected)) state.selected = filtered[0]?.key || '';
       panel.querySelector('#cat-list-count').textContent = `${filtered.length}件`;
-      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-ui-kind="${state.kind}" data-ui-skill-prefix="${state.kind === 'skill' ? h(row.target_id.split('-')[0]) : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong>${badge(row.status)}</div><span class="cat-record-line"><span class="cat-caption">${h(model.recordMeta(row.payload))}</span> ${h(model.recordDescription(row.payload) || '説明未入力')}</span></button>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
+      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-ui-kind="${state.kind}" data-ui-skill-prefix="${state.kind === 'skill' ? h(row.target_id.split('-')[0]) : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong>${badge(row.status)}</div><span class="cat-record-line">${markBadges(row.payload)}<span class="cat-caption">${h(model.recordMeta(row.payload))}</span> ${h(model.recordDescription(row.payload) || '説明未入力')}</span></button>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
       renderDetail();
     }
     function links(payload) {
@@ -238,7 +246,7 @@
 
       }
       const previous = trail.at(-1);
-      target.innerHTML = `${previous ? button(`← ${h(previous.name)}`, 'reference-back', 'cat-reference-back') : ''}<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
+      target.innerHTML = `${previous ? button(`← ${h(previous.name)}`, 'reference-back', 'cat-reference-back') : ''}<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${markBadges(row.payload)}${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
         <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.isDraft ? '<div id="cat-request-links"></div>' : ''}${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, textReferences: state.textReferences, power: powerCard(row.payload, row.target_id, row.isDraft ? JSON.stringify(['skill', row.target_id, row.base_revision, row.payload]) : `skill:${row.target_id}:${row.revision}`), entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       if (row.isDraft) showRequestLinks(row.id);
       const published = entry(row.target_id);
@@ -306,11 +314,18 @@
         : state.tab === 'text' ? window.CatalogSkillText.renderForm(state.payload,state.textTags,state.textResult,state.textReferences)
         : state.tab === 'json' ? `<h3>JSON</h3><label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>${button('JSONをコピー','copy-json')}${examples}`
         : resource && state.section === 'effects' ? `<h3>効果</h3>${button('JSONで編集','open-json')}${examples}`
-        : `<div class="cat-field-grid">${model.form(state.payload,state.errors,{section:state.section,entries:state.data.entries,linkQuery:state.linkQuery,aliasInput:state.aliasInput,tagInput:state.tagInput,published:state.edit.base_revision != null,effectText:state.effectText,skillTagInput:state.skillTagInput,bonusOperation:state.bonusOperation})}</div>`);
+        : `<div class="cat-field-grid">${model.form(state.payload,state.errors,{section:state.section,entries:state.data.entries,linkQuery:state.linkQuery,aliasInput:state.aliasInput,tagInput:state.tagInput,published:state.edit.base_revision != null,effectText:state.effectText,skillTagInput:state.skillTagInput,bonusOperation:state.bonusOperation})}${markFields()}</div>`);
       for (const [selector,value] of Object.entries(state.rawValues)) { const node = panel.querySelector(selector); if (node) node.value = value; }
       if (state.tab === 'form') renderCandidates();
       mountTextTools();
       renderWriting();
+    }
+    function markFields() {
+      const labels = markLabels();
+      if (state.section !== 'body' || !labels) return '';
+      const invalid = 'marks' in state.payload && !Array.isArray(state.payload.marks);
+      const boxes = Object.entries(labels).map(([key,label]) => `<label><input type="checkbox" data-mark="${h(key)}" ${marksOf(state.payload).includes(key) ? 'checked' : ''} ${invalid ? 'disabled' : ''}> ${h(label)}</label>`).join('');
+      return `<fieldset class="cat-array-field cat-field-wide"><legend>印</legend><div class="cat-mark-options">${boxes}</div>${invalid ? '<p class="cat-field-error">JSONの節で印を配列に直してください。</p>' : ''}</fieldset>`;
     }
     function renderWriting() {
       if (state.kind !== 'skill' || state.section !== 'description' || !state.textReferences) return;
@@ -417,7 +432,31 @@
       const preview = panel.querySelector('#cat-preview');
       if (!preview) return;
       markSections();
-      preview.innerHTML = renderProblems(state.edit.problems, model) + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : '') + model.preview(payload, { links, textReferences: state.textReferences, power: powerCard(payload, state.edit.target_id), entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
+      const live = state.overview.marks && (state.kind === 'skill' || markLabels());
+      const problems = renderProblems(state.edit.problems, model);
+      preview.innerHTML = (live ? `<div id="cat-live-problems">${problems}</div>` : problems + (state.dirty ? '<p class="cat-caption">入力を変更しました。保存すると検査結果が更新されます。</p>' : ''))
+        + model.preview(payload, { links, textReferences: state.textReferences, power: powerCard(payload, state.edit.target_id), entryId: state.edit.target_id, skillEntries: state.catalogs.skill?.entries || [] });
+      if (live) inspectPreview();
+    }
+    function inspectPreview() {
+      clearTimeout(inspectionTimer);
+      const token = ++inspectionToken;
+      const { edit, kind, payload } = state;
+      const output = panel.querySelector('#cat-live-problems');
+      if (Object.keys(state.errors).some(key => key.startsWith('input:'))) {
+        output.innerHTML = '<p class="cat-caption">入力欄の誤りを直すと検査できます。</p>';
+        return;
+      }
+      const isCurrent = () => alive() && state.scene === 'edit' && state.edit === edit && token === inspectionToken;
+      inspectionTimer = setTimeout(async () => {
+        if (!isCurrent()) return;
+        try {
+          const {problems} = await request('inspect', kind, payload, edit.target_id, edit.id_prefix);
+          if (isCurrent()) output.innerHTML = renderProblems(problems, model);
+        } catch (error) {
+          if (isCurrent()) output.textContent = `検査結果を読み込めませんでした。${error.message}`;
+        }
+      }, 250);
     }
     function syncJSON() {
       if (state.tab !== 'json') return;
@@ -467,7 +506,7 @@
       header();
       const footerId = state.reviewBase ? `<span class="cat-review-id">正式ID：<code>${h(state.reviewId)}</code>（既存の項目）</span>` : `<label class="cat-field">正式ID<input id="cat-official-id" value="${h(state.reviewId)}"></label>`;
       const actions = state.rejecting ? `<label class="cat-field cat-reject-reason">却下の理由<textarea id="cat-reject-reason" rows="2" placeholder="制作者に伝えること">${h(state.rejectReason)}</textarea></label>${button('取りやめる','reject-cancel')}${button('却下する','reject','cat-reject-confirm')}` : `${button('却下…','reject-open')}${button('承認して公開','approve','cat-primary')}`;
-      scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る','back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div><div class="cat-review-content">${window.CatalogReview.render(model,state.reviewBase,state.review,{showSame:state.showSame,schemas:state.schemas,catalogs:state.catalogs})}${renderProblems(state.review.problems,model)}</div><footer class="cat-footer cat-review-footer">${footerId}${actions}</footer></div>`;
+      scene.innerHTML = `<div class="cat-review-wrap"><div class="cat-editbar">${button('← 戻る','back')}<strong>${h(state.review.target_id)} ${h(nameOf(state.review.payload))}</strong>${badge('pending')}</div><div class="cat-review-content">${window.CatalogReview.render(model,state.reviewBase,state.review,{showSame:state.showSame,schemas:state.schemas,catalogs:state.catalogs,marks:markLabels()})}${renderProblems(state.review.problems,model)}</div><footer class="cat-footer cat-review-footer">${footerId}${actions}</footer></div>`;
     }
     function resolveLeave(choice) {
       if (!leaveResolve) return;
@@ -912,6 +951,12 @@
       }
       if (control.id === 'cat-link-search') { state.linkQuery = control.value; state.linkIndex = -1; state.linkOpen = true; renderCandidates(); return; }
       if (control.id === 'cat-synonym-input') { state.aliasInput = control.value; return; }
+      if (control.dataset.mark && Object.hasOwn(markLabels() || {}, control.dataset.mark)) {
+        const mark = control.dataset.mark;
+        const marks = marksOf(state.payload);
+        state.payload.marks = control.checked ? [...new Set([...marks, mark])] : marks.filter(value => value !== mark);
+        state.dirty = true; state.jsonText = pretty(state.payload); renderPreview(); return;
+      }
       if (control.dataset.filter) { state.filters[control.dataset.filter] = control.value; renderList(); if (state.kind === 'skill') for (const [,items] of model.groups) for (const [prefix] of items) panel.querySelector(`[data-skill-category="${prefix}"] .cat-nav-count`).textContent = model.filter(rows(),{...state.filters,category:prefix}).length; return; }
       if (control.id === 'cat-official-id') state.reviewId = control.value;
       if (control.id === 'cat-reject-reason') state.rejectReason = control.value;
@@ -996,7 +1041,7 @@
       allowLeave,
       destroy() {
         if (destroyed) return;
-        destroyed = true; power.destroy(); infoTools.destroy(); state.listRequest++; state.detailRequest++;
+        destroyed = true; clearTimeout(inspectionTimer); power.destroy(); infoTools.destroy(); state.listRequest++; state.detailRequest++;
         showNotice?.(''); resolveLeave('cancel');
         hostWindow.removeEventListener?.('beforeunload', beforeUnload);
         panel.ownerDocument?.removeEventListener('pointerdown', closeMenus);

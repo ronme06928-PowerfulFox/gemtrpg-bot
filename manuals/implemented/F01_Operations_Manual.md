@@ -221,6 +221,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | GET `/api/catalog/<kind>/<entry_id>/history` | ログイン全員 | `{history}`。版・操作・実行者・日時・中身 |
 | GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references, outgoing}`。参照元と参照先をそれぞれ `kind`・`entry_id`・`display_name`・`path` の配列で返す。公開版の関連用語と文章内の用語リンク、バフの `buff_id`・`buff_name`、その他の種類の ID に一致する値・キーを照合する。非公開ユニットの参照元は制作者・アプリ管理者に表示する |
 | POST `/api/catalog/<kind>/drafts` | 制作者・管理者 | `{target_id}` で既存の写し、`{}` で新規（スキルは `{id_prefix: "Ps"}` などが必須）。既存下書きがあればそれを返す |
+| POST `/api/catalog/<kind>/inspect` | 制作者・管理者 | `{payload, entry_id?, id_prefix?}` の入力を申請と同じ規則で検査して `{problems}` を返す。新規スキルの敵カテゴリは `id_prefix` で判定する。DB は変更しない |
 | PUT `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | `{payload: {...}}`。未完成の保存も可。承認待ちは409、却下後の編集でdraftへ戻る |
 | POST `/api/catalog/drafts/<id>/submit` | 制作者である作成者・管理者 | 検査後にpendingへ |
 | DELETE `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | 取り下げて `{id, withdrawn: true}` |
@@ -1403,7 +1404,7 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 
 ### 管理カタログの概要API（計画60 PR60-17）
 
-`GET /api/catalog/overview` は既存の管理APIと同じセッション認証を使う。`counts` は7種類のkindをキーに公開中（published）・廃止（deprecated）の件数を返す。制作者・管理者には下書き（draft）・承認待ち（pending）・却下（rejected）も返す。`pending` は管理者にだけ返す種類横断の承認待ち下書きの配列で、既存の下書きJSONと同じ形。一般ユーザーに下書きの件数・中身を返さない。既存の保存・申請・承認APIは変更しない。
+`GET /api/catalog/overview` は既存の管理APIと同じセッション認証を使う。`counts` は7種類のkindをキーに公開中（published）・廃止（deprecated）の件数を返す。制作者・管理者には下書き（draft）・承認待ち（pending）・却下（rejected）も返す。`pending` は管理者にだけ返す種類横断の承認待ち下書きの配列で、既存の下書きJSONと同じ形。一般ユーザーに下書きの件数・中身を返さない。`marks` は印の対象種類 `kinds` と値ごとの表示名 `labels` を返す。
 
 ### スキルの威力の見込み API（PR60-21）
 

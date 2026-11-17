@@ -28,6 +28,7 @@
     overview: () => request('/api/catalog/overview'),
     user: () => request('/api/get_session_user'),
     list: kind => request(catalog(kind)),
+    inspect: (kind, payload, entry_id, id_prefix) => request(`${catalog(kind)}/inspect`, 'POST', {payload, entry_id, id_prefix}),
     history: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/history`),
     references: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/references`),
     nextId: (kind, prefix) => request(`${catalog(kind)}/next_id${prefix ? `?prefix=${encodeURIComponent(prefix)}` : ''}`),

@@ -43,6 +43,11 @@ KINDS = {
     },
 }
 DRAFT_ID_PATTERN = r"X-[0-9a-fA-F]{8}"
+MARK_KINDS = ("buff", "passive", "item")
+MARK_LABELS = {"enemy": "敵専用", "hollow": "ホロウ専用"}
+for _kind in MARK_KINDS:
+    KINDS[_kind]["fields"]["marks"] = list
+    KINDS[_kind]["defaults"]["marks"] = []
 
 
 def get_kind(kind):
@@ -79,7 +84,7 @@ def _strings(value):
             yield from _strings(child)
 
 
-def inspect_payload(kind, payload, *, entry_id=None, stage, published_ids=None, draft_ids=None):
+def inspect_payload(kind, payload, *, entry_id=None, id_prefix=None, stage, published_ids=None, draft_ids=None):
     """保存を妨げずに問題を返す。参照はDBの現在の公開版・用語下書きで判定する。"""
     definition = get_kind(kind)
     if stage not in ("draft", "submit", "approve"):
@@ -107,6 +112,12 @@ def inspect_payload(kind, payload, *, entry_id=None, stage, published_ids=None, 
         if type(value) is not expected:
             add(field, "型が違います")
             invalid.add(field)
+    if kind in MARK_KINDS and "marks" not in invalid:
+        marks = payload.get("marks", [])
+        if any(not isinstance(mark, str) or mark not in MARK_LABELS for mark in marks):
+            add("marks", "未定義の印があります")
+        elif len(marks) != len(set(marks)):
+            add("marks", "同じ印は重複して指定できません")
     if kind == "glossary":
         if isinstance(payload.get("category"), str) and payload["category"] not in definition["categories"]:
             add("category", "未定義の分類です")
@@ -169,6 +180,10 @@ def inspect_payload(kind, payload, *, entry_id=None, stage, published_ids=None, 
                 reference(field, target)
         if stage == "approve" and _has_draft_id(value):
             add(field, "未公開の仮IDが残っています")
+    if kind == "skill" or kind in MARK_KINDS:
+        from .references import enemy_reference_warnings
+        for field, message in enemy_reference_warnings(kind, entry_id, id_prefix, payload):
+            add(field, message, "warning")
     return problems
 
 
@@ -185,6 +200,8 @@ def to_memory_entry(kind, entry):
     definition = get_kind(kind)
     result = (definition["to_memory"](entry.payload, entry.entry_id) if "to_memory" in definition
               else {definition["id_field"]: entry.entry_id, **deepcopy(entry.payload)})
+    if kind in MARK_KINDS and not result.get("marks"):
+        result.pop("marks", None)
     # バフの既存配信形式を保ち、廃止したときだけ印を足す。
     if kind == "glossary" or entry.deprecated:
         result["deprecated"] = entry.deprecated

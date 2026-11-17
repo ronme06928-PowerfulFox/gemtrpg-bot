@@ -44,8 +44,8 @@ def test_master_data_help_is_public_and_its_assets_and_links_resolve():
     assert page.status_code == 200
     markup = HelpMarkup(page.get_data(as_text=True))
     assert markup.anchors and markup.anchors <= markup.ids
-    assert len(markup.images) == 7
-    assert "master_data/07_connections.png" in markup.images
+    assert len(markup.images) == 8
+    assert {"master_data/07_connections.png", "master_data/08_marks.png"} <= set(markup.images)
     for src in markup.images:
         response = client.get("/static/help/" + src)
         assert response.status_code == 200, src

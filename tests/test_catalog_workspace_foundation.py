@@ -55,6 +55,42 @@ controller.destroy();assert.equal(events.size,0);
 """)
 
 
+def test_catalog_marks_in_browse_filter_edit_and_review():
+    run_node(r"""
+const labels={enemy:'敵専用',hollow:'ホロウ専用'};
+window.CatalogApi.overview=async()=>({counts:{},pending:[],marks:{kinds:['buff','passive','item'],labels}});
+const originList=window.CatalogApi.list;
+window.CatalogApi.list=async kind=>kind==='buff'
+  ? {entries:[records.buff,{...records.buff,entry_id:'buff-02',payload:{...records.buff.payload,marks:['enemy']}}],drafts:[]}
+  : originList(kind);
+await controller.refresh();
+await click({kind:'buff'});
+window.CatalogApi.inspect=async (kind,payload,id)=>({problems:kind==='buff' && id==='buff-01' && payload.marks.includes('hollow')
+  ? [{level:'warning',field:'effect',message:'検査の注意'}] : []});
+const output=selector=>panel.querySelector(selector).innerHTML;
+const inputControl=(dataset,value,checked)=>panel.listeners.get('input')({target:{dataset,value,checked,hasAttribute:()=>false}});
+assert.match(output('.cat-scene'),/data-filter="mark"/);
+assert.match(output('#cat-records'),/敵専用/);
+inputControl({filter:'mark'},'enemy');
+assert.doesNotMatch(output('#cat-records'),/buff-01/);
+assert.match(output('#cat-detail'),/敵専用/);
+inputControl({filter:'mark'},'');
+await click({record:'entry:buff-01'});
+activeKind='buff';
+await click({action:'edit'});
+assert.match(output('#cat-input-content'),/type="checkbox" data-mark="enemy"/);
+inputControl({mark:'hollow'},'hollow',true);
+await new Promise(resolve=>setTimeout(resolve,300));
+assert.match(output('#cat-live-problems'),/検査の注意/);
+assert.deepEqual(calls,[]);
+await click({action:'save'});
+assert.deepEqual(Array.from(savedDraft.payload.marks),['hollow']);
+const review=window.CatalogReview.rows(all.buff,{},savedDraft.payload,{marks:labels});
+assert.equal(review.find(row=>row.key==='marks').after,'ホロウ専用');
+controller.destroy();
+""")
+
+
 def test_reference_links_follow_deprecated_entries_and_unwind_until_manual_selection():
     run_node(r"""
 const detail=panel.querySelector('#cat-detail'), metadata=panel.querySelector('#cat-metadata');

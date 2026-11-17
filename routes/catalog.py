@@ -8,7 +8,7 @@ from flask import Blueprint, abort, g, jsonify, request
 from extensions import db, socketio
 from models import User, CatalogEntry, CatalogDraft, CatalogHistory, CatalogEffectRequest
 from manager.catalog import effect_requests, repository
-from manager.catalog.kinds import KINDS, CatalogValidationError, inspect_payload
+from manager.catalog.kinds import KINDS, MARK_KINDS, MARK_LABELS, CatalogValidationError, inspect_payload
 from manager.catalog.references import find_outgoing, find_references
 from manager.utils import session_required
 
@@ -75,7 +75,7 @@ def _entry_json(row):
 def _draft_json(row):
     return {"id": row.id, "kind": row.kind, "target_id": row.target_id,
             "payload": row.payload, "id_prefix": row.id_prefix,
-            "problems": inspect_payload(row.kind, row.payload, entry_id=row.target_id, stage="submit"),
+            "problems": inspect_payload(row.kind, row.payload, entry_id=row.target_id, id_prefix=row.id_prefix, stage="submit"),
             "status": row.status, "base_revision": row.base_revision,
             "created_by": row.created_by, "created_by_name": _name(row.created_by),
             "reject_reason": row.reject_reason, "created_at": _time(row.created_at),
@@ -107,7 +107,7 @@ def overview():
         ).group_by(CatalogDraft.kind, CatalogDraft.status):
             if kind in counts and status in ("draft", "pending", "rejected"):
                 counts[kind][status] = count
-    result = {"counts": counts}
+    result = {"counts": counts, "marks": {"kinds": MARK_KINDS, "labels": MARK_LABELS}}
     if author:
         result["open_requests"] = effect_requests.count_open()
     if user.is_app_admin:
@@ -152,6 +152,17 @@ def references(kind, entry_id):
 @_endpoint("admin")
 def next_id(kind):
     return jsonify(entry_id=repository.next_entry_id(kind, prefix=request.args.get("prefix")))
+
+
+@catalog_bp.post("/api/catalog/<kind>/inspect")
+@_endpoint("author")
+def inspect(kind):
+    data = _body()
+    for field in ("entry_id", "id_prefix"):
+        if data.get(field) is not None and not isinstance(data[field], str):
+            raise CatalogValidationError({field: "文字列が必要です"})
+    return jsonify(problems=inspect_payload(kind, data.get("payload"), entry_id=data.get("entry_id"),
+                                            id_prefix=data.get("id_prefix"), stage="submit"))
 
 
 @catalog_bp.post("/api/catalog/<kind>/drafts")

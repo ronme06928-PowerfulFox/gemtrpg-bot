@@ -2,8 +2,9 @@
 import re
 import json
 import extensions
+from flask import has_app_context
 from models import CatalogEntry
-from .kinds import KINDS, get_kind
+from .kinds import KINDS, MARK_KINDS, get_kind
 
 GLOSSARY_MARKUP = re.compile(r"\[\[(W-\d{2,})(?:\|[^\]]*)?\]\]")
 
@@ -64,7 +65,7 @@ def _id_paths(value, entry_id, path=""):
 
 
 
-def _target_paths(payload, kind, entry_id, buff_name=None):
+def target_paths(payload, kind, entry_id, buff_name=None):
     if kind == "glossary":
         return _text_paths(payload, entry_id)
     if kind == "buff":
@@ -74,6 +75,34 @@ def _target_paths(payload, kind, entry_id, buff_name=None):
 
 def _display_name(payload, entry_id):
     return payload.get("display_name") or payload.get("デフォルト名称") or payload.get("name") or entry_id
+
+
+def _enemy_mark(payload):
+    marks = payload.get("marks")
+    return isinstance(marks, list) and "enemy" in marks
+
+
+def enemy_reference_warnings(kind, entry_id, id_prefix, payload):
+    if not has_app_context():
+        return
+    if kind == "skill":
+        prefix = id_prefix if not entry_id or entry_id.startswith("X-") else entry_id.split("-", 1)[0]
+        if prefix == "E":
+            return
+    elif _enemy_mark(payload):
+        return
+
+    labels = {"skill": "スキル", "buff": "バフ", "passive": "特殊パッシブ", "item": "アイテム"}
+    targets = CatalogEntry.query.filter(
+        CatalogEntry.kind.in_(MARK_KINDS) | ((CatalogEntry.kind == "skill") & CatalogEntry.entry_id.like("E-%"))
+    ).order_by(CatalogEntry.kind, CatalogEntry.entry_id)
+    for target in targets:
+        if (target.kind, target.entry_id) == (kind, entry_id):
+            continue
+        if target.kind != "skill" and not _enemy_mark(target.payload):
+            continue
+        for path in target_paths(payload, target.kind, target.entry_id, target.payload.get("name")):
+            yield path, f"敵専用の{labels[target.kind]} {target.entry_id} を使っています"
 
 
 def find_outgoing(kind, entry_id):
@@ -87,7 +116,7 @@ def find_outgoing(kind, entry_id):
     for target in targets:
         if (target.kind, target.entry_id) == (kind, entry_id):
             continue
-        paths = list(_target_paths(source.payload, target.kind, target.entry_id, target.payload.get("name")))
+        paths = list(target_paths(source.payload, target.kind, target.entry_id, target.payload.get("name")))
         if target.kind == "glossary" and target.entry_id in links:
             paths.append("links")
         for path in dict.fromkeys(paths):
@@ -115,7 +144,7 @@ def find_references(kind, entry_id, *, include_staff=False):
         for source_id, payload in sorted(records.items()):
             if source_kind == kind and source_id == entry_id:
                 continue
-            for path in _target_paths(payload, kind, entry_id, buff_name):
+            for path in target_paths(payload, kind, entry_id, buff_name):
                 references.append({"kind": source_kind, "entry_id": source_id,
                                    "display_name": _display_name(payload, source_id), "path": path})
     if kind in ("skill", "passive", "radiance", "item"):

@@ -9,6 +9,7 @@ from app import create_app
 from extensions import db, all_glossary_data, all_skill_data, all_buff_data
 from models import User, CatalogEntry, CatalogDraft, CatalogHistory
 from manager.catalog import repository as repo
+from manager.catalog.kinds import inspect_payload, validate_payload
 
 
 @pytest.fixture
@@ -241,6 +242,55 @@ def test_outgoing_references_are_resolved_from_published_payloads(api):
     }
     outgoing = reader.get("/api/catalog/glossary/W-900/references").json["outgoing"]
     assert outgoing == [{"kind": "glossary", "entry_id": "W-08", "display_name": "荊棘", "path": "links"}]
+
+
+@pytest.mark.parametrize("kind", ["buff", "passive", "item"])
+def test_catalog_marks_allow_only_unique_known_strings(kind):
+    assert validate_payload(kind, {"name": "印の検査"})["marks"] == []
+    assert validate_payload(kind, {"name": "印の検査", "marks": ["enemy", "hollow"]})["marks"] == ["enemy", "hollow"]
+    for marks in (["unknown"], ["enemy", "enemy"], [{}], "enemy", None):
+        problems = inspect_payload(kind, {"name": "印の検査", "marks": marks}, stage="submit")
+        assert any(p["field"] == "marks" and p["level"] == "error" for p in problems)
+
+
+@pytest.mark.parametrize("kind", ["skill", "glossary", "radiance", "summon"])
+def test_catalog_marks_are_undefined_for_other_kinds(kind):
+    assert {"field": "marks", "message": "未定義の項目です", "level": "error"} in inspect_payload(
+        kind, {"marks": ["enemy"]}, stage="submit")
+
+
+def test_pre_save_inspection_warns_only_for_non_enemy_sources(api):
+    db.session.add_all([
+        CatalogEntry(kind="buff", entry_id="Bu-01", revision=1, payload={"name": "敵の強化", "marks": ["enemy"]}),
+        CatalogEntry(kind="buff", entry_id="Bu-02", revision=1, payload={"name": "ホロウの強化", "marks": ["hollow"]}),
+        CatalogEntry(kind="skill", entry_id="E-01", revision=1, payload={"デフォルト名称": "敵の技"}),
+    ])
+    db.session.commit()
+    author = client(api, "author")
+    path = "/api/catalog/skill/inspect"
+    payload = {"特記処理": {"effects": [{"buff_id": "Bu-01"}, {"buff_name": "敵の強化"}, {"buff_id": "Bu-02"}]}}
+
+    def warnings(result):
+        assert result.status_code == 200
+        return [p for p in result.json["problems"] if p["level"] == "warning" and "敵専用の" in p["message"]]
+
+    assert client(api, "reader").post(path, json={"payload": payload}).status_code == 403
+    assert {p["field"] for p in warnings(author.post(path, json={"payload": payload, "entry_id": "Ps-01"}))} == {
+        "特記処理.effects[0].buff_id", "特記処理.effects[1].buff_name",
+    }
+    assert warnings(author.post(path, json={"payload": payload, "entry_id": "E-01"})) == []
+    assert warnings(author.post(path, json={"payload": payload, "id_prefix": "E"})) == []
+    item = {"name": "道具", "effect": {"E-01": True}}
+    assert warnings(author.post("/api/catalog/item/inspect", json={"payload": item})) == [
+        {"field": "effect.E-01", "message": "敵専用のスキル E-01 を使っています", "level": "warning"},
+    ]
+    assert validate_payload("item", item)["effect"] == {"E-01": True}
+    item["marks"] = ["enemy"]
+    assert warnings(author.post("/api/catalog/item/inspect", json={"payload": item})) == []
+    assert CatalogDraft.query.count() == 0
+    assert author.get("/api/catalog/overview").json["marks"] == {
+        "kinds": ["buff", "passive", "item"], "labels": {"enemy": "敵専用", "hollow": "ホロウ専用"},
+    }
 
 
 def test_api_delegates_payload_storage_to_repository(api, monkeypatch):

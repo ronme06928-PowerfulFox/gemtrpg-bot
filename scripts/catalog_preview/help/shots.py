@@ -127,6 +127,26 @@ def main():
         page.locator('#cat-detail summary', has_text="使われている所").click()
         page.locator('#cat-detail').evaluate('(detail) => { detail.scrollTop = 0; }')
         capture(page, "07_connections", selector="#cat-detail")
+
+        # 印の図は公開済みの例を使う。書き換えるのは撮影用のDBだけ。
+        page.evaluate("""async () => {
+            const post = async (url, body, method = 'POST') => {
+                const response = await fetch('/api/catalog/' + url, {method,
+                    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+                if (!response.ok) throw new Error(await response.text());
+                return response.json();
+            };
+            const draft = await post('buff/drafts', {target_id: 'Bu-30'});
+            await post('drafts/' + draft.id, {payload: {...draft.payload, marks: ['enemy']}}, 'PUT');
+            await post('drafts/' + draft.id + '/submit', {});
+            await post('drafts/' + draft.id + '/approve', {});
+        }""")
+        page.set_viewport_size({"width": 1280, "height": 720})
+        open_workspace(page, args.base)
+        page.locator('[data-kind="buff"]').click()
+        page.locator('[data-filter="mark"]').select_option('enemy')
+        page.locator('#cat-detail [data-catalog-mark="enemy"]').wait_for()
+        capture(page, "08_marks")
         browser.close()
 
 

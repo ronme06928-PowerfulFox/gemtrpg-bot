@@ -123,6 +123,9 @@
 .cat-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 5px 3px 9px; border: 1px solid var(--cat-edge); border-radius: 6px; background: var(--cat-primary-soft); color: var(--cat-primary); font-size: 12px; line-height: 1.5; }
 .cat-chip-text { min-width: 0; overflow-wrap: anywhere; }
 .cat-chip.is-warning { border-color: var(--cat-edge); background: var(--cat-warn-soft); color: var(--cat-warn); }
+.cat-workspace .cat-mark { margin-inline-end: 5px; padding: 0 6px; font-size: 11px; white-space: nowrap; }
+.cat-mark-options { display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--cat-text); font-size: 13px; }
+.cat-mark-options label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
 .cat-chip-note { font-size: 10px; white-space: nowrap; }
 .cat-workspace .cat-chip-remove { flex-shrink: 0; min-width: 24px; min-height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font-size: 16px; cursor: pointer; }
 .cat-chip-remove:hover { color: var(--cat-danger); background: var(--cat-bg); }

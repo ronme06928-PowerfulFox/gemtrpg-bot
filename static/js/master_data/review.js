@@ -39,6 +39,7 @@
     if (key === 'target_scope') return {opposing_team:'敵陣営',same_team:'同陣営',any:'全陣営',self:'自分'}[value] || plain(value);
     if (typeof value === 'boolean') return value ? 'はい' : 'いいえ';
     if (Array.isArray(value)) {
+      if (key === 'marks' && options.marks) return value.map(mark => options.marks[mark] || String(mark)).join('、') || 'なし';
       if (key === 'cost' && value.every(row=>row && typeof row === 'object')) return value.map(row=>`${row.type ?? '?'}を${row.value ?? '?'}消費`).join('、') || 'なし';
       const refKind = key === 'links' ? 'glossary' : key === 'initial_skill_ids' ? 'skill' : null;
       if (value.every(item=>typeof item !== 'object')) return value.map(item=>{
@@ -65,6 +66,10 @@
     const add = (key,label,a,b,display) => result.push({key,label,rawBefore:a,rawAfter:b,changed:before === undefined || !same(a,b),before:display ? display(a) : format(a,key,model.kind,before,options),after:display ? display(b) : format(b,key,model.kind,after,options)});
     const keys = [...new Set([...model.fields.map(([key])=>key),...Object.keys(before || {}),...Object.keys(after || {})])];
     for (const key of keys) {
+      if (key === 'marks' && options.marks) {
+        add(key, '印', before?.marks ?? [], after?.marks ?? []);
+        continue;
+      }
       const a = before?.[key], b = after?.[key];
       if (model.kind === 'skill' && key === '特記処理' && [a,b].every(value=>value === undefined || window.CatalogSkillEffects.object(value))) {
         const rootKeys = [...new Set([...Object.keys(a || {}),...Object.keys(b || {})])];
