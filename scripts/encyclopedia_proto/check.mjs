@@ -135,7 +135,7 @@ try {
     const dimensions = [];
     const colors = [];
     for (const [key, keys] of [
-      ['adventurers', [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['C', 'D', 'B'], ['radiance', 'item']]],
+      ['adventurers', [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['B', 'C', 'D'], ['radiance', 'item']]],
       ['monsters', [['E', 'enemy', 'passive']]],
       ['world', [['glossary', 'buff']]],
     ]) {

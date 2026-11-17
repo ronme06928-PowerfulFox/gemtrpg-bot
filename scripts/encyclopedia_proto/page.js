@@ -38,7 +38,7 @@
   const booksByKey = new Map(books.map(book => [book.key, book]));
   const rooms = new Map([
     // 棚の区画を左上から順に。区画の中は本と小物（PROP_KEYS）を並べた順に置く。
-    ['adventurers', ['冒険者', 4, [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['C', 'D', 'B'], ['radiance', 'item']], ['Ps', 'Ms', 'radiance']]],
+    ['adventurers', ['冒険者', 4, [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['B', 'C', 'D'], ['radiance', 'item']], ['Ps', 'Ms', 'radiance']]],
     ['monsters', ['魔物', 1, [['candle', 'E', 'enemy', 'passive', 'dice']], ['E', 'enemy', 'passive']]],
     ['world', ['世界の理', 1, [['quill', 'glossary', 'buff', 'hourglass']], ['glossary', 'buff']]],
   ].map(([key, [title, columns, cells, ornaments]]) => {
