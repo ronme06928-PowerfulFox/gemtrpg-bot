@@ -219,7 +219,7 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 | GET `/api/catalog/skill/text_references` | ログイン全員 | `{summon_refs}`。現在の召喚のID・名前・持続・タグだけを返す（文章の名前解決用） |
 | GET `/api/catalog/<kind>` | ログイン全員 | `{kind, entries}`。制作者・管理者には `drafts` も返す |
 | GET `/api/catalog/<kind>/<entry_id>/history` | ログイン全員 | `{history}`。版・操作・実行者・日時・中身 |
-| GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references}`。用語のlinks・文章参照、バフのID・内部名、スキルのIDを種類ごとに検索 |
+| GET `/api/catalog/<kind>/<entry_id>/references` | ログイン全員 | `{references, outgoing}`。参照元と参照先をそれぞれ `kind`・`entry_id`・`display_name`・`path` の配列で返す。公開版の関連用語と文章内の用語リンク、バフの `buff_id`・`buff_name`、その他の種類の ID に一致する値・キーを照合する。非公開ユニットの参照元は制作者・アプリ管理者に表示する |
 | POST `/api/catalog/<kind>/drafts` | 制作者・管理者 | `{target_id}` で既存の写し、`{}` で新規（スキルは `{id_prefix: "Ps"}` などが必須）。既存下書きがあればそれを返す |
 | PUT `/api/catalog/drafts/<id>` | 制作者である作成者・管理者 | `{payload: {...}}`。未完成の保存も可。承認待ちは409、却下後の編集でdraftへ戻る |
 | POST `/api/catalog/drafts/<id>/submit` | 制作者である作成者・管理者 | 検査後にpendingへ |

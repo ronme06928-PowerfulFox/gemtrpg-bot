@@ -133,7 +133,7 @@ def test_unit_workspace_replaces_management_only():
     main = (ROOT / "static/js/main.js").read_text(encoding="utf-8")
     build = (ROOT / "scripts/build_frontend.mjs").read_text(encoding="utf-8")
     menu = (ROOT / "static/js/app_screens.js").read_text(encoding="utf-8")
-    assert "mountUnitManagement(host)" in menu
+    assert "mountUnitManagement(host, options)" in menu
     assert "open-bo-preset-portal-btn" not in main
     for name in ("workspace", "catalog", "stage_preset", "formation_hub", "enemy_formation", "ally_formation"):
         filename = f"battle_only_{name}_modal.js"

@@ -7,8 +7,8 @@
   // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
   const WORKSPACES = {
     characters: host => mountOwnedCharacters(host),
-    units: host => mountUnitManagement(host),
-    master: host => mountCatalogWorkspace(host),
+    units: (host, options) => mountUnitManagement(host, options),
+    master: (host, options) => mountCatalogWorkspace(host, { onOpenUnit: openReferencedUnit, ...options }),
   };
   const HELP_LINKS = [
     ['/manuals/rulebook.pdf', '基本ルールブック', 'PDF'],
@@ -109,9 +109,19 @@
     showPortal(helpHtml());
   }
 
-  function showWorkspace(name) {
+  function showWorkspace(name, options) {
     showPortal(`${backBar()}<div class="screen-workspace" data-screen="${name}"></div>`);
-    mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'))};
+    mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'), options)};
+  }
+
+  function followWorkspaceLink(name, options) {
+    history.replaceState(null, '', '#' + name);
+    showWorkspace(name, options);
+  }
+
+  function openReferencedUnit(entryId, origin, trail) {
+    followWorkspaceLink('units', { entryId, originName: origin.name,
+      onReferenceBack: () => followWorkspaceLink('master', { origin, trail }) });
   }
 
   function showUsers() {

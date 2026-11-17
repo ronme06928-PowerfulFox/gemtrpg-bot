@@ -9,7 +9,7 @@ from extensions import db, socketio
 from models import User, CatalogEntry, CatalogDraft, CatalogHistory, CatalogEffectRequest
 from manager.catalog import effect_requests, repository
 from manager.catalog.kinds import KINDS, CatalogValidationError, inspect_payload
-from manager.catalog.references import find_references
+from manager.catalog.references import find_outgoing, find_references
 from manager.utils import session_required
 
 
@@ -142,8 +142,10 @@ def history(kind, entry_id):
 @_endpoint()
 def references(kind, entry_id):
     user = g.authenticated_user
-    return jsonify(references=find_references(
-        kind, entry_id, include_staff=user.is_catalog_author or user.is_app_admin))
+    return jsonify(
+        references=find_references(kind, entry_id, include_staff=user.is_catalog_author or user.is_app_admin),
+        outgoing=find_outgoing(kind, entry_id),
+    )
 
 
 @catalog_bp.get("/api/catalog/<kind>/next_id")

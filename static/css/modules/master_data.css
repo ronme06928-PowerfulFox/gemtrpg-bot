@@ -337,6 +337,10 @@
 .cat-workspace .cat-fold > summary { cursor: pointer; padding: 9px 12px; font-size: 13px; font-weight: 700; }
 .cat-workspace .cat-fold[open] > summary { border-bottom: 1px solid var(--cat-edge); }
 .cat-workspace .cat-fold > :not(summary) { margin-inline: 12px; }
+.cat-fold .cat-reference { width: calc(100% - 24px); padding: 5px 8px; box-shadow: none; }
+.cat-fold .cat-reference > span:first-child { text-decoration: underline; }
+.cat-fold .cat-reference .cat-caption { display: block; }
+.cat-reference-back { align-self: flex-start; margin: 0 0 6px; max-width: 100%; overflow-wrap: anywhere; }
 .cat-workspace .cat-skill-preview .skill-detail-card { margin-top: 0; padding: 10px 12px; }
 .cat-workspace .cat-skill-preview .skill-detail-tags { margin-bottom: 6px; }
 .cat-workspace .skill-detail-pill { color: var(--cat-text); background: var(--cat-soft); border-color: var(--cat-edge); }

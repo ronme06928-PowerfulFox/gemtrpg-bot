@@ -64,16 +64,50 @@ def _id_paths(value, entry_id, path=""):
 
 
 
+def _target_paths(payload, kind, entry_id, buff_name=None):
+    if kind == "glossary":
+        return _text_paths(payload, entry_id)
+    if kind == "buff":
+        return _buff_paths(payload, entry_id, buff_name)
+    return _id_paths(payload, entry_id)
+
+
+def _display_name(payload, entry_id):
+    return payload.get("display_name") or payload.get("デフォルト名称") or payload.get("name") or entry_id
+
+
+def find_outgoing(kind, entry_id):
+    get_kind(kind)
+    source = CatalogEntry.query.filter_by(kind=kind, entry_id=entry_id).first()
+    if source is None:
+        return []
+    links = source.payload.get("links", []) if kind == "glossary" else []
+    outgoing = []
+    targets = CatalogEntry.query.filter(CatalogEntry.kind.in_(KINDS)).order_by(CatalogEntry.kind, CatalogEntry.entry_id)
+    for target in targets:
+        if (target.kind, target.entry_id) == (kind, entry_id):
+            continue
+        paths = list(_target_paths(source.payload, target.kind, target.entry_id, target.payload.get("name")))
+        if target.kind == "glossary" and target.entry_id in links:
+            paths.append("links")
+        for path in dict.fromkeys(paths):
+            outgoing.append({"kind": target.kind, "entry_id": target.entry_id,
+                             "display_name": _display_name(target.payload, target.entry_id), "path": path})
+    return outgoing
+
+
 def find_references(kind, entry_id, *, include_staff=False):
     get_kind(kind)
     references = []
+    buff_name = None
     if kind == "buff":
         entry = CatalogEntry.query.filter_by(kind=kind, entry_id=entry_id).first()
         if entry is None:
             return []
+        buff_name = entry.payload["name"]
     if kind == "glossary":
         for row in CatalogEntry.query.filter_by(kind=kind).order_by(CatalogEntry.entry_id).all():
-            if entry_id in row.payload.get("links", []):
+            if row.entry_id != entry_id and entry_id in row.payload.get("links", []):
                 references.append({"kind": kind, "entry_id": row.entry_id,
                                    "display_name": row.payload["display_name"], "path": "links"})
     for source_kind, definition in KINDS.items():
@@ -81,15 +115,9 @@ def find_references(kind, entry_id, *, include_staff=False):
         for source_id, payload in sorted(records.items()):
             if source_kind == kind and source_id == entry_id:
                 continue
-            name = payload.get("display_name") or payload.get("デフォルト名称") or payload.get("name") or source_id
-            if kind == "glossary":
-                paths = _text_paths(payload, entry_id)
-            elif kind == "buff":
-                paths = _buff_paths(payload, entry_id, entry.payload["name"])
-            else:
-                paths = _id_paths(payload, entry_id)
-            for path in paths:
-                references.append({"kind": source_kind, "entry_id": source_id, "display_name": name, "path": path})
+            for path in _target_paths(payload, kind, entry_id, buff_name):
+                references.append({"kind": source_kind, "entry_id": source_id,
+                                   "display_name": _display_name(payload, source_id), "path": path})
     if kind in ("skill", "passive", "radiance", "item"):
         from manager.units.repository import entries
         from manager.units.validation import master_links

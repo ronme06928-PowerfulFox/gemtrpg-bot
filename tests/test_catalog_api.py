@@ -211,6 +211,38 @@ def test_references_find_exact_ids_in_nested_text_without_drafts(api):
     assert any(r["kind"] == "buff" and r["entry_id"] == "Bu-01" for r in references)
 
 
+def test_outgoing_references_are_resolved_from_published_payloads(api):
+    db.session.add_all([
+        CatalogEntry(kind="skill", entry_id="Ps-01", revision=1, payload={
+            "デフォルト名称": "技", "text": "[[W-08|荊棘]] [[W-999]]",
+            "effects": [{"buff_id": "Bu-01"}, {"buff_name": "強化"}, {"buff_id": "Bu-99"}],
+            "nested": '{"Sm-01":"Ps-01", "summon":"Sm-01", "missing":"Sm-99", "restricted":"U-900"}',
+        }),
+        CatalogEntry(kind="buff", entry_id="Bu-01", revision=1, deprecated=True,
+                     payload={"name": "強化", "display_name": "強化表示"}),
+        CatalogEntry(kind="summon", entry_id="Sm-01", revision=1, payload={"name": "召喚"}),
+        CatalogEntry(kind="unit", entry_id="U-900", revision=1, visibility="staff", payload={"name": "非公開ユニット"}),
+        CatalogEntry(kind="glossary", entry_id="W-900", revision=1, payload={
+            "display_name": "用語", "links": ["W-08", "W-900", "W-999"],
+        }),
+    ])
+    db.session.commit()
+    reader = client(api, "reader")
+    response = reader.get("/api/catalog/skill/Ps-01/references")
+    assert response.status_code == 200
+    assert {"references", "outgoing"} <= response.json.keys()
+    assert {tuple(ref[key] for key in ("display_name", "entry_id", "kind", "path"))
+            for ref in response.json["outgoing"]} == {
+        ("強化表示", "Bu-01", "buff", "effects[0].buff_id"),
+        ("強化表示", "Bu-01", "buff", "effects[1].buff_name"),
+        ("荊棘", "W-08", "glossary", "text"),
+        ("召喚", "Sm-01", "summon", "nested.Sm-01"),
+        ("召喚", "Sm-01", "summon", "nested.summon"),
+    }
+    outgoing = reader.get("/api/catalog/glossary/W-900/references").json["outgoing"]
+    assert outgoing == [{"kind": "glossary", "entry_id": "W-08", "display_name": "荊棘", "path": "links"}]
+
+
 def test_api_delegates_payload_storage_to_repository(api, monkeypatch):
     row = draft()
     calls = []

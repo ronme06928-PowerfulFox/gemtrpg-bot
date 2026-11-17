@@ -4,7 +4,7 @@
   1. DB の写しでアプリを起動する：python app.py --db _local/agent_db/gemtrpg.db
   2. python scripts/catalog_preview/help/shots.py --base http://127.0.0.1:5000 --db _local/agent_db/gemtrpg.db
 手元の instance/gemtrpg.db は指せない（AGENTS.md「手元のDBを守る」）。
-写真は _local/catalog_preview/help/shots/ に、1280×720 で書く。利用者は制作者とアプリ管理者の両方の印を付けて作る。
+写真は _local/catalog_preview/help/shots/ に、幅1280pxの画面から撮って書く。利用者は制作者とアプリ管理者の両方の印を付けて作る。
 --publish を付けると、使い方ページ用の範囲に切り出して static/help/master_data/ に書く。
 """
 import argparse
@@ -45,14 +45,18 @@ def pick(page, text):
     wait(page)
 
 
-def shot(page, name, *, publish):
+def shot(page, name, *, publish, selector=None):
     output = PUBLISHED if publish else OUT
     output.mkdir(parents=True, exist_ok=True)
     page.mouse.move(2, 2)  # ⓘ の説明などが出たままにならないように、カーソルを外す。
     wait(page, 300)
     crop = CROPS.get(name) if publish else None
     clip = dict(zip(("x", "y", "width", "height"), crop)) if crop else None
-    page.screenshot(path=str(output / f"{name}.png"), clip=clip)
+    path = str(output / f"{name}.png")
+    if selector:
+        page.locator(selector).screenshot(path=path)
+    else:
+        page.screenshot(path=path, clip=clip)
     print("wrote", name)
 
 
@@ -112,6 +116,17 @@ def main():
         page.get_by_role("button", name="承認待ち").first.click(); wait(page)
         page.locator("[data-pending-id]").first.click(); wait(page, 1500)
         capture(page, "06_review")
+
+        page.set_viewport_size({"width": 1280, "height": 860})
+        open_workspace(page, args.base)
+        page.locator('[data-kind="skill"]').click()
+        pick(page, "Ps-11")
+        page.locator('#cat-metadata summary', has_text="参照している物").click()
+        page.locator('#cat-metadata [data-target-kind="buff"][data-target="Bu-30"]').click()
+        page.locator('#cat-detail [data-action="reference-back"]').wait_for()
+        page.locator('#cat-detail summary', has_text="使われている所").click()
+        page.locator('#cat-detail').evaluate('(detail) => { detail.scrollTop = 0; }')
+        capture(page, "07_connections", selector="#cat-detail")
         browser.close()
 
 

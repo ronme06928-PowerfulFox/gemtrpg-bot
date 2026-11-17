@@ -9,7 +9,7 @@
   const labels = {unit:'ユニット',formation:'編成',stage:'ステージ'};
 
   // メインメニューの下の全幅の画面（#units）として、渡された枠の中に描く（E02 Part 10・18）。
-  function mountUnitManagement(host) {
+  function mountUnitManagement(host, options = {}) {
     host.innerHTML = `<section class="bo-workspace cat-workspace unit-workspace" aria-label="ユニット管理" tabindex="-1">
       <header class="bo-workspace__header"><h2>ユニット管理</h2><div class="bo-workspace__header-actions"></div></header>
       <div class="cat-message" hidden></div>
@@ -33,6 +33,8 @@
       search:'', collection:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
       rawConstraints:null, conflict:false, wideConfirm:false, patternAdditions:new Map()};
     let checkTimer, checkToken = 0, dialogFocus;
+    let referenceBack = options.onReferenceBack;
+    const backButton = () => referenceBack ? button(`← ${h(options.originName)}`, 'reference-back', '', 'cat-reference-back') : '';
     const canEdit = () => state.author;
     const current = () => state.records.find(row => row.entry_id === state.selected && row.kind === state.kind);
     const payload = () => state.draft.payload;
@@ -118,7 +120,7 @@
 
     function renderDetail() {
       const row = state.draft;
-      if (!row) { detail.innerHTML = '<p class="cat-empty">一覧から資源を選択してください。</p>'; return; }
+      if (!row) { detail.innerHTML = `${backButton()}<p class="cat-empty">一覧から資源を選択してください。</p>`; return; }
       const sectionLabel = sections[state.kind].find(([id]) => id === state.section)[1];
       const currentSection = Array.isArray(sectionLabel) ? sectionLabel.join('') : sectionLabel;
       const persisted = !!state.selected;
@@ -127,7 +129,7 @@
       const sectionBody = state.section === 'history'
         ? (persisted ? history(state.history, {revision:row.revision, restore:canEdit(), button}) : '<p class="cat-caption">保存すると履歴が表示されます。</p>')
         : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.patternAdditions.size ? state.records.map(withPendingPatterns) : state.records});
-      detail.innerHTML = `<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
+      detail.innerHTML = `${backButton()}<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
         <div class="unit-editor${state.wideConfirm ? ' is-confirm-wide' : ''}">
           <nav aria-label="目次" class="unit-toc">${sections[state.kind].map(([id,label]) =>
@@ -248,10 +250,13 @@
       });
     }
 
-    async function reload(id = state.selected, section = state.section) {
+    async function reload(id = state.selected, section = state.section, fromReference = false) {
       const {entries} = await api.list();
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
-      await selectRow(state.records.find(row => row.kind === state.kind && row.entry_id === id),section);
+      const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
+      if (fromReference) state.deprecated = !!row?.deprecated;
+      await selectRow(row,section);
+      if (fromReference && !row) notify('リンク先のユニットが見つかりません。', true);
     }
 
     function startNew(kind, value = forms.defaults(kind)) {
@@ -569,14 +574,22 @@
     async function onAction(control) {
       if (!control) return;
       const {unitAction:action,id,kind,section,path,index,revision} = control.dataset;
-      const readActions = ['close-dialog','reload','tab','record','section','toggle-confirm','jump-confirm','jump-edit'];
+      const readActions = ['close-dialog','reload','tab','record','section','toggle-confirm','jump-confirm','jump-edit','reference-back'];
       if (!canEdit() && !readActions.includes(action)) return;
+      if (action === 'reference-back') {
+        if (state.dirty) notify('編集内容を保存するか、変更を破棄してから戻ってください。');
+        else referenceBack?.();
+        return;
+      }
       if (action === 'close-dialog') closeDialog();
       if (action === 'reload' && await canLeave()) await reload();
-      if (action === 'record' && id !== state.selected && await canLeave()) {
-        await selectRow(state.records.find(row => row.kind === state.kind && row.entry_id === id));
+      if (action === 'record' && (id === state.selected || await canLeave())) {
+        if (referenceBack && id === state.selected) get('[data-unit-action="reference-back"]')?.remove();
+        referenceBack = null;
+        if (id !== state.selected) await selectRow(state.records.find(row => row.kind === state.kind && row.entry_id === id));
       }
       if (action === 'tab' && kind !== state.kind && await canLeave()) {
+        referenceBack = null;
         state.kind = kind;
         state.section = 'basic';
         await selectRow(null);
@@ -845,7 +858,7 @@
       const user = await window.CatalogApi.user();
       state.author = !!(user.is_catalog_author || user.is_app_admin);
       await Promise.all(views.master.map(async kind => { masters[kind] = (await window.CatalogApi.list(kind)).entries; }));
-      await reload(null);
+      await reload(options.entryId || null, 'basic', !!options.entryId);
     });
     return {allowLeave: canLeave, destroy};
   }

@@ -22,7 +22,7 @@ const records=Object.fromEntries(Object.entries(all).map(([kind,model])=>[kind,{
 let savedDraft;
 window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),
  list:async kind=>({entries:[records[kind]],drafts:savedDraft?.kind===kind?[savedDraft]:[]}),
- history:async()=>({history:[]}),references:async()=>({references:[]}),
+ history:async()=>({history:[]}),references:async()=>({references:[],outgoing:[]}),
  effectSchemas:async()=>({effect_types:{},custom_effects:{},common_fields:{}}),
  create:async(kind,target,prefix)=>{calls.push('create');return {id:1,kind,target_id:target||'X-01',id_prefix:prefix,status,created_by:owner,base_revision:revision,payload:records[kind].payload};},
  save:async(id,payload)=>{calls.push('save');if(failed)throw Error('保存失敗');savedDraft={id,kind:activeKind,target_id:records[activeKind].entry_id,status:'draft',created_by:'author',payload,base_revision:3};return savedDraft;}};
@@ -52,6 +52,37 @@ for(const kind of Object.keys(all)) {
  await click({action:'back'});
 }
 controller.destroy();assert.equal(events.size,0);
+""")
+
+
+def test_reference_links_follow_deprecated_entries_and_unwind_until_manual_selection():
+    run_node(r"""
+const detail=panel.querySelector('#cat-detail'), metadata=panel.querySelector('#cat-metadata');
+const ref=(kind,path)=>({kind,entry_id:records[kind].entry_id,display_name:kind,path});
+records.buff.deprecated=true;
+window.CatalogApi.references=async kind=>kind==='skill'
+  ? {references:[],outgoing:[ref('buff','effect.buff_id'),ref('buff','effect.buff_name')]}
+  : {references:[ref('glossary','long')],outgoing:[]};
+await click({kind:'skill'});
+assert.match(metadata.innerHTML,/参照している物（1件）/);
+assert.match(metadata.innerHTML,/effect\.buff_id.*effect\.buff_name/s);
+await click({action:'goto',targetKind:'buff',target:records.buff.entry_id});
+assert.equal(controller.kind(),'buff');
+assert.match(detail.innerHTML,/data-action="reference-back"/);
+assert.match(panel.querySelector('.cat-scene').innerHTML,/data-status="deprecated" class="is-active"/);
+await click({action:'goto',targetKind:'glossary',target:records.glossary.entry_id});
+assert.equal(controller.kind(),'glossary');
+await click({action:'reference-back'});assert.equal(controller.kind(),'buff');
+await click({action:'reference-back'});assert.equal(controller.kind(),'skill');
+assert.doesNotMatch(detail.innerHTML,/data-action="reference-back"/);
+await click({action:'goto',targetKind:'buff',target:records.buff.entry_id});
+await click({record:`entry:${records.buff.entry_id}`});
+assert.doesNotMatch(detail.innerHTML,/data-action="reference-back"/);
+await click({action:'edit'});
+await click({action:'goto',targetKind:'glossary',target:records.glossary.entry_id});
+assert.equal(controller.kind(),'buff');
+assert.match(panel.querySelector('.cat-message').textContent,/編集/);
+controller.destroy();
 """)
 
 

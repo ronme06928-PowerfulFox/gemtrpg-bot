@@ -11,6 +11,23 @@
   const badge = status => status === 'published' ? '' : `<span class="cat-badge" data-status="${h(window.CatalogGlossary.statuses[status])}">${h(window.CatalogGlossary.statuses[status])}</span>`;
   const jsonBlock = payload => `<details class="cat-json"><summary>JSON</summary><pre>${h(pretty(payload))}</pre></details>`;
 
+  function referenceFold(label, references) {
+    const grouped = new Map();
+    for (const ref of references) {
+      const key = `${ref.kind}:${ref.entry_id}`;
+      if (!grouped.has(key)) grouped.set(key, { ...ref, paths: new Set() });
+      if (ref.path) grouped.get(key).paths.add(ref.path);
+    }
+    const links = [...grouped.values()].map(ref => {
+      const kind = models[ref.kind]?.label || 'ユニット';
+      const label = `${h(kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}`;
+      const paths = [...ref.paths].map(h).join('<br>');
+      return button(`<span>${label}</span>${paths ? `<span class="cat-caption">${paths}</span>` : ''}`, 'goto', 'cat-reference',
+        `data-target-kind="${h(ref.kind)}" data-target="${h(ref.entry_id)}"`);
+    }).join('');
+    return `<details class="bo-workspace__card cat-fold"><summary>${label}（${grouped.size}件）</summary>${links || '<p class="cat-caption">参照なし</p>'}</details>`;
+  }
+
   function renderProblems(problems = [], model = models.glossary) {
     if (!problems.length) return '<section class="cat-problems" aria-label="検査の問題"><p>問題はありません。</p></section>';
     return `<section class="cat-problems" aria-label="検査の問題">${[['error', 'エラー'], ['warning', '注意']].map(([level, label]) => {
@@ -21,7 +38,7 @@
 
   function mountCatalogWorkspace(container, options = {}) {
     const panel = container;
-    let model = models[options.kind || 'glossary'];
+    let model = models[options.origin?.kind || options.kind || 'glossary'];
     if (!model) throw new Error('未対応の種類です。');
     panel.classList.add('bo-workspace', 'cat-workspace');
     panel.innerHTML = `<header class="bo-workspace__header"><div><h2>マスターデータ</h2></div><div class="bo-workspace__header-actions"><span id="cat-request-action"></span><span id="cat-pending-action"></span><a class="cat-button cat-help-link" href="/static/help/master_data.html" target="_blank" rel="noopener">使い方</a>${button('← マスターデータ', 'master-back', '', 'id="cat-skill-return" hidden')}${button('更新', 'refresh')}${options.onClose ? button('閉じる', 'close') : ''}</div></header><div class="cat-message" role="alert" hidden></div><div class="cat-leave-overlay" hidden></div><div class="cat-scene"><p class="cat-empty">読み込み中…</p></div>`;
@@ -34,6 +51,7 @@
     let leaveResolve, leaveFocus, nextFocus;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
+    const trail = [...(options.trail || [])];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
     const state = { kind: model.kind, catalogs: {}, user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
       views: {}, masterKind: 'glossary', overview: {counts:{}}, section: 'body', rawValues: {}, filters: { status: 'published', category: model.kind === 'skill' ? 'Ps' : '', search: '' }, busy: false, dirty: false,
@@ -67,7 +85,7 @@
     function invalidate(kind) {
       if (kind === 'skill') power.clear();
       delete cache.lists[kind]; cache.overview = null; delete cache.textReferences;
-      for (const key of Object.keys(cache.meta)) if (key.startsWith(`${kind}:`)) delete cache.meta[key];
+      cache.meta = {};
     }
     function clearCache() { power.clear(); cache = { lists: {}, overview: null, schemas: null, meta: {} }; state.catalogs = {}; }
     const showNotice = parts?.notice(message, button('×', 'dismiss-notice', '', 'aria-label="知らせを閉じる"'));
@@ -120,7 +138,7 @@
       };
       model.configure(schemas, references);
     }
-    async function load(fromNotice = false) {
+    async function load(fromNotice = false, destination = null) {
       if (fromNotice) clearCache();
       const token = ++state.listRequest;
       const previous = selected();
@@ -134,7 +152,16 @@
       if (kind === 'skill') { await prepareSkill(token); if (!alive() || token !== state.listRequest || kind !== state.kind) return; }
       renderRequestCount();
       panel.querySelector('#cat-pending-action').innerHTML = state.user.is_app_admin ? button(`承認待ち ${overview.pending.length}件`, 'pending') : '';
-      if (!selected() && previous?.isDraft && entry(previous.target_id)) {
+      if (destination) {
+        const target = rows().find(row => row.key === (destination.key || `entry:${destination.id}`))
+          || rows().find(row => !row.isDraft && row.target_id === destination.id);
+        if (target) {
+          state.selected = target.key;
+          state.filters = { status: target.status, category: kind === 'skill' ? target.target_id.split('-')[0] : '', search: '' };
+        } else {
+          notice('リンク先の項目が見つかりません。', true);
+        }
+      } else if (!selected() && previous?.isDraft && entry(previous.target_id)) {
         const published = entry(previous.target_id);
         state.selected = `entry:${previous.target_id}`;
         state.filters.status = published.deprecated ? 'deprecated' : 'published';
@@ -188,7 +215,8 @@
       const values = Array.isArray(payload.links) ? payload.links : [];
       return values.length ? values.map(id => {
         const target = rows().find(row => row.target_id === id);
-        return button(`${h(id)} ${h(target?.payload.display_name || '未登録')}`, 'goto', 'cat-reference', `data-target="${h(id)}" ${target ? '' : 'disabled'}`);
+        return button(`${h(id)} ${h(target?.payload.display_name || '未登録')}`, 'goto', 'cat-reference',
+          `data-target="${h(id)}" data-target-key="${h(target?.key || '')}" ${target ? '' : 'disabled'}`);
       }).join('') : '<p class="cat-caption">リンクなし</p>';
     }
     function powerCard(payload, id, key = null) {
@@ -209,7 +237,8 @@
         if (author()) actions.push(button('編集', 'edit', 'cat-primary'));
 
       }
-      target.innerHTML = `<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
+      const previous = trail.at(-1);
+      target.innerHTML = `${previous ? button(`← ${h(previous.name)}`, 'reference-back', 'cat-reference-back') : ''}<div class="cat-detail-head"><div class="cat-detail-title"><code class="cat-id">${h(row.target_id)}</code><h3>${h(nameOf(row.payload))}</h3><div>${badge(row.status)} <span class="cat-caption">${row.isDraft ? `作成：${h(row.created_by_name || '削除済みユーザー')} / 元の版：${row.base_revision ?? '新規'}` : `版 ${row.revision} / 更新：${h(row.updated_by_name || '初回取り込み')}`}</span></div></div>
         <div class="cat-actions">${actions.join('')}${!row.isDraft ? model.externalLink(row.target_id) : ''}</div></div>${row.isDraft ? '<div id="cat-request-links"></div>' : ''}${row.reject_reason ? `<p class="cat-callout">却下の理由：${h(row.reject_reason)}</p>` : ''}${model.detail(row.payload, { links, textReferences: state.textReferences, power: powerCard(row.payload, row.target_id, row.isDraft ? JSON.stringify(['skill', row.target_id, row.base_revision, row.payload]) : `skill:${row.target_id}:${row.revision}`), entryId: row.target_id, skillEntries: state.catalogs.skill?.entries || [] })}${jsonBlock(row.payload)}<div id="cat-metadata"><p class="cat-caption">履歴・参照箇所を読み込み中…</p></div>${!row.isDraft && state.user.is_app_admin ? `<section class="cat-other-actions"><h4>その他の操作</h4>${button(row.deprecated ? '廃止を取り消す' : '廃止', 'deprecate', 'cat-danger')}</section>` : ''}`;
       if (row.isDraft) showRequestLinks(row.id);
       const published = entry(row.target_id);
@@ -217,7 +246,7 @@
       remember(cache.meta, `${state.kind}:${row.target_id}`, () => Promise.all([request('history', state.kind, row.target_id), request('references', state.kind, row.target_id)])).then(([history, references]) => {
         if (!alive() || token !== state.detailRequest || detailKind !== state.kind || state.scene !== 'browse') return;
         const area = panel.querySelector('#cat-metadata');
-        area.innerHTML = `<details class="bo-workspace__card cat-fold"><summary>使われている所（${references.references.length}件）</summary>${references.references.length ? references.references.map(ref => `<p class="cat-caption">${h(({skill:'スキル',item:'アイテム',passive:'特殊パッシブ',radiance:'輝化スキル',summon:'召喚テンプレート',buff:'バフ',glossary:'用語'})[ref.kind] || ref.kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}<br>${h(ref.path)}</p>`).join('') : '<p class="cat-caption">参照なし</p>'}</details><details class="bo-workspace__card cat-fold"><summary>履歴（${history.history.length}版）</summary>${parts.history(history.history, {revision: published.revision, restore: state.user.is_app_admin,
+        area.innerHTML = `${referenceFold('参照している物', references.outgoing || [])}${referenceFold('使われている所', references.references)}<details class="bo-workspace__card cat-fold"><summary>履歴（${history.history.length}版）</summary>${parts.history(history.history, {revision: published.revision, restore: state.user.is_app_admin,
           button: (label, action, attrs) => button(label, action, '', attrs)})}</details>`;
       }).catch(error => { if (alive() && token === state.detailRequest && state.scene === 'browse') panel.querySelector('#cat-metadata').textContent = error.message; });
     }
@@ -466,8 +495,13 @@
       if (!await allowLeave()) return;
       options.onClose?.();
     }
-    async function switchKind(kind) {
-      if (!models[kind] || state.scene !== 'browse' || kind === state.kind) return;
+    async function switchKind(kind, destination = null) {
+      if (!models[kind] || state.scene !== 'browse') return;
+      if (kind === state.kind) {
+        if (destination) await load(false, destination);
+        else renderDetail();
+        return;
+      }
       state.views[state.kind] = {selected:state.selected, filters:{...state.filters}};
       if (state.kind !== 'skill') state.masterKind = state.kind;
       state.listRequest++; state.detailRequest++;
@@ -476,7 +510,7 @@
       state.selected = state.views[kind]?.selected || '';
       state.data = { entries: [], drafts: [] };
       scene.innerHTML = '<p class="cat-empty">読み込み中…</p>';
-      await load();
+      await load(false, destination);
     }
     function renderRequestCount() {
       panel.querySelector('#cat-request-action').innerHTML = author() ? button(`リクエスト ${state.overview.open_requests || 0}件`, 'requests') : '';
@@ -637,6 +671,7 @@
       if (action === 'close') return close();
       if (action === 'master-back') {
         if (state.scene !== 'browse') { if (!await allowLeave()) return; state.scene = 'browse'; state.errors = {}; }
+        trail.length = 0;
         return switchKind(state.masterKind);
       }
       const row = state.scene === 'edit' ? { ...state.edit, isDraft: true } : selected();
@@ -664,10 +699,29 @@
       if (action === 'edit') return startEdit(row);
       if (action === 'save' || action === 'submit') return save(action === 'submit');
       if (action === 'review') { state.returnPending = false; return startReview(row); }
-      if (action === 'goto') {
+      if (action === 'goto' || action === 'reference-back') {
         if (state.scene !== 'browse') { notice('リンク先の名前は右に表示しています。編集を終えてから一覧で選べます。'); return; }
-        const target = rows().find(item => item.target_id === control.dataset.target);
-        if (target) { state.selected = target.key; state.filters = { status: target.status, category: '', search: '' }; renderBrowse(); }
+        const back = action === 'reference-back';
+        const destination = back ? trail.at(-1) : { kind: control.dataset.targetKind || state.kind,
+          id: control.dataset.target, key: control.dataset.targetKey };
+        if (!destination || !row) return;
+        const origin = { kind: state.kind, id: row.target_id, key: row.key, name: nameOf(row.payload) };
+        if (destination.kind === 'unit') {
+          options.onOpenUnit?.(destination.id, origin, trail);
+          return;
+        }
+        if (!back) {
+          const data = await cachedList(destination.kind);
+          const key = destination.key || `entry:${destination.id}`;
+          if (!models[destination.kind].rows(data).some(item => item.key === key)) {
+            notice('リンク先の項目が見つかりません。', true);
+            return;
+          }
+          if (destination.kind === origin.kind && key === origin.key) return;
+        }
+        if (back) trail.pop();
+        else trail.push(origin);
+        return switchKind(destination.kind, destination);
       }
       if (action === 'withdraw') {
         if (!await window.showAppConfirm('この下書きを取り下げますか？', {defaultFocus: 'cancel', title: '下書きの取り下げ', confirmText: '取り下げる' })) return;
@@ -804,8 +858,8 @@
           state.dirty = true;delete state.errors['input:effect'];delete state.errors.effect;renderInput();renderPreview();notice('効果の例を入力しました。');
         });return;
       }
-      if (control.dataset.kind) { run(() => switchKind(control.dataset.kind)); return; }
-      if (control.dataset.skillCategory) { state.filters.category = control.dataset.skillCategory; renderBrowse(); return; }
+      if (control.dataset.kind) { trail.length = 0; run(() => switchKind(control.dataset.kind)); return; }
+      if (control.dataset.skillCategory) { trail.length = 0; state.filters.category = control.dataset.skillCategory; renderBrowse(); return; }
       if (control.dataset.linkAdd) { addLink(control.dataset.linkAdd); return; }
       if (control.dataset.arrayRemove) {
         const key = control.dataset.arrayRemove;
@@ -820,7 +874,7 @@
         run(() => onAction(control.dataset.action, control)); return;
       }
       if (control.dataset.status) { state.filters.status = control.dataset.status; renderBrowse(); }
-      if (control.dataset.record) { state.selected = control.dataset.record; renderList(); }
+      if (control.dataset.record) { trail.length = 0; state.selected = control.dataset.record; renderList(); }
       if (control.dataset.section) { run(()=>selectSection(control.dataset.section)); return; }
     });
     listen('input', event => {
@@ -952,7 +1006,7 @@
       },
     };
     mounts.add(controller);
-    run(async () => { state.user = await request('user', ); if (alive()) await load(); });
+    run(async () => { state.user = await request('user'); if (alive()) await load(false, options.origin); });
     return controller;
   }
 
