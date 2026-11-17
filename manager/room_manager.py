@@ -589,7 +589,7 @@ def broadcast_state_update(room_name):
             except Exception:
                 pass
 
-        _safe_emit('state_updated', build_participant_state(state), to=room_name)
+        broadcast_participant_state(room_name, state)
 
         # Additive emit for new Select->Resolve flow (same room path as legacy state_updated).
         try:
@@ -599,6 +599,10 @@ def broadcast_state_update(room_name):
 
 
 PRIVATE_ROOM_FIELDS = ("encounter_queue", "preset_deployment_operations")
+
+
+def broadcast_participant_state(room_name, state):
+    _safe_emit('state_updated', build_participant_state(state), to=room_name)
 
 
 def build_participant_state(state):

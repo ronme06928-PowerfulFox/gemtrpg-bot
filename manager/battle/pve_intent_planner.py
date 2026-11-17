@@ -493,6 +493,8 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
     - Enemies with auto target enabled get target intents per slot.
     - Enemies with auto skill enabled are auto-committed with suggested skill.
     """
+    from manager.encounters import reveal_enemy_skill
+
     if not isinstance(state, dict) or not isinstance(battle_state, dict):
         return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
     if state.get('battle_mode', 'pvp') != 'pve':
@@ -547,6 +549,7 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         return {'applied_slots': 0, 'committed_slots': 0, 'preview_rows': []}
 
     grouped_enemy_slots = _group_enemy_slots_by_actor(enemy_slots, slots)
+    skill_visibility_changed = False
     intents = battle_state.get('intents', {})
     if not isinstance(intents, dict):
         intents = {}
@@ -916,6 +919,9 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 'cancelled': cancelled,
                 'cancel_reason': cancel_reason,
             }
+            if committed and not cancelled and effective_skill_id:
+                if reveal_enemy_skill(room, actor, effective_skill_id):
+                    skill_visibility_changed = True
             applied_slots += 1
 
             if target_actor_id and not cancelled:
@@ -966,5 +972,6 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
         'applied_slots': applied_slots,
         'committed_slots': committed_slots,
         'preview_rows': preview_rows,
+        'skill_visibility_changed': skill_visibility_changed,
     }
 

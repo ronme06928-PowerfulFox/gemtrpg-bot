@@ -342,6 +342,73 @@ function renderFissureDetail(view) {
  * 2. バフ表示: スキル定義等から継承された flavor/description を優先表示
  *    (Gouged Wound等が動的定義のデフォルトテキストに上書きされないようにする)
  */
+function renderCharacterSkills(char) {
+    let skillsHtml = '';
+    const hiddenSkills = char.hidden_skills || [];
+    const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
+
+    const grantedSkillRows = Array.isArray(char.granted_skills) ? char.granted_skills : [];
+    const grantedBySkillId = {};
+    grantedSkillRows.forEach((row) => {
+        if (!row || typeof row !== 'object') return;
+        const sid = String(row.skill_id || '').trim();
+        if (!sid) return;
+        grantedBySkillId[sid] = row;
+    });
+
+    if (char.commands) {
+        const regex = /【(.*?)\s+(.*?)】/g;
+        let match;
+        let skillItems = [];
+        const escAttr = (value) => String(value ?? '').replace(/"/g, '&quot;');
+
+        while ((match = regex.exec(char.commands)) !== null) {
+            const skillId = match[1];
+            const skillName = match[2];
+            const isHidden = hiddenSkills.includes(skillId);
+            const granted = grantedBySkillId[skillId] || null;
+            const isGranted = !!granted;
+            const grantMode = isGranted ? String(granted.mode || '').trim() : '';
+            const remainingRounds = isGranted && granted.remaining_rounds != null ? parseInt(granted.remaining_rounds, 10) : NaN;
+            const remainingUses = isGranted && granted.remaining_uses != null ? parseInt(granted.remaining_uses, 10) : NaN;
+
+            if (!isGM && isHidden) continue;
+
+            let toggleHtml = '';
+            if (isGM) {
+                const checked = !isHidden ? 'checked' : '';
+                toggleHtml = `
+                    <label class="skill-visibility-checkbox" onclick="event.stopPropagation();" style="font-size:0.8em; display:flex; align-items:center; cursor:pointer; margin-left:auto;">
+                        <input type="checkbox" class="skill-public-toggle" data-skill-id="${skillId}" ${checked}>
+                        <span style="margin-left:2px; font-weight:normal; color:var(--ui-text);">公開</span>
+                    </label>
+                `;
+            }
+
+            let itemClass = 'char-skill-item skill-item';
+            if (isGM && isHidden) itemClass += ' hidden';
+            if (isGranted) itemClass += ' granted';
+
+            skillItems.push(`
+                <div class="${itemClass}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-is-granted="${isGranted ? '1' : '0'}" data-grant-mode="${escAttr(grantMode)}" data-grant-rounds="${Number.isFinite(remainingRounds) ? remainingRounds : ''}" data-grant-uses="${Number.isFinite(remainingUses) ? remainingUses : ''}">
+                    <div style="display:flex; flex-direction:column; overflow:hidden;">
+                        <span style="font-size:0.75em; color:var(--ui-sub);">${skillId}</span>
+                        <span style="font-weight:bold; font-size:0.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${skillName}</span>
+                    </div>
+                    ${isGranted ? '<span style="background:#ffe08a; color:#5a4300; border:1px solid #f3c34a; border-radius:10px; font-size:0.72em; padding:1px 6px; margin-right:6px; white-space:nowrap;">付与</span>' : ''}
+                    ${toggleHtml}
+                </div>
+            `);
+        }
+        if (skillItems.length > 0) {
+            skillsHtml = `<div class="char-skills-grid">${skillItems.join('')}</div>`;
+        } else {
+            skillsHtml = `<div style="color:var(--ui-sub); font-size:0.9em;">なし</div>`;
+        }
+    }
+    return skillsHtml;
+}
+
 function renderCharacterCard(char) {
     const ownerName = char.owner || '不明';
     const fpState = char.states.find(s => s.name === 'FP');
@@ -717,71 +784,6 @@ function renderCharacterCard(char) {
 
     if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:var(--ui-sub); font-size:0.9em;">なし</span>';
 
-    // --- Skills ---
-    let skillsHtml = '';
-    const hiddenSkills = char.hidden_skills || [];
-    const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-
-    const grantedSkillRows = Array.isArray(char.granted_skills) ? char.granted_skills : [];
-    const grantedBySkillId = {};
-    grantedSkillRows.forEach((row) => {
-        if (!row || typeof row !== 'object') return;
-        const sid = String(row.skill_id || '').trim();
-        if (!sid) return;
-        grantedBySkillId[sid] = row;
-    });
-
-    if (char.commands) {
-        const regex = /【(.*?)\s+(.*?)】/g;
-        let match;
-        let skillItems = [];
-        const escAttr = (value) => String(value ?? '').replace(/"/g, '&quot;');
-
-        while ((match = regex.exec(char.commands)) !== null) {
-            const skillId = match[1];
-            const skillName = match[2];
-            const isHidden = hiddenSkills.includes(skillId);
-            const granted = grantedBySkillId[skillId] || null;
-            const isGranted = !!granted;
-            const grantMode = isGranted ? String(granted.mode || '').trim() : '';
-            const remainingRounds = isGranted && granted.remaining_rounds != null ? parseInt(granted.remaining_rounds, 10) : NaN;
-            const remainingUses = isGranted && granted.remaining_uses != null ? parseInt(granted.remaining_uses, 10) : NaN;
-
-            if (!isGM && isHidden) continue;
-
-            let toggleHtml = '';
-            if (isGM) {
-                const checked = !isHidden ? 'checked' : '';
-                toggleHtml = `
-                    <label class="skill-visibility-checkbox" onclick="event.stopPropagation();" style="font-size:0.8em; display:flex; align-items:center; cursor:pointer; margin-left:auto;">
-                        <input type="checkbox" class="skill-public-toggle" data-skill-id="${skillId}" ${checked}>
-                        <span style="margin-left:2px; font-weight:normal; color:var(--ui-text);">公開</span>
-                    </label>
-                `;
-            }
-
-            let itemClass = 'char-skill-item skill-item';
-            if (isGM && isHidden) itemClass += ' hidden';
-            if (isGranted) itemClass += ' granted';
-
-            skillItems.push(`
-                <div class="${itemClass}" data-skill-id="${escAttr(skillId)}" data-skill-name="${escAttr(skillName)}" data-is-granted="${isGranted ? '1' : '0'}" data-grant-mode="${escAttr(grantMode)}" data-grant-rounds="${Number.isFinite(remainingRounds) ? remainingRounds : ''}" data-grant-uses="${Number.isFinite(remainingUses) ? remainingUses : ''}">
-                    <div style="display:flex; flex-direction:column; overflow:hidden;">
-                        <span style="font-size:0.75em; color:var(--ui-sub);">${skillId}</span>
-                        <span style="font-weight:bold; font-size:0.9em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${skillName}</span>
-                    </div>
-                    ${isGranted ? '<span style="background:#ffe08a; color:#5a4300; border:1px solid #f3c34a; border-radius:10px; font-size:0.72em; padding:1px 6px; margin-right:6px; white-space:nowrap;">付与</span>' : ''}
-                    ${toggleHtml}
-                </div>
-            `);
-        }
-        if (skillItems.length > 0) {
-            skillsHtml = `<div class="char-skills-grid">${skillItems.join('')}</div>`;
-        } else {
-            skillsHtml = `<div style="color:var(--ui-sub); font-size:0.9em;">なし</div>`;
-        }
-    }
-
     // --- Inline CSS ---
     const inlineStyle = `
         <style>
@@ -1068,13 +1070,62 @@ function renderCharacterCard(char) {
                         <span>Skills</span>
                         <span style="font-size: 0.8em; color: var(--ui-sub);">▼</span>
                     </summary>
-                    <div style="padding: 10px; background: var(--ui-bg);">
-                        ${skillsHtml}
+                    <div class="character-modal-skills" style="padding: 10px; background: var(--ui-bg);">
+                        ${renderCharacterSkills(char)}
                     </div>
                 </details>
             </div>
         </div>
     `;
+}
+
+function bindCharacterSkills(region, char) {
+    const skillItems = region.querySelectorAll('.skill-item');
+    skillItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            if (e.target.closest('.skill-visibility-checkbox') || e.target.classList.contains('skill-public-toggle')) return;
+            skillItems.forEach(el => el.classList.remove('selected'));
+            item.classList.add('selected');
+            const skillId = item.dataset.skillId;
+            const isGranted = item.dataset.isGranted === '1';
+            const grantRoundsRaw = parseInt(item.dataset.grantRounds, 10);
+            const grantUsesRaw = parseInt(item.dataset.grantUses, 10);
+            const granted = isGranted ? {
+                mode: item.dataset.grantMode || '',
+                remaining_rounds: Number.isFinite(grantRoundsRaw) ? grantRoundsRaw : null,
+                remaining_uses: Number.isFinite(grantUsesRaw) ? grantUsesRaw : null,
+            } : null;
+            openSkillDetailModal(skillId, item.dataset.skillName, { granted, ownerCharId: char.id });
+        });
+    });
+
+    const skillToggles = region.querySelectorAll('.skill-public-toggle');
+    skillToggles.forEach(chk => {
+        chk.addEventListener('change', (e) => {
+            const skillId = chk.dataset.skillId;
+            const isPublic = chk.checked;
+
+            const hidden = char.hidden_skills || [];
+            const currentHidden = isPublic ? hidden.filter(id => id !== skillId) : [...new Set([...hidden, skillId])];
+            socket.emit('request_state_update', {
+                room: currentRoomName,
+                charId: char.id,
+                changes: { hidden_skills: currentHidden }
+            });
+        });
+    });
+}
+
+function refreshOpenCharacterSkills(previousState, nextState) {
+    const modal = document.querySelector('#char-modal-backdrop .char-detail-modal-content');
+    if (!modal) return;
+    const charId = modal.dataset.charId;
+    const before = previousState?.characters?.find(char => char.id === charId);
+    const after = nextState?.characters?.find(char => char.id === charId);
+    if (!after || JSON.stringify(before?.hidden_skills || []) === JSON.stringify(after.hidden_skills || [])) return;
+    const region = modal.querySelector('.character-modal-skills');
+    region.innerHTML = renderCharacterSkills(after);
+    bindCharacterSkills(region, after);
 }
 
 function openCharacterModal(charId) {
@@ -1135,47 +1186,7 @@ function openCharacterModal(charId) {
         }
     });
 
-    // Skill Interactions
-    const skillItems = modalContent.querySelectorAll('.skill-item');
-    skillItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            if (e.target.closest('.skill-visibility-checkbox') || e.target.classList.contains('skill-public-toggle')) return;
-            skillItems.forEach(el => el.classList.remove('selected'));
-            item.classList.add('selected');
-            const skillId = item.dataset.skillId;
-            const isGranted = item.dataset.isGranted === '1';
-            const grantRoundsRaw = parseInt(item.dataset.grantRounds, 10);
-            const grantUsesRaw = parseInt(item.dataset.grantUses, 10);
-            const granted = isGranted ? {
-                mode: item.dataset.grantMode || '',
-                remaining_rounds: Number.isFinite(grantRoundsRaw) ? grantRoundsRaw : null,
-                remaining_uses: Number.isFinite(grantUsesRaw) ? grantUsesRaw : null,
-            } : null;
-            openSkillDetailModal(skillId, item.dataset.skillName, { granted, ownerCharId: char.id });
-        });
-    });
-
-    const skillToggles = modalContent.querySelectorAll('.skill-public-toggle');
-    skillToggles.forEach(chk => {
-        chk.addEventListener('change', (e) => {
-            const skillId = chk.dataset.skillId;
-            const isPublic = chk.checked;
-
-            let currentHidden = char.hidden_skills || [];
-            if (isPublic) {
-                currentHidden = currentHidden.filter(id => id !== skillId);
-            } else {
-                if (!currentHidden.includes(skillId)) {
-                    currentHidden.push(skillId);
-                }
-            }
-            socket.emit('request_state_update', {
-                room: currentRoomName,
-                charId: char.id,
-                changes: { hidden_skills: currentHidden }
-            });
-        });
-    });
+    bindCharacterSkills(modalContent.querySelector('.character-modal-skills'), char);
 
     // --- Parameter Toggle Listener ---
     const paramToggleBtn = modalContent.querySelector('.params-toggle-btn');

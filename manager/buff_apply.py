@@ -5,6 +5,7 @@
 # 循環import回避のため、manager.utils への依存はすべて関数内の遅延importにする
 # （utils.py がロード時に本モジュールを import するため、トップレベルで utils を
 # import し返すと循環になる）。
+from manager.encounters import buff_entry_id, record_buff
 from manager.logs import setup_logger
 
 logger = setup_logger(__name__)
@@ -60,15 +61,7 @@ def _resolve_stack_count(payload, explicit_count=None, default=0):
 
 def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
     """バフを付与・更新する"""
-    from manager.utils import (
-        normalize_buff_name,
-        get_status_value,
-        set_status_value,
-        _resolve_buff_count_from_row,
-        STACK_RESOURCE_BUFF_NAMES,
-        STACK_RESOURCE_BUFF_IDS,
-        STACK_RESOURCE_VARIANT_KEY,
-    )
+    from manager.utils import normalize_buff_name
     if not char_obj: return
     buff_name = normalize_buff_name(buff_name)
     if 'special_buffs' not in char_obj: char_obj['special_buffs'] = []
@@ -123,6 +116,16 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
                 if 'flavor' not in payload and 'flavor' in effect_data:
                     payload['flavor'] = effect_data['flavor']
 
+    if _apply_resolved_buff(char_obj, buff_name, lasting, delay, count, existing, payload) is not False:
+        record_buff(char_obj, buff_entry_id(payload))
+
+
+def _apply_resolved_buff(char_obj, buff_name, lasting, delay, count, existing, payload):
+    from manager.utils import (
+        get_status_value, normalize_buff_name, set_status_value, _resolve_buff_count_from_row, STACK_RESOURCE_BUFF_NAMES,
+        STACK_RESOURCE_BUFF_IDS, STACK_RESOURCE_VARIANT_KEY,
+    )
+
     # 亀裂ラウンド管理（Bu-Fissure）:
     # - 同じ「残りラウンド(lasting)」のエントリへ count を加算
     # - 残りラウンドが異なる亀裂バケットは分離して保持
@@ -131,7 +134,7 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
         rounds = _resolve_fissure_original_rounds(payload, fallback_lasting=lasting)
         add_amount = _resolve_fissure_add_amount(payload, explicit_count=count)
         if rounds <= 0 or add_amount <= 0:
-            return
+            return False
 
         fissure_name = f"亀裂_R{rounds}"
         payload['name'] = fissure_name
@@ -216,7 +219,7 @@ def apply_buff(char_obj, buff_name, lasting, delay, data=None, count=None):
 
         added_count = _resolve_stack_count(payload, explicit_count=count, default=1)
         if added_count <= 0:
-            return
+            return False
 
         target_delay = max(1, _safe_int(delay, 0))
         target_lasting = 1

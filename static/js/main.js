@@ -1030,8 +1030,9 @@ function initializeSocketIO() {
     });
     // match_error is handled in tab_visual_battle.js
     registerAppSocketHandler('state_updated', (newState) => {
-
+        const previousState = battleState;
         battleState = newState;
+        refreshOpenCharacterSkills(previousState, newState);
         rememberLogIdsFromState(newState);
 
         // ★ Mode Switching Logic

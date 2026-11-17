@@ -1417,3 +1417,8 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 `GET /api/catalog/effect_requests` は新しい順に全件を返す。`POST` は `title`（80字まで）・`want`・`example`・`near_type` と任意の `draft_id` を受け付ける。対象はスキル・バフ・アイテム・特殊パッシブ・輝化スキル。ログイン済みの制作者・管理者に限り、`overview` に `open_requests`（受付・対応中の件数）も返す。
 
 `PATCH /api/catalog/effect_requests/<id>` で入力の修正と `draft_id: null` による解除、`DELETE` で取り下げができる。受付の間に本人が行う。`POST /api/catalog/effect_requests/<id>/review` は管理者が `status`（`open`・`in_progress`・`done`・`declined`）と `memo` を更新する。下書き削除後は種類・ID・名前の写しを保持する。新規下書きの承認時は写しのIDを正式IDに更新する。
+## マスターデータとの出会い（計画66 PR66-3）
+
+`catalog_encounters` は `user_id`・`kind`・`entry_id` を複合主キーとし、`first_seen_at`（UTC）と `room_name` を保存する。種類は `unit`・`passive`・`skill`・`buff`。既に同じキーの行があれば最初の日時とルームを保つ。ルーム名は遭遇時の値を保持し、ルームを削除しても記録は残る。
+
+敵の登場では配置元のユニット ID と `Pa-` の特殊パッシブ、敵の宣言確定や GM の手動公開ではスキル ID、戦闘でのバフ付与では陣営に関係なく解決できたバフ ID を記録する。配置プレビューと効果試算では記録しない。輝化の表示用効果は `buff_id` がなく、記録対象に含まれない。発生時点で同じルームに接続中のログインユーザーを対象とし、同一アカウントの複数接続はまとめる。書き込みは戦闘と別の処理にまとめて行う。起動時の `db.create_all()` で表を作成する。閲覧 API は計画66 PR66-4 で追加する。

@@ -100,6 +100,7 @@ def _patch_step_skill_catalog(monkeypatch, catalog):
 
 def test_select_resolve_round_start_pve_auto_commits_enemy_when_auto_skill_enabled(monkeypatch):
     state = _base_state(mode="pve", enemy_flags={"auto_skill_select": True})
+    state["characters"][1]["hidden_skills"] = ["S-AUTO", "E-02"]
     monkeypatch.setattr(battle_common, "get_room_state", lambda room: state)
     monkeypatch.setattr(battle_common, "save_specific_room_state", lambda room: True)
     monkeypatch.setattr(battle_common, "broadcast_log", lambda *args, **kwargs: None)
@@ -122,6 +123,7 @@ def test_select_resolve_round_start_pve_auto_commits_enemy_when_auto_skill_enabl
     assert enemy_intent.get("skill_id") == "S-AUTO"
     assert enemy_intent.get("committed") is True
     assert enemy_intent.get("committed_by") == "AI:PVE"
+    assert state["characters"][1]["hidden_skills"] == ["E-02"]
     assert enemy_intent.get("target", {}).get("type") == "single_slot"
     assert enemy_intent.get("target", {}).get("slot_id") == ally_slot_id
 

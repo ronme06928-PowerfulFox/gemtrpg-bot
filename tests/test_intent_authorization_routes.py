@@ -224,12 +224,16 @@ def test_intent_commit_resolves_actor_from_room_state_when_battle_state_has_no_c
         authorized=True,
         emit_calls=emit_calls,
     )
+    enemy = {"id": "A1", "type": "enemy", "commands": "[P-01]", "hidden_skills": ["commit_skill", "E-02"]}
+    published = []
+    monkeypatch.setattr(routes, "save_specific_room_state", lambda room: None)
+    monkeypatch.setattr(routes, "broadcast_participant_state", lambda room, state: published.append(enemy["hidden_skills"]))
     monkeypatch.setattr(
         routes,
         "get_room_state",
         lambda room_id: {
             "characters": [
-                {"id": "A1", "commands": "[P-01]"},
+                enemy,
                 {"id": "B1", "commands": "[P-02]"},
             ]
         },
@@ -248,4 +252,8 @@ def test_intent_commit_resolves_actor_from_room_state_when_battle_state_has_no_c
     intent = state["intents"]["S1"]
     assert intent["committed"] is True
     assert intent["skill_id"] == "commit_skill"
+    assert enemy["hidden_skills"] == ["E-02"]
+    assert published == [["E-02"]]
+    routes.on_battle_intent_uncommit({"room_id": "room_t", "battle_id": "battle_t", "slot_id": "S1"})
+    assert enemy["hidden_skills"] == ["E-02"]
     assert all(row[0] != "battle_error" for row in emit_calls)

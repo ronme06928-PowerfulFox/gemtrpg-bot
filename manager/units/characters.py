@@ -142,7 +142,7 @@ def read_character(raw, *, masters=None):
 
 
 def build_character(unit, side, serial_no, *, pattern_id=None, owner_name=None,
-                    owner_id=None, masters=None):
+                    owner_id=None, masters=None, source_unit_id=None):
     if side not in ("ally", "enemy") or not unit.get("allow_" + side, True):
         raise ValueError(f"{unit.get('name', '')}: {side} として配置できません")
     unit = deepcopy(unit)
@@ -204,6 +204,11 @@ def build_character(unit, side, serial_no, *, pattern_id=None, owner_name=None,
         "initial_state": {"inventory": deepcopy(inventory), "special_buffs": deepcopy(buffs),
                           "maxHp": hp, "maxMp": mp},
     }
+    source_unit_id = source_unit_id or unit.get("id")
+    if source_unit_id:
+        char["source_unit_id"] = source_unit_id
+    from manager.encounters import hide_enemy_skills
+    hide_enemy_skills(char)
     if radiance:
         from manager.radiance.applier import radiance_applier
 

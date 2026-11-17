@@ -328,10 +328,13 @@ def apply_summon_change(room, state, summoner, payload, *, run_battle_start=True
         "maxMp": int(new_char.get("maxMp", 0)),
     }
 
+    from manager.encounters import hide_enemy_skills, record_arrivals
+    hide_enemy_skills(new_char)
     room_state.setdefault("characters", []).append(new_char)
     owners = room_state.setdefault("character_owners", {})
     if isinstance(owners, dict):
         owners[new_char_id] = owner_name
+    record_arrivals(room, [new_char])
 
     if run_battle_start:
         try:

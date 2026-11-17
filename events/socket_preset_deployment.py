@@ -313,6 +313,7 @@ def _apply(context, src):
             payload,
             deployment_store(),
             expected_unplaced=expected_unplaced if type(expected_unplaced) is int else None,
+            room=context["room"],
             **_manager_context(context),
         )
     except PresetDeploymentError as ex:

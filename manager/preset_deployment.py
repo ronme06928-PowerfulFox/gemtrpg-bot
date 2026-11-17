@@ -11,6 +11,7 @@ from manager.room_access import GM_ROLES
 from manager.units.characters import build_character, skill_catalog
 from manager.units.runtime import can_read, get_record, record_map, valid_deployment_target, visible_records
 from manager.battle.combat_session import mark_combat_arrival
+from manager.encounters import capture_candidate_buffs, record_arrivals
 from manager.game_logic import process_battle_start
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 from manager.utils import apply_passive_effect_buffs
@@ -35,6 +36,7 @@ class DeploymentBuild:
     state: dict
     summary: dict
     logs: list[str]
+    buff_encounters: set[str]
 
 
 def _safe_int(value, default=0):
@@ -693,6 +695,7 @@ def build_deployment_candidate(state, resolved, store, *, gm_user=None, active_u
                     pattern_id=row.get("pattern_id"), masters=masters,
                     owner_name=owner_name,
                     owner_id=owner_id,
+                    source_unit_id=row["preset_id"],
                 )
                 serial += 1
                 apply_passive_effect_buffs(char)
@@ -710,6 +713,7 @@ def build_deployment_candidate(state, resolved, store, *, gm_user=None, active_u
                 row["record"], side, serial, masters=masters,
                 owner_name=owner_name,
                 owner_id=owner_id,
+                source_unit_id=row["record_id"],
             )
             serial += 1
             apply_passive_effect_buffs(char)
@@ -732,13 +736,14 @@ def build_deployment_candidate(state, resolved, store, *, gm_user=None, active_u
     ]
     arriving = [char for char in new_chars if mark_combat_arrival(candidate, char)]
     try:
-        logs = process_battle_start(None, arriving, state=candidate)
+        with capture_candidate_buffs(candidate["characters"]) as buff_encounters:
+            logs = process_battle_start(None, arriving, state=candidate)
     except ValueError as ex:
         raise PresetDeploymentError("initialization_failed", str(ex)) from ex
     candidate["play_mode"] = "normal"
     if resolved["formations"].get("enemy"):
         candidate["battle_mode"] = "pve"
-    return DeploymentBuild(candidate, summary, logs)
+    return DeploymentBuild(candidate, summary, logs, buff_encounters)
 
 
 def preview_deployment(state, request_data, store, **context):
@@ -763,7 +768,7 @@ def preview_deployment(state, request_data, store, **context):
     return copy.deepcopy(build.summary)
 
 
-def apply_deployment(state, request_data, store, *, expected_unplaced=None, **context):
+def apply_deployment(state, request_data, store, *, expected_unplaced=None, room=None, **context):
     resolved = resolve_deployment_request(
         store,
         request_data,
@@ -781,6 +786,9 @@ def apply_deployment(state, request_data, store, *, expected_unplaced=None, **co
     if expected_unplaced is not None and build.summary.get("placement", {}).get("unplaced", 0) > expected_unplaced:
         raise PresetDeploymentError("placement_changed", "空きマスが減りました。配置を再確認してください。",
                                     refresh_required=True)
+    previous_ids = {char.get("id") for char in state.get("characters", [])}
     state.clear()
     state.update(build.state)
+    record_arrivals(room, [char for char in state["characters"] if char.get("id") not in previous_ids],
+                    build.buff_encounters)
     return copy.deepcopy(build.summary), list(build.logs)

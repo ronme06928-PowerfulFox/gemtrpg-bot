@@ -13,6 +13,8 @@ from manager.room_manager import (
     is_authorized_for_character, flush_room_state_now, save_specific_room_state,
     _update_char_stat,
 )
+from manager.encounters import reveal_enemy_skill
+from manager.room_manager import broadcast_participant_state
 try:
     from manager.room_manager import emit_select_resolve_events
 except Exception:
@@ -1104,6 +1106,13 @@ def on_battle_intent_commit(data):
     intent['tags'] = _default_intent_tags(_build_tags(intent['skill_id'], intent['target']))
     intent['effective_cost'] = list(access_eval.get('effective_cost', []) or [])
     state['intents'][slot_id] = intent
+    if actor and actor.get('type') == 'enemy':
+        room_state = get_room_state(room_id) or {}
+        room_actor = next((char for char in room_state.get('characters', [])
+                           if char.get('id') == intent['actor_id']), actor)
+        if reveal_enemy_skill(room_id, room_actor, skill_id):
+            save_specific_room_state(room_id)
+            broadcast_participant_state(room_id, room_state)
     _recalculate_redirect_state(room_id, battle_id, state)
     logger.info(
         "[FLOW] commit_saved room=%s battle=%s slot=%s committed=%s skill=%s target=%s",

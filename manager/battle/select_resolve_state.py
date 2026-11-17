@@ -542,6 +542,8 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         round_value=battle_state.get('round')
     )
     state['timeline'] = legacy_timeline_sorted
+    if isinstance(pve_auto_result, dict) and pve_auto_result.get('skill_visibility_changed'):
+        room_manager.broadcast_participant_state(room, state)
 
     save_specific_room_state(room)
 

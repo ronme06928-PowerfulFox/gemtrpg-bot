@@ -125,6 +125,10 @@ def test_apply_summon_change_uses_template_skills_and_passives(monkeypatch):
     assert new_char["flags"]["immediate_action_used"] is False
     assert "T-SUM-01" in new_char["commands"]
     assert room_state["character_owners"][new_char["id"]] == "alice"
+    assert new_char["hidden_skills"] == []
+    actor["type"] = "enemy"
+    enemy = summon_service.apply_summon_change("room_t", room_state, actor, {"summon_template_id": "SMN-T"})["char"]
+    assert enemy["hidden_skills"] == ["T-SUM-01"]
 
 
 def test_apply_summon_change_ignores_empty_duration_override(monkeypatch):

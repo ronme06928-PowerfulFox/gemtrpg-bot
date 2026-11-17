@@ -4,6 +4,7 @@
 """
 
 from .base import BaseItemEffect
+from manager.encounters import record_buff
 
 class BuffEffect(BaseItemEffect):
     """バフ付与効果"""
@@ -59,6 +60,8 @@ class BuffEffect(BaseItemEffect):
             }
 
             result = buff_instance.apply(target_char, plugin_context)
+            if result.get('success'):
+                record_buff(target_char, buff_id)
 
             # consumed フラグを追加
             result['consumed'] = True
@@ -91,6 +94,7 @@ class BuffEffect(BaseItemEffect):
                 buff_obj['stat_mods'] = {stat: value}
 
             target_char['special_buffs'].append(buff_obj)
+            record_buff(target_char, buff_id)
 
             return {
                 'success': True,

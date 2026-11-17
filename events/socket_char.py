@@ -99,7 +99,8 @@ def handle_add_character(data):
         return
     state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
-    type = char_data.get('type', 'enemy')
+    type = char_data.setdefault('type', 'enemy')
+    char_data.pop('source_unit_id', None)
     type_jp = "味方" if type == "ally" else "敵"
 
     # ▼▼▼ 変更点: タイプ別連番 (空き番を埋める) ▼▼▼
@@ -150,6 +151,8 @@ def handle_add_character(data):
         char_data['inventory'] = {}
     if 'hidden_skills' not in char_data:
         char_data['hidden_skills'] = []
+    from manager.encounters import hide_enemy_skills, record_arrivals
+    hide_enemy_skills(char_data)
     # === ▲▲▲ 追加ここまで ▲▲▲
 
     # === ▼▼▼ 初期座標の設定（未配置状態） ▼▼▼
@@ -205,6 +208,7 @@ def handle_add_character(data):
         in_combat = mark_combat_arrival(state, char_data)
         state["characters"].append(char_data)
         set_character_owner(room, new_char_id, username)
+        record_arrivals(room, [char_data])
         if in_combat:
             process_battle_start(room, char_data)
 
@@ -688,6 +692,8 @@ def handle_state_update(data):
         emit('error', {'message': 'Permission denied.'}, to=request.sid)
         return
 
+    track_visibility = attribute == 'GM' and char.get('type') == 'enemy'
+    previous_hidden = char.get('hidden_skills') if track_visibility else None
     if 'changes' in data:
         for stat_name, new_value in data.get('changes', {}).items():
             if stat_name == 'gmOnly' and attribute != 'GM':
@@ -701,6 +707,10 @@ def handle_state_update(data):
             return
         _update_char_stat(room, char, data.get('statName'), data.get('newValue'), data.get('isNew', False), data.get('isDelete', False), username=username)
 
+    hidden = char.get('hidden_skills')
+    if isinstance(previous_hidden, list) and isinstance(hidden, list) and previous_hidden != hidden:
+        from manager.encounters import record
+        record(room, [('skill', key) for key in previous_hidden if key not in hidden])
     broadcast_state_update(room)
     save_specific_room_state(room)
 

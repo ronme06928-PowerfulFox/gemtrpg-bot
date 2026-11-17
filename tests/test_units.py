@@ -43,6 +43,9 @@ def test_character_json_and_runtime(unit_app):
     assert discarded == ["memo"]
     assert unit["default_pattern_id"] == "BP-1"
     assert build_character(unit, "enemy", 1)["commands"] == "2d6 【E-23 固有名】\n1d100 【探索】"
+    assert build_character({**unit, "id": "U-001"}, "enemy", 1)["source_unit_id"] == "U-001"
+    assert build_character(unit, "enemy", 1)["hidden_skills"] == ["E-23"]
+    assert build_character(unit, "ally", 1)["hidden_skills"] == []
     assert "behavior_profile" in build_character(unit, "enemy", 1)["flags"]
     assert "behavior_profile" not in build_character(unit, "ally", 1)["flags"]
     plain, discarded = read_character({"name": "味方", "isNPC": True, "color": "red"})

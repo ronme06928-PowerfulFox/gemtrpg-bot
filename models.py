@@ -233,6 +233,16 @@ class ImageRegistry(db.Model):
         return f'<ImageRegistry {self.name}>'
 
 
+class CatalogEncounter(db.Model):
+    __tablename__ = 'catalog_encounters'
+
+    user_id = db.Column(db.String(36), db.ForeignKey('users.id', ondelete='CASCADE'), primary_key=True)
+    kind = db.Column(db.String(16), primary_key=True)
+    entry_id = db.Column(db.String(64), primary_key=True)
+    first_seen_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    room_name = db.Column(db.String(100), nullable=False)
+
+
 class CatalogEntry(db.Model):
     """公開済みマスターデータとユニット資源。kindとentry_idで一意。"""
     __tablename__ = 'catalog_entries'
