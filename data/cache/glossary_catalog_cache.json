@@ -1213,7 +1213,7 @@
     "category": "バフ",
     "deprecated": false,
     "display_name": "蓄力",
-    "flavor": "",
+    "flavor": "財も力も、蓄えておくに越した事はない。勿論、然るべき使い方が出来れば、の話だが。",
     "links": [
       "W-53"
     ],
@@ -1227,7 +1227,7 @@
     "category": "バフ",
     "deprecated": false,
     "display_name": "凝魔",
-    "flavor": "",
+    "flavor": "魔術の何たるかは、世界に散らばる宝石に凝縮されている。割ってソレを理解しようとした時点で、真理には到達できない。",
     "links": [
       "W-54"
     ],

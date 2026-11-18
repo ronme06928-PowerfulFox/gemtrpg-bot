@@ -47,16 +47,15 @@ window.createEncyclopediaView = function (panel, DATA) {
   const books = [...skills, ...others];
   const booksByKey = new Map(books.map(book => [book.key, book]));
   const buffKeys = others.filter(book => book.kind === 'buff').map(book => book.key);
-  const worldCells = [['quill', 'glossary']];
-  for (let start = 0; start < buffKeys.length; start += 3) worldCells.push(buffKeys.slice(start, start + 3));
-  worldCells[worldCells.length - 1].push('hourglass');
+  // バフの本は1つの区画に並べ、先頭に「ここからバフ」を示す空の函を立てる。
+  const worldCells = [['quill', 'glossary'], ['case:バフ', ...buffKeys, 'hourglass']];
   const rooms = new Map([
     // 棚の区画を左上から順に。区画の中は本と小物（PROP_KEYS）を並べた順に置く。
     ['adventurers', ['冒険者', 4, [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['B', 'C', 'D'], ['radiance', 'item']], ['Ps', 'Ms', 'radiance']]],
     ['monsters', ['魔物', 1, [['candle', 'E', 'enemy', 'passive', 'dice']], ['E', 'enemy', 'passive']]],
     ['world', ['世界の理', worldCells.length, worldCells, ['glossary', ...buffKeys.slice(0, 1)]]],
   ].map(([key, [title, columns, cells, ornaments]]) => {
-    const shelfRows = cells.map(items => items.map(id => PROP_KEYS.has(id) ? id : booksByKey.get(id)));
+    const shelfRows = cells.map(items => items.map(id => PROP_KEYS.has(id) || id.startsWith('case:') ? id : booksByKey.get(id)));
     return [key, { title, columns, shelfRows, books:shelfRows.flat().filter(item => typeof item !== 'string'), ornaments }];
   }));
   const chapterOrder = ['ルール', 'タイミング', '効果', 'バフ', 'デバフ', '状態異常', 'スキルタグ'];
@@ -148,6 +147,9 @@ window.createEncyclopediaView = function (panel, DATA) {
     $('#shelf-title').textContent = room.title;
     $('#shelf-books').style.setProperty('--shelf-columns', room.columns);
     $('#shelf-books').innerHTML = room.shelfRows.map(row => `<div class="shelf-row">${row.map(book => {
+      if (typeof book === 'string' && book.startsWith('case:')) {
+        return `<span class="shelf-case" role="note" aria-label="ここから${h(book.slice(5))}の本"><strong>${h(book.slice(5))}</strong></span>`;
+      }
       if (typeof book === 'string') return propArt(book);
       const unlocked = unlockCount(book.rows);
       const complete = unlocked === book.rows.length;

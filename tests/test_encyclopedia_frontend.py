@@ -73,7 +73,7 @@ const rows=[
  {id:'Bu-99',data:{}}
 ];
 const books=window.EncyclopediaData.buffVolumes(rows);
-assert.deepEqual(Array.from(books,b=>b.title),['盛衰の書','傷痕の書','雑録の書']);
+assert.deepEqual(Array.from(books,b=>b.title),['盛衰','傷痕','雑録']);
 assert.deepEqual(Array.from(books,b=>Array.from(b.rows,r=>r.id)),[['Bu-00'],['Bu-06'],['Bu-99']]);
 assert.equal(new Set(books.map(b=>b.color)).size,3);
 assert.equal(window.EncyclopediaData.buffVolumes([]).length,0);
@@ -98,6 +98,13 @@ def test_room_entry_and_modal_lifecycle():
         assert 'openGlossaryCatalogModal' not in source
     glossary = (ROOT / 'static/js/common/glossary_ui.js').read_text(encoding='utf-8')
     assert "!document.querySelector('dialog[open]')" in glossary
+
+
+def test_world_shelf_puts_buffs_in_one_row_after_case():
+    view = (ROOT / 'static/js/encyclopedia/view.js').read_text(encoding='utf-8')
+    assert "['case:バフ', ...buffKeys, 'hourglass']" in view
+    assert 'class="shelf-case"' in view
+    assert 'shelf-case' in (ROOT / 'static/css/modules/encyclopedia.css').read_text(encoding='utf-8')
 
 
 def test_bulk_frontend_and_buff_category_controls():

@@ -171,11 +171,13 @@ def main():
                     sizes.extend(tuple(row["size"]) for row in records)
                     assert_contrast(page)
                     if door == 'world':
-                        assert page.locator('[data-book^="buff-"]').count() == 4
-                        assert page.locator('[data-book="buff-4"], [data-book="buff-5"]').count() == 0
+                        # キャッシュの分類（本番から --pull）では、伝承まで5冊で雑録は0件。
+                        assert page.locator('[data-book^="buff-"]').count() == 5
+                        assert page.locator('[data-book="buff-5"]').count() == 0
+                        assert page.locator('.shelf-row').nth(1).locator('.shelf-case + [data-book="buff-0"]').count() == 1
                         shot('world')
                     page.locator('#close-shelf').click()
-                assert len(palettes) == len(set(palettes)) == 19
+                assert len(palettes) == len(set(palettes)) == 20
                 assert set(sizes) == {(80,278)}
                 page.locator('[data-door="adventurers"]').click()
                 page.locator('.shelf-book[data-book="Ps"]').wait_for()

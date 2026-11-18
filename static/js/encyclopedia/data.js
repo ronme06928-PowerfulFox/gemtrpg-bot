@@ -1,8 +1,8 @@
 (function () {
   const buffBooks = [
-    ['能力の増減', '盛衰の書', 'emerald'], ['状態異常の強化', '傷痕の書', 'kyanite'],
-    ['特殊スタック', '蓄積の書', 'sunstone'], ['出身の恩恵', '故郷の書', 'jade'],
-    ['物語', '伝承の書', 'zircon'], ['', '雑録の書', 'smoky'],
+    ['能力の増減', '盛衰', 'emerald'], ['状態異常の強化', '傷痕', 'kyanite'],
+    ['特殊スタック', '蓄積', 'sunstone'], ['出身の恩恵', '故郷', 'jade'],
+    ['物語', '伝承', 'zircon'], ['', '雑録', 'smoky'],
   ];
   function buffVolumes(rows) {
     return buffBooks.map(([category, title, color], index) => ({
