@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-globalThis.window = {};
+globalThis.window = { addEventListener() {}, removeEventListener() {} };
 const { IntentPerformance, intentPerformance } = await import('../../static/js/battle/core/IntentPerformance.js');
 
 let now = 0;

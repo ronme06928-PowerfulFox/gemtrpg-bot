@@ -1,0 +1,22 @@
+/* The forecast is a paper ornament, even inside the night room. */
+.battle-odds-seal, .battle-odds-chip { color: var(--ui-warn); background: var(--ui-bg); }
+.battle-odds-seal[data-level="有利"], .battle-odds-chip[data-level="有利"],
+.battle-odds-seal[data-level="非常に有利"], .battle-odds-chip[data-level="非常に有利"] { color: var(--ui-ally); }
+.battle-odds-seal[data-level="不利"], .battle-odds-chip[data-level="不利"],
+.battle-odds-seal[data-level="非常に不利"], .battle-odds-chip[data-level="非常に不利"] { color: var(--ui-enemy); }
+.battle-odds-seal[data-level="非常に有利"], .battle-odds-chip[data-level="非常に有利"] { background: var(--ui-ally-soft); }
+.battle-odds-seal[data-level="非常に不利"], .battle-odds-chip[data-level="非常に不利"] { background: var(--ui-enemy-soft); }
+.battle-odds-seal { position: fixed; z-index: 950; pointer-events: none; box-sizing: border-box;
+  min-width: 118px; padding: 9px 18px 8px; text-align: center; border: 2px solid var(--ui-gold-strong); border-radius: 6px;
+  box-shadow: 0 0 0 4px var(--ui-bg), 0 0 0 5px var(--ui-gold), var(--ui-shadow-panel);
+  font: 700 21px/1.15 var(--ui-head-font); letter-spacing: .12em; animation: battle-odds-pop .4s cubic-bezier(.2,1.6,.4,1) both; }
+.battle-odds-seal::before, .battle-odds-seal::after { content: ''; position: absolute; top: 50%; width: 9px; height: 9px;
+  margin-top: -5px; background: var(--ui-gold-strong); transform: rotate(45deg); box-shadow: 0 0 0 2px var(--ui-bg); }
+.battle-odds-seal::before { left: -10px; } .battle-odds-seal::after { right: -10px; }
+.battle-odds-seal small { display: block; margin-bottom: 2px; color: var(--ui-sub); font: 600 10px/1.2 sans-serif; letter-spacing: .2em; }
+.battle-odds-chip { display: inline-block; position: relative; padding: 1px 7px; margin-top: 4px;
+  border: 1px solid currentColor; border-radius: 3px; font: 700 11px/1.5 sans-serif; }
+.battle-odds-mark { position: absolute; top: -7px; right: -7px; width: 18px; height: 18px; border-radius: 50%;
+  font: 700 11px/18px sans-serif; letter-spacing: 0; color: var(--ui-bg); background: var(--ui-warn); pointer-events: auto; text-align: center; }
+@keyframes battle-odds-pop { from { opacity: 0; transform: scale(.6); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .battle-odds-seal { animation: none; } }

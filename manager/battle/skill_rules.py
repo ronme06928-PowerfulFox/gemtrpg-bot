@@ -239,6 +239,14 @@ def _is_non_clashable_ally_support_pair(slots, slot_a, slot_b, skill_data_a=None
     return False
 
 
+def is_reciprocal_clash(slots, slot_a, slot_b, intent_b, skill_a, skill_b, *, contested=False):
+    """The single resolver's reciprocal pairing rule, without advancing state."""
+    return bool(not contested and isinstance(intent_b, dict) and intent_b.get('committed', False)
+                and intent_b.get('skill_id') and intent_b.get('target', {}).get('type') == 'single_slot'
+                and intent_b.get('target', {}).get('slot_id') == slot_a
+                and not _is_non_clashable_ally_support_pair(slots, slot_a, slot_b, skill_a, skill_b))
+
+
 def _resolve_skill_role(skill_data):
     category = _resolve_skill_category(skill_data)
     tags = _collect_skill_tags(skill_data)
@@ -335,4 +343,3 @@ def _estimate_immediate_self_fp_gain(skill_data):
 
 def _skill_has_direct_fp_gain(skill_data):
     return _estimate_immediate_self_fp_gain(skill_data) > 0
-

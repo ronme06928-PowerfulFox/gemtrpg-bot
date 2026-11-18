@@ -1,3 +1,4 @@
+from manager.battle.skill_rules import is_reciprocal_clash
 def _sync_from_core():
     from manager.battle import core as core_mod
     g = globals()
@@ -619,23 +620,10 @@ def run_single_phase(room, battle_id, state, battle_state, resolve_intents, char
             intent_b = intents.get(target_slot, {})
             defender_skill_id_for_pair = intent_b.get('skill_id') if isinstance(intent_b, dict) else None
             defender_skill_data_for_pair = all_skill_data.get(defender_skill_id_for_pair, {}) if defender_skill_id_for_pair else None
-            non_clashable_ally_support = _is_non_clashable_ally_support_pair(
-                slots,
-                slot_id,
-                target_slot,
-                skill_data,
-                defender_skill_data_for_pair,
-            )
             same_team_pair = _is_same_team_slot_pair(slots, slot_id, target_slot)
-            is_clash = (
-                not attacker_is_contested_loser
-                and isinstance(intent_b, dict)
-                and intent_b.get('committed', False)
-                and defender_skill_id_for_pair
-                and
-                intent_b.get('target', {}).get('type') == 'single_slot'
-                and intent_b.get('target', {}).get('slot_id') == slot_id
-                and (not non_clashable_ally_support)
+            is_clash = is_reciprocal_clash(
+                slots, slot_id, target_slot, intent_b, skill_data, defender_skill_data_for_pair,
+                contested=attacker_is_contested_loser,
             )
             clash_defender_slot = target_slot if is_clash else None
             if (not is_clash) and target_actor_id and (not same_team_pair):

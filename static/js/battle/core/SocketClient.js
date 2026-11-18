@@ -286,6 +286,14 @@ class SocketClient {
         });
     }
 
+    requestMatchOdds(payload) {
+        return new Promise((resolve, reject) => {
+            if (!this._ensureSocket()) return reject(new Error('socket unavailable'));
+            this.socket.timeout(15000).emit('battle_match_odds', payload,
+                (error, result) => error ? reject(error) : resolve(result || {}));
+        });
+    }
+
     sendIntentUncommit(roomId, battleId, slotId) {
         this._emit('battle_intent_uncommit', {
             room_id: roomId,

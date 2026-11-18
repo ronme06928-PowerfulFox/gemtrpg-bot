@@ -1,6 +1,7 @@
 import { store } from '../core/BattleStore.js';
 import { socketClient } from '../core/SocketClient.js';
 import { intentPerformance } from '../core/IntentPerformance.js';
+import { MatchOdds } from './MatchOdds.js';
 
 class DeclarePanel {
     constructor() {
@@ -18,10 +19,14 @@ class DeclarePanel {
         this._skillPickerOpen = false;
         this._tooltipTimer = null;
         this._tooltipEl = null;
+        this._odds = new MatchOdds(body => socketClient.requestMatchOdds(body), () => this._paintOdds());
+        this._moveOdds = () => this._paintOdds();
     }
 
     initialize() {
         if (this._initialized) return true;
+        window.addEventListener('resize', this._moveOdds);
+        window.addEventListener('scroll', this._moveOdds, true);
         this._unsubscribe = store.subscribe((state) => intentPerformance.render(() => this._render(state)));
         this._render(store.state);
         this._initialized = true;
@@ -30,6 +35,10 @@ class DeclarePanel {
     }
 
     destroy() {
+        this._odds.destroy();
+        this._hideOddsSeal();
+        window.removeEventListener('resize', this._moveOdds);
+        window.removeEventListener('scroll', this._moveOdds, true);
         if (this._unsubscribe) {
             this._unsubscribe();
             this._unsubscribe = null;
@@ -140,6 +149,9 @@ class DeclarePanel {
         const closeBtnTitle = hasDeclareDiff ? '閉じる（未確定の変更は破棄）' : '閉じる';
 
         if (phase !== 'select' || !shouldShowPanel) {
+            this._odds.update(null);
+            this._oddsPanel = null;
+            this._hideOddsSeal();
             root.style.display = 'none';
             leftPanel.style.display = 'none';
             rightPanel.style.display = 'none';
@@ -200,6 +212,15 @@ class DeclarePanel {
             return;
         }
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
+        const forecastSkills = this._extractActorSkillCandidates(sourceChar, window.allSkillData || {}).map(row => row.id);
+        if (skillId && !forecastSkills.includes(skillId)) forecastSkills.push(skillId);
+        const forecastTarget = state.intents?.[effectiveTargetSlotId]?.skill_id;
+        this._odds.update(!isMassTarget && effectiveTargetSlotId && effectiveTargetSlotId !== sourceSlotId && forecastTarget
+            ? { room: state.room_id || state.room_name || window.currentRoomName, battle: state.battle_id,
+                source: sourceSlotId, target: effectiveTargetSlotId, skills: forecastSkills,
+                characters: state.characters, intents: state.intents, slots: state.slots, timeline: state.timeline }
+            : null);
+        this._oddsPanel = { panel: interactivePanel, skill: skillId, minimized: interactiveMinimized };
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
         // スキル未選択 かつ 編集可能なときピッカーを自動展開
         if (!skillId && !isUiReadOnly) {
@@ -361,6 +382,7 @@ class DeclarePanel {
 
         leftPanel.classList.toggle('is-minimized', visibleSide.ally && !!this._sideUi.ally.minimized);
         rightPanel.classList.toggle('is-minimized', visibleSide.enemy && !!this._sideUi.enemy.minimized);
+        this._paintOdds();
 
         const closeBtn = interactivePanel.querySelector('#declare-close-btn');
         if (closeBtn) {
@@ -918,6 +940,45 @@ class DeclarePanel {
     // -------------------------------------------------------------------------
 
     /** S2: スキルカードグリッドの HTML を生成する */
+    _oddsMarkup(row, seal=false) {
+        if (!row || !['非常に有利','有利','拮抗','不利','非常に不利'].includes(row.advantage)) return '';
+        // 「!」は右上の札だけに付ける。カードの小さな札では文字に重なるので付けない。
+        return `${seal ? '<small>戦況予測</small>' : ''}${row.advantage}${seal && row.has_excluded_effects
+            ? '<span class="battle-odds-mark" title="見込みに含まない効果あり" aria-label="見込みに含まない効果あり">!</span>' : ''}`;
+    }
+
+    _hideOddsSeal() {
+        this._oddsSeal?.remove(); this._oddsSeal=null;
+    }
+
+    _paintOdds() {
+        const info=this._oddsPanel;
+        if (!info?.panel?.isConnected || !info.panel.getClientRects().length) { this._hideOddsSeal(); return; }
+        for (const card of info.panel.querySelectorAll('.skill-picker-card')) {
+            card.querySelector('.battle-odds-chip')?.remove();
+            const row=this._odds.rows[card.dataset.skillId];
+            if (!this._oddsMarkup(row)) continue;
+            const chip=document.createElement('span');
+            chip.className='battle-odds-chip'; chip.dataset.theme='paper'; chip.dataset.level=row.advantage;
+            chip.innerHTML=this._oddsMarkup(row); card.appendChild(chip);
+        }
+        const row=this._odds.rows[info.skill];
+        if (info.minimized || !this._oddsMarkup(row)) { this._hideOddsSeal(); return; }
+        const content=this._oddsMarkup(row,true);
+        if (!this._oddsSeal || this._oddsSeal.innerHTML !== content) {
+            this._hideOddsSeal();
+            this._oddsSeal=document.createElement('div');
+            this._oddsSeal.className='battle-odds-seal'; this._oddsSeal.dataset.theme='paper';
+            this._oddsSeal.dataset.level=row.advantage; this._oddsSeal.innerHTML=content;
+            document.body.appendChild(this._oddsSeal);
+        }
+        const rect=info.panel.getBoundingClientRect(), seal=this._oddsSeal;
+        const width=seal.offsetWidth;
+        const left=rect.right+width+12 < innerWidth ? rect.right+6 : Math.max(8,rect.left-width-6);
+        const hostTop=info.panel.closest('.declare-panels')?.getBoundingClientRect().top || 0;
+        seal.style.left=`${left}px`; seal.style.top=`${Math.max(8,hostTop+8,rect.top+14)}px`;
+    }
+
     _buildSkillPickerHtml(actor, state, sourceSlotId, selectedTargetSlotId, selectedSkillId) {
         const all = window.allSkillData || {};
         const candidates = this._extractActorSkillCandidates(actor, all);
@@ -1880,6 +1941,3 @@ export const declarePanel = new DeclarePanel();
 if (typeof window !== 'undefined') {
     window.DeclarePanelComponent = declarePanel;
 }
-
-
-
