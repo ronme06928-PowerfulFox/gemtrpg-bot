@@ -254,6 +254,7 @@ async function fetchWithSession(url, options = {}) {
 // --- 3. エントリー/ポータル機能 ---
 // 通常ログイン(login_name+password)を主導線とし、新規登録・復旧を補助導線へ分ける。
 function showEntryPortal() {
+    window.resetRoomEncyclopedia?.();
     hideMenuScreens();
     clearScreenHash();
     roomPortal.style.display = 'none';
@@ -400,6 +401,7 @@ async function showRoomPortal() {
             });
             currentUserAttribute = 'Player';
             window.currentUserAttribute = currentUserAttribute;
+            window.resetRoomEncyclopedia?.();
             currentRoomName = null;
         }
     } catch (error) {

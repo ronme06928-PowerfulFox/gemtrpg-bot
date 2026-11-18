@@ -1622,6 +1622,7 @@ function openSkillDetailModal(skillId, skillName, options = {}) {
     document.body.appendChild(overlay);
 
     const closeFunc = () => overlay.remove();
+    window.attachEncyclopediaLink?.(content, skillId, closeFunc);
     content.querySelector('.modal-close-btn').addEventListener('click', closeFunc);
     overlay.addEventListener('click', (e) => {
         if (e.target === overlay) closeFunc();

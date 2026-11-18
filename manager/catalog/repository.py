@@ -2,6 +2,8 @@
 from copy import deepcopy
 from datetime import datetime
 from functools import wraps
+from contextlib import contextmanager
+from contextvars import ContextVar
 import uuid
 
 from sqlalchemy.exc import IntegrityError
@@ -22,16 +24,38 @@ class CatalogConflictError(ValueError):
         super().__init__(message)
 
 
+_staged = ContextVar("catalog_staged_writes", default=False)
+
+
+@contextmanager
+def staged_writes():
+    """一括操作の1件を、呼び出し元のトランザクションで確定する。"""
+    token = _staged.set(True)
+    try:
+        yield
+    finally:
+        _staged.reset(token)
+
+
+def _commit():
+    if _staged.get():
+        db.session.flush()
+    else:
+        db.session.commit()
+
+
 def _transaction(function):
     @wraps(function)
     def wrapped(*args, **kwargs):
         try:
             return function(*args, **kwargs)
         except (IntegrityError, StaleDataError) as exc:
-            db.session.rollback()
+            if not _staged.get():
+                db.session.rollback()
             raise CatalogConflictError("同時に更新されたか、IDが重複しています") from exc
         except Exception:
-            db.session.rollback()
+            if not _staged.get():
+                db.session.rollback()
             raise
     return wrapped
 
@@ -155,7 +179,7 @@ def create_draft(kind, created_by, *, target_id=None, id_prefix=None):
     draft = CatalogDraft(kind=kind, target_id=target_id, payload=payload,
                          base_revision=base_revision, created_by=created_by, id_prefix=id_prefix)
     db.session.add(draft)
-    db.session.commit()
+    _commit()
     return draft
 
 
@@ -170,7 +194,7 @@ def update_draft(draft_id, payload):
     draft.payload = deepcopy(payload)
     draft.status, draft.reject_reason, draft.submitted_at = "draft", None, None
     draft.updated_at = datetime.utcnow()
-    db.session.commit()
+    _commit()
     return draft
 
 
@@ -182,7 +206,7 @@ def submit_draft(draft_id):
     draft.payload = _validate(draft.kind, draft.payload, draft.target_id)
     draft.status = "pending"
     draft.updated_at = draft.submitted_at = datetime.utcnow()
-    db.session.commit()
+    _commit()
     return draft
 
 
@@ -241,8 +265,9 @@ def approve_draft(draft_id, actor_user_id, *, entry_id=None):
     entry.updated_by, entry.updated_at = actor_user_id, datetime.utcnow()
     record_history(entry, "publish", actor_user_id, draft.id)
     db.session.delete(draft)
-    db.session.commit()
-    load_kind_into_memory(kind)
+    _commit()
+    if not _staged.get():
+        load_kind_into_memory(kind)
     return entry
 
 

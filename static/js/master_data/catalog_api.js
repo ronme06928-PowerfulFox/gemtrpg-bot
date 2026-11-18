@@ -27,6 +27,7 @@
     reviewEffectRequest: (id, fields) => request(effectRequests + '/' + id + '/review', 'POST', fields),
     overview: () => request('/api/catalog/overview'),
     user: () => request('/api/get_session_user'),
+    bulk: (kind, fields) => request(`${catalog(kind)}/bulk`, 'POST', fields),
     list: kind => request(catalog(kind)),
     inspect: (kind, payload, entry_id, id_prefix) => request(`${catalog(kind)}/inspect`, 'POST', {payload, entry_id, id_prefix}),
     history: (kind, id) => request(`${catalog(kind)}/${encodeURIComponent(id)}/history`),

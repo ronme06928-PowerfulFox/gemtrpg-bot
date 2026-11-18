@@ -53,6 +53,8 @@
     let inspectionTimer, inspectionToken = 0;
     const leaveOverlay = panel.querySelector('.cat-leave-overlay');
     const listeners = [];
+    const bulkSelected = new Map();
+    const bulkAllowed = () => author() && (!!markLabels() || ['buff','glossary'].includes(state.kind));
     const trail = [...(options.trail || [])];
     function listen(type, handler) { panel.addEventListener(type, handler); listeners.push([type, handler]); }
     const state = { kind: model.kind, catalogs: {}, user: {}, data: { entries: [], drafts: [] }, selected: '', scene: 'browse',
@@ -61,7 +63,7 @@
       listRequest: 0, detailRequest: 0, tab: 'form', errors: {}, payload: {}, jsonText: '' };
     const author = () => !!(state.user.is_app_admin || state.user.is_catalog_author);
     const markLabels = () => state.overview.marks?.kinds.includes(state.kind) ? state.overview.marks.labels : null;
-    const markBadges = payload => Object.entries(markLabels() || {}).filter(([key]) => marksOf(payload).includes(key))
+    const markBadges = payload => (state.kind === 'buff' && payload.category ? `<span class="cat-chip">${h(payload.category)}</span>` : '') + Object.entries(markLabels() || {}).filter(([key]) => marksOf(payload).includes(key))
       .map(([key, label]) => `<span class="cat-chip cat-mark" data-catalog-mark="${h(key)}">${h(label)}</span>`).join('');
     const rows = () => model.rows(state.data);
     const selected = () => rows().find(row => row.key === state.selected);
@@ -203,7 +205,7 @@
       header();
       infoTools.close(); textTools?.destroy(); textTools = null;
       const categories = state.kind !== 'skill' ? '' : `<nav class="cat-skill-categories" aria-label="スキルのカテゴリ">${model.groups.map(([group,items])=>`<section><h3>${h(group)}</h3>${items.map(([prefix,label])=>`<button type="button" data-skill-category="${prefix}" aria-pressed="${state.filters.category === prefix}"><span><code>${prefix}</code> ${label}</span><span class="cat-nav-count">${model.filter(rows(),{...state.filters,category:prefix}).length}</span></button>`).join('')}</section>`).join('')}</nav>`;
-      scene.innerHTML = `<div class="cat-browser ${state.kind === 'skill' ? 'is-skill' : ''}">${state.kind === 'skill' ? `<div class="cat-skill-layout">${categories}<div class="cat-skill-main">` : ''}${toolbar()}<div class="bo-workspace__body"><section class="bo-workspace__list-pane" aria-label="${model.label}一覧"><div class="cat-list-heading"><h3>${model.label}</h3><span class="cat-caption" id="cat-list-count"></span></div><div id="cat-records" class="bo-workspace__record-list"></div></section><aside id="cat-detail" class="bo-workspace__detail-pane" aria-label="選択した${model.label}の詳細"></aside></div>${state.kind === 'skill' ? '</div></div>' : ''}</div>`;
+      scene.innerHTML = `<div class="cat-browser ${state.kind === 'skill' ? 'is-skill' : ''}">${state.kind === 'skill' ? `<div class="cat-skill-layout">${categories}<div class="cat-skill-main">` : ''}${toolbar()}${bulkAllowed() ? `<div class="cat-bulk-toolbar">${button('表示中をすべて選ぶ','bulk-all')}${button('選択を解除','bulk-clear')}${button(`まとめて付ける（${bulkSelected.size}件）`,'bulk-open', '', bulkSelected.size ? '' : 'disabled')}</div>` : ''}<div class="bo-workspace__body"><section class="bo-workspace__list-pane" aria-label="${model.label}一覧"><div class="cat-list-heading"><h3>${model.label}</h3><span class="cat-caption" id="cat-list-count"></span></div><div id="cat-records" class="bo-workspace__record-list"></div></section><aside id="cat-detail" class="bo-workspace__detail-pane" aria-label="選択した${model.label}の詳細"></aside></div>${state.kind === 'skill' ? '</div></div>' : ''}</div>`;
       renderList();
     }
     function renderPending() {
@@ -216,7 +218,7 @@
       const filtered = model.filter(rows(), state.filters).filter(row => !mark || marksOf(row.payload).includes(mark));
       if (!filtered.some(row => row.key === state.selected)) state.selected = filtered[0]?.key || '';
       panel.querySelector('#cat-list-count').textContent = `${filtered.length}件`;
-      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-ui-kind="${state.kind}" data-ui-skill-prefix="${state.kind === 'skill' ? h(row.target_id.split('-')[0]) : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong>${badge(row.status)}</div><span class="cat-record-line">${markBadges(row.payload)}<span class="cat-caption">${h(model.recordMeta(row.payload))}</span> ${h(model.recordDescription(row.payload) || '説明未入力')}</span></button>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
+      panel.querySelector('#cat-records').innerHTML = filtered.length ? filtered.map(row => `<div class="cat-selectable-record">${bulkAllowed() && !row.isDraft ? `<input type="checkbox" data-bulk-select="${h(row.target_id)}" aria-label="${h(row.target_id)} を選ぶ" ${bulkSelected.has(row.target_id) ? 'checked' : ''}>` : ''}<button type="button" class="bo-workspace__record ${row.key === state.selected ? 'is-selected' : ''}" data-ui-kind="${state.kind}" data-ui-skill-prefix="${state.kind === 'skill' ? h(row.target_id.split('-')[0]) : ''}" data-record="${h(row.key)}" aria-pressed="${row.key === state.selected}"><div class="cat-record-top"><code class="cat-id">${h(row.target_id)}</code><strong class="bo-workspace__record-title">${h(nameOf(row.payload))}</strong>${badge(row.status)}</div><span class="cat-record-line">${markBadges(row.payload)}<span class="cat-caption">${h(model.recordMeta(row.payload))}</span> ${h(model.recordDescription(row.payload) || '説明未入力')}</span></button></div>`).join('') : `<p class="cat-empty">条件に一致する${model.label}はありません。</p>`;
       renderDetail();
     }
     function links(payload) {
@@ -540,6 +542,7 @@
       options.onClose?.();
     }
     async function switchKind(kind, destination = null) {
+      if (kind !== state.kind) bulkSelected.clear();
       if (!models[kind] || state.scene !== 'browse') return;
       if (kind === state.kind) {
         if (destination) await load(false, destination);
@@ -684,6 +687,20 @@
       if (fromEffects) notice('リクエストを出しました。上の「リクエスト」から見られます。');
     }
     async function onAction(action, control) {
+      if (action === 'bulk-clear' || action === 'bulk-all') {
+        if (action === 'bulk-clear') bulkSelected.clear();
+        else for (const row of model.filter(rows(), state.filters).filter(row => !row.isDraft && (!state.filters.mark || marksOf(row.payload).includes(state.filters.mark)))) bulkSelected.set(row.target_id,row);
+        renderBrowse(); return;
+      }
+      if (action === 'bulk-open') {
+        const kind = state.kind;
+        window.CatalogBulk.open({ panel, kind, model, labels:markLabels(), rows:[...bulkSelected.values()], admin:state.user.is_app_admin,
+          apply:async body => {
+            const result = await request('bulk',kind,body);
+            bulkSelected.clear(); invalidate(kind); await load(); return result;
+          } });
+        return;
+      }
       if (action === 'requests' || action.startsWith('request-')) {
         try { await onRequestAction(action,control); }
         catch (error) { notice(Object.values(error.errors || {}).join(' / ') || error.message,true); }
@@ -923,6 +940,13 @@
     });
     listen('input', event => {
       const control = event.target;
+      if (control.dataset.bulkSelect) {
+        const row = rows().find(row => !row.isDraft && row.target_id === control.dataset.bulkSelect);
+        if (row && control.checked) bulkSelected.set(row.target_id, row); else bulkSelected.delete(control.dataset.bulkSelect);
+        const action = panel.querySelector('[data-action="bulk-open"]');
+        if (action) { action.textContent = `まとめて付ける（${bulkSelected.size}件）`; action.disabled = !bulkSelected.size; }
+        return;
+      }
       if (state.busy || power.input(control)) return;
       if (control.id === 'cat-effect-keys') { window.CatalogSkillEffects.setShowKeys(control.checked);renderInput();panel.querySelector('#cat-effect-keys')?.focus();return; }
       if (control.dataset.dicePart) {

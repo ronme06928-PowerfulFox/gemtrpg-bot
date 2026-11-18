@@ -1,5 +1,10 @@
 (function () {
 const jewels = {
+  kyanite: { hue:'#8dccf0', mid:'#407fa5', dark:'#123f54', light:'#d8efff', cut:'kite' },
+  sunstone: { hue:'#ffca99', mid:'#b77741', dark:'#56361f', light:'#ffe8cc', cut:'cushion' },
+  jade: { hue:'#b0d7a4', mid:'#689b4e', dark:'#304626', light:'#efffe5', cut:'emerald' },
+  zircon: { hue:'#c6d9fb', mid:'#829ad1', dark:'#354768', light:'#f2f6ff', cut:'shield' },
+  smoky: { hue:'#d4c2ae', mid:'#94816d', dark:'#433d36', light:'#f9ecdc', cut:'oval' },
   ruby:     { hue: '#f6a1b1', light: '#ffd7de', mid: '#ba345e', dark: '#480f29', cut: 'oval' },
   sapphire: { hue: '#a8c3ff', light: '#d9e9ff', mid: '#376dce', dark: '#142854', cut: 'emerald' },
   emerald:  { hue: '#95e3cb', light: '#caffeb', mid: '#298c77', dark: '#093e34', cut: 'emerald' },

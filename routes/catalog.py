@@ -56,6 +56,13 @@ def _body():
     return data
 
 
+@catalog_bp.post("/api/catalog/<kind>/bulk")
+@_endpoint("author")
+def bulk_update(kind):
+    from manager.catalog.bulk import apply_bulk
+    return jsonify(apply_bulk(kind, _body(), g.authenticated_user))
+
+
 def _name(user_id):
     user = db.session.get(User, user_id) if user_id else None
     return user.name if user else None

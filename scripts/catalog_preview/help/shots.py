@@ -147,6 +147,29 @@ def main():
         page.locator('[data-filter="mark"]').select_option('enemy')
         page.locator('#cat-detail [data-catalog-mark="enemy"]').wait_for()
         capture(page, "08_marks")
+        page.locator('[data-filter="mark"]').select_option('')
+        page.locator('[data-bulk-select="Bu-00"]').check()
+        page.locator('[data-bulk-select="Bu-01"]').check()
+        page.locator('[data-action="bulk-open"]').click()
+        page.locator('[data-bulk-category]').select_option('特殊スタック')
+        capture(page, "09_bulk")
+        before = page.evaluate("fetch('/api/get_buff_data').then(r=>r.json())")
+        page.locator('[data-bulk-confirm]').click()
+        page.get_by_role('heading', name='公開 2件・飛ばした物 0件').wait_for()
+        after = page.evaluate("fetch('/api/get_buff_data').then(r=>r.json())")
+        for key in ('Bu-00','Bu-01'):
+            assert after[key] == {**before[key], 'category':'特殊スタック'}
+        page.locator('[data-bulk-close]').click()
+        page.evaluate("""async () => {
+            const data = await fetch('/api/catalog/buff').then(r=>r.json());
+            const entries = data.entries.filter(row=>['Bu-00','Bu-01'].includes(row.entry_id))
+                .map(row=>({entry_id:row.entry_id,base_revision:row.revision}));
+            const response = await fetch('/api/catalog/buff/bulk',{method:'POST',
+                headers:{'Content-Type':'application/json'},body:JSON.stringify({entries,changes:{category:'能力の増減'}})});
+            if(!response.ok) throw new Error(await response.text());
+        }""")
+        page.locator('[data-filter="mark"]').select_option('enemy')
+        pick(page, 'Bu-30')
         page.locator('#cat-detail [data-action="edit"]').click()
         page.locator('[data-mark="known"]').wait_for()
         capture(page, "09_known", selector="#cat-input-content")

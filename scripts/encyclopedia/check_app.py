@@ -49,6 +49,75 @@ def assert_contrast(page):
     }""")
     assert not failures, failures
 
+def verify_room(page, base, copied, user_id, role, shot):
+    room = 'encyclopedia_room_' + uuid.uuid4().hex[:8]
+    api(page, '/create_room', 'POST', {'room_name':room,'gm_pin':'1234'})
+    if role == 'player':
+        with sqlite3.connect(copied) as connection:
+            connection.execute("UPDATE room_members SET role='player' WHERE user_id=?", (user_id,))
+            connection.execute("UPDATE rooms SET owner_id=NULL WHERE name=?", (room,))
+    page.get_by_role('button',name='← メインメニュー',exact=True).click()
+    page.evaluate("async room => { await joinRoom(room, null, {role:'Player',gmPin:''}); }", room)
+    page.locator('#dock-glossary-icon').wait_for()
+    page.locator('.app-loading').wait_for(state='hidden')
+    page.locator('#dock-glossary-icon').click()
+    page.locator('.encyclopedia-room [data-door="adventurers"]').click()
+    page.locator('[data-book="Ps"]').click()
+    page.locator('[data-entry="Ps-04"]').click()
+    page.evaluate("""room => new Promise((resolve,reject) => {
+        // UUID は「4d2」のような並びでダイスの式として振られるので、数字だけの印にする。
+        const message='encyclopedia-background-'+Date.now();
+        const timer=setTimeout(()=>{socket.off('new_log',receive); reject(new Error('chat paused'));},10000);
+        function receive(log) { if(log.message === message) { clearTimeout(timer);socket.off('new_log',receive);resolve(); } }
+        socket.on('new_log',receive);
+        socket.emit('request_chat',{room,message});
+    })""", room)
+    shot('room-skill')
+    assert page.locator('.specimen-id').inner_text() == 'Ps-04'
+    page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+    assert not page.locator('.encyclopedia-room').count()
+    page.locator('#dock-glossary-icon').click()
+    page.locator('.specimen-id',has_text='Ps-04').wait_for()
+    page.keyboard.press('Escape')
+    assert page.locator('.encyclopedia-room').is_visible()
+    assert not page.locator('#book-window').is_visible()
+    page.locator('.encyclopedia-room-header button').click()
+    page.evaluate("openSkillDetailModal('Ps-04')")
+    page.get_by_role('button',name='図鑑で見る',exact=True).click()
+    page.locator('.specimen-id',has_text='Ps-04').wait_for()
+    assert not page.locator('.book-skill-detail-modal').count()
+    page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+    page.evaluate("Glossary.showPopup('W-01')")
+    page.get_by_role('button',name='図鑑で見る',exact=True).click()
+    page.locator('.specimen-id',has_text='W-01').wait_for()
+    shot('room-glossary')
+    page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+    page.evaluate("openRoomEncyclopedia('E-00')")
+    page.locator('.specimen-id',has_text='E-00').wait_for()
+    page.get_by_role('button',name='目次へ戻る',exact=True).click()
+    assert (page.locator('.contents-entry.locked').count() > 0) == (role == 'player')
+    page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+    if role == 'player':
+        with sqlite3.connect(copied) as connection:
+            connection.execute("UPDATE room_members SET role='gm' WHERE user_id=?", (user_id,))
+        page.locator('#dock-glossary-icon').click()
+        page.locator('[data-own-encounters]').wait_for()
+        page.locator('.contents-entry').first.wait_for()
+        assert page.locator('.contents-entry.locked').count() == 0
+        page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+    else:
+        page.locator('#dock-glossary-icon').click()
+        page.locator('#book-window').wait_for()
+        page.evaluate("room => socket.emit('request_change_mode',{room,mode:'exploration'})", room)
+        page.wait_for_function("battleState.mode === 'exploration'")
+        assert page.locator('#book-window').is_visible()
+        page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+        page.locator('#action-dock [title="図鑑"]').click()
+        page.locator('#book-window').wait_for()
+        shot('exploration-book')
+        page.get_by_role('button',name='ルームへ戻る',exact=True).click()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--db", required=True)
@@ -101,8 +170,12 @@ def main():
                     palettes.extend(row["color"] for row in records)
                     sizes.extend(tuple(row["size"]) for row in records)
                     assert_contrast(page)
+                    if door == 'world':
+                        assert page.locator('[data-book^="buff-"]').count() == 4
+                        assert page.locator('[data-book="buff-4"], [data-book="buff-5"]').count() == 0
+                        shot('world')
                     page.locator('#close-shelf').click()
-                assert len(palettes) == len(set(palettes)) == 16
+                assert len(palettes) == len(set(palettes)) == 19
                 assert set(sizes) == {(80,278)}
                 page.locator('[data-door="adventurers"]').click()
                 page.locator('.shelf-book[data-book="Ps"]').wait_for()
@@ -188,9 +261,10 @@ def main():
                 page.get_by_role("button", name="← メインメニュー", exact=True).click()
                 page.locator('[data-screen-card="encyclopedia"]').click()
                 page.locator('.encyclopedia [data-door="adventurers"]').wait_for()
+                verify_room(page, args.base, copied, user_id, role, shot)
                 context.close()
             assert errors == [], errors
-            print("Verified player/author doors, shelf, locked entries, skills, chapters, search, author preview and remount.")
+            print("Verified player/author doors, classified buff shelves, locked entries, skills, chapters, search, room resume, GM visibility, popup links, background chat and exploration dock.")
         finally:
             browser.close()
 

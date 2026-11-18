@@ -50,12 +50,12 @@ if (!window.ExplorationDock) {
         });
         dock.appendChild(quickEditBtn);
 
-        // 4.5 用語図鑑
-        const glossaryBtn = createDockIcon('📚', '用語図鑑', () => {
-            if (typeof openGlossaryCatalogModal === 'function') {
-                openGlossaryCatalogModal();
+        // 4.5 図鑑
+        const glossaryBtn = createDockIcon('📚', '図鑑', () => {
+            if (typeof openRoomEncyclopedia === 'function') {
+                openRoomEncyclopedia();
             } else {
-                window.showAppNotice("用語図鑑機能が見つかりません", {kind: 'error'});
+                window.showAppNotice("図鑑機能が見つかりません", {kind: 'error'});
             }
         });
         dock.appendChild(glossaryBtn);

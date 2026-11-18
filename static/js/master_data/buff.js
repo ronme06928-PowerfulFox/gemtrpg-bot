@@ -3,8 +3,9 @@
   const h = base.escape;
   const fields = [['name', '内部名', 'text'], ['display_name', '表示名', 'text'],
     ['description', '説明', 'textarea'], ['flavor', 'フレーバー', 'textarea'],
-    ['default_duration', '持続', 'duration'], ['effect', '効果', 'json']];
-  const defaults = () => ({ name: '', display_name: '', description: '', flavor: '', default_duration: 1, effect: {} });
+    ['category', '分類', 'category'], ['default_duration', '持続', 'duration'], ['effect', '効果', 'json']];
+  const categories = ['能力の増減','状態異常の強化','特殊スタック','出身の恩恵','物語'];
+  const defaults = () => ({ name: '', display_name: '', description: '', flavor: '', category: '', default_duration: 1, effect: {} });
   const duration = value => value === -1 ? '解除まで' : `${value ?? 1}ラウンド`;
   function parseField(key, value) {
     if (key === 'effect') return base.parseJSON(value);
@@ -23,6 +24,7 @@
       const attrs = `id="cat-field-${key}" data-field="${key}" aria-describedby="cat-error-${key}"`;
       let input;
       if (type === 'duration') input = `<span class="cat-duration-row"><select data-duration-mode aria-label="持続の単位"><option value="rounds" ${value !== -1 ? 'selected' : ''}>ラウンド数</option><option value="permanent" ${value === -1 ? 'selected' : ''}>解除まで</option></select><input ${attrs} type="number" min="1" step="1" aria-label="持続のラウンド数" value="${h(value === -1 ? '' : value)}" ${value === -1 ? 'disabled' : ''}></span>`;
+      else if (type === 'category') input = `<select ${attrs}><option value="">未分類</option>${categories.map(category => `<option ${value === category ? 'selected' : ''}>${h(category)}</option>`).join('')}</select>`;
       else if (type === 'json') input = `<textarea ${attrs} class="cat-effect-source" spellcheck="false" rows="6">${h(options.effectText ?? JSON.stringify(value, null, 2))}</textarea>`;
       else if (type === 'textarea') input = `<textarea data-catalog-text ${attrs} rows="3">${h(value)}</textarea>`;
       else input = `<input ${attrs} type="text" value="${h(value)}" ${key === 'name' && options.published ? 'readonly' : ''}>`;
@@ -33,13 +35,14 @@
     const markup = value => window.Glossary?.parseMarkupToHTML(String(value || '')) ?? h(value);
     return `<section class="bo-workspace__card"><h4>バフのプレビュー</h4><details class="buff-accordion" open><summary class="buff-summary"><div class="buff-summary-body"><span class="buff-name">${h(payload.display_name || payload.name || '名前未入力')}</span><div class="buff-meta">${h(duration(payload.default_duration))}</div></div><span class="buff-arrow">▼</span></summary><div class="buff-body"><div class="buff-desc-row">${markup(payload.description)}</div>${payload.flavor ? `<div class="buff-flavor-row">${markup(payload.flavor)}</div>` : ''}</div></details></section>`;
   }
-  window.CatalogBuff = { ...base, kind: 'buff', label: 'バフ', categories: [], fields, defaults, duration,
+  window.CatalogBuff = { ...base, kind: 'buff', label: 'バフ', categories, fields, defaults, duration,
     parseField, validatePayload, form, preview, detail: payload => `<dl class="cat-facts"><div><dt>内部名</dt><dd>${h(payload.name)}</dd></div><div><dt>持続</dt><dd>${h(duration(payload.default_duration))}</dd></div></dl>${preview(payload)}`,
     recordMeta: payload => duration(payload.default_duration), recordDescription: payload => payload.description,
     externalLink: () => '', jsonHint: '内部名・表示名・説明・持続・効果などを編集します。IDは含めません。',
     filter(rows, filters) {
       const needle = (filters.search || '').toLocaleLowerCase();
       return rows.filter(row => (filters.status === 'all' || row.status === filters.status)
+        && (!filters.category || row.payload.category === filters.category)
         && [row.target_id, row.payload.name, row.payload.display_name, row.payload.description, row.payload.flavor].join(' ').toLocaleLowerCase().includes(needle));
     },
   };

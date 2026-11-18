@@ -7,7 +7,7 @@ os.environ["GEMTRPG_SKIP_IMPORT_STARTUP"] = "1"
 import pytest
 from app import create_app
 from extensions import db
-from models import CatalogEncounter, CatalogEntry, User
+from models import CatalogEncounter, CatalogEntry, User, Room, RoomMember
 from manager.units import repository
 from manager.catalog.kinds import inspect_payload, validate_payload
 from manager.catalog.skills import from_cache, to_memory
@@ -45,6 +45,21 @@ def client(app, actor):
         with result.session_transaction() as session:
             session.update(user_id=actor, username=actor, auth_version=1)
     return result
+
+
+@pytest.mark.parametrize('role,full', [('owner',True),('gm',True),('player',False),(None,False)])
+def test_room_membership_visibility(app,role,full):
+    room = Room(name='membership-room', data={})
+    db.session.add(room)
+    db.session.flush()
+    if role:
+        db.session.add(RoomMember(room_id=room.id,user_id='reader',role=role))
+    db.session.commit()
+    data=client(app,'reader').get('/api/encyclopedia?room=membership-room').json
+    assert data['can_view_all'] is full
+    assert data['can_preview_own'] is full
+    ids={row['entry_id'] for row in data['units']}
+    assert ('U-003' in ids) is full
 
 
 @pytest.mark.parametrize("actor,visible,all_visible", [
@@ -97,3 +112,12 @@ def test_unit_without_allow_enemy_counts_as_enemy(app):
     db.session.commit()
     units = client(app, "reader").get("/api/encyclopedia").json["units"]
     assert "U-099" in [row["entry_id"] for row in units]
+
+
+@pytest.mark.parametrize("actor,room,full",[("reader","room",False),("author","room",True),("reader","elsewhere",False),("reader","gm-room",True)])
+def test_room_gm_can_view_all(app,actor,room,full,monkeypatch):
+    import routes.encyclopedia as routes
+    monkeypatch.setattr(routes,"resolve_room_role",lambda user, name:"gm" if user=="reader" and name=="gm-room" else "player" if name=="room" else None)
+    data=client(app,actor).get("/api/encyclopedia",query_string={"room":room}).json
+    assert data["can_view_all"] is full
+    assert data["can_preview_own"] is full

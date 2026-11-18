@@ -1,11 +1,12 @@
 """ログイン中の本人の図鑑に必要な出会いと敵ユニットを返す。"""
 from datetime import timezone
 
-from flask import Blueprint, g, jsonify
+from flask import Blueprint, g, jsonify, request
 
 from manager.utils import session_required
 from manager.catalog.kinds import MARK_LABELS
 from manager.units.repository import entry_json
+from manager.room_access import GM_ROLES, resolve_room_role
 from models import CatalogEncounter, CatalogEntry
 
 encyclopedia_bp = Blueprint("encyclopedia", __name__)
@@ -20,7 +21,9 @@ def _utc(value):
 @session_required
 def get_encyclopedia():
     user = g.authenticated_user
-    can_view_all = bool(user.is_catalog_author or user.is_app_admin)
+    room = request.args.get("room", "").strip()
+    room_gm = bool(room and resolve_room_role(user.id, room) in GM_ROLES)
+    can_view_all = bool(user.is_catalog_author or user.is_app_admin or room_gm)
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()
     seen_units = {row.entry_id for row in encounters if row.kind == "unit"}
@@ -37,6 +40,7 @@ def get_encyclopedia():
     return jsonify(
         can_view_all=can_view_all,
         is_catalog_author=bool(user.is_catalog_author),
+        can_preview_own=bool(user.is_catalog_author or room_gm),
         mark_labels=MARK_LABELS,
         encounters=[{
             "kind": row.kind, "entry_id": row.entry_id,

@@ -112,8 +112,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const room = {style: {display: 'none'}, dataset: {}};
+let resetCount = 0;
 const context = vm.createContext({
-    mainAppContainer: room, goScreen() {},
+    mainAppContainer: room, goScreen() {}, window:{resetRoomEncyclopedia(){resetCount++;}},
 });
 const main = fs.readFileSync('static/js/main.js', 'utf8');
 const screens = fs.readFileSync('static/js/app_screens.js', 'utf8');
@@ -126,6 +127,7 @@ assert.equal(room.dataset.theme, 'night');
 vm.runInContext("exitRoomTo('rooms');", context);
 assert.equal(room.style.display, 'none');
 assert.equal(room.dataset.theme, undefined);
+assert.equal(resetCount, 1);
 """], cwd=CSS.parents[2], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
 

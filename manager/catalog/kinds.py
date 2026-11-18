@@ -35,10 +35,11 @@ KINDS = {
         "id_prefix": "Bu-", "id_pattern": r"Bu-\d{2,}",
         "cache_file": BUFF_CATALOG_CACHE_FILE,
         "fields": {"name": str, "display_name": str, "description": str,
-                   "flavor": str, "effect": dict, "default_duration": int},
+                   "flavor": str, "effect": dict, "default_duration": int, "category": str},
         "required": ("name",),
         "defaults": {"display_name": "", "description": "", "flavor": "",
-                     "effect": {}, "default_duration": 1},
+                     "effect": {}, "default_duration": 1, "category": ""},
+        "categories": ("能力の増減", "状態異常の強化", "特殊スタック", "出身の恩恵", "物語"),
         "memory_name": "all_buff_data", "id_field": "id",
     },
 }
@@ -118,6 +119,9 @@ def inspect_payload(kind, payload, *, entry_id=None, id_prefix=None, stage, publ
             add("marks", "未定義の印があります")
         elif len(marks) != len(set(marks)):
             add("marks", "同じ印は重複して指定できません")
+    if kind == "buff" and isinstance(payload.get("category"), str):
+        if payload["category"] and payload["category"] not in definition["categories"]:
+            add("category", "未定義の分類です")
     if kind == "glossary":
         if isinstance(payload.get("category"), str) and payload["category"] not in definition["categories"]:
             add("category", "未定義の分類です")

@@ -84,6 +84,7 @@ const CLASSIC_SCRIPTS = [
   'js/master_data/power.js',
   'js/master_data/effect_requests.js',
   'js/master_data/workspace_parts.js',
+  'js/master_data/bulk.js',
   'js/master_data/workspace.js',
   'js/units/api.js',
   'js/units/patterns.js',
@@ -97,6 +98,7 @@ const CLASSIC_SCRIPTS = [
   'js/encyclopedia/template.js',
   'js/encyclopedia/view.js',
   'js/encyclopedia/workspace.js',
+  'js/encyclopedia/room.js',
 ];
 
 const BATTLE_ENTRY = path.join(JS, 'battle', 'index.js');

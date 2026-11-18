@@ -2,6 +2,14 @@ window.createEncyclopediaView = function (panel, DATA) {
   const {jewels, jewelDefinitions, jewelArt, PROP_KEYS, propArt} = window.EncyclopediaArt;
   const $ = selector => panel.querySelector(selector);
   const dialog = $('#book-window');
+  dialog.addEventListener('cancel', event => event.stopPropagation());
+  if (panel.closest('.encyclopedia-room')) {
+    const closeRoom = document.createElement('button');
+    closeRoom.type = 'button';
+    closeRoom.textContent = 'ルームへ戻る';
+    closeRoom.addEventListener('click', () => window.closeRoomEncyclopedia());
+    $('.book-bar').append(closeRoom);
+  }
   const spread = $('#spread');
   const leaf = $('.turn-leaf');
   const front = $('.turn-front');
@@ -32,16 +40,21 @@ window.createEncyclopediaView = function (panel, DATA) {
     rows:DATA.rowsByKind.skill.filter(row => row.id.split('-')[0] === prefix),
     };
   });
-  const others = [...types].filter(([key]) => key !== 'skill').map(([key, title]) => ({
+  const others = [...types].filter(([key]) => key !== 'skill').flatMap(([key, title]) => key === 'buff'
+    ? window.EncyclopediaData.buffVolumes(DATA.rowsByKind.buff) : [{
     key, title, color:kindColors[key], kind:key, rows:DATA.rowsByKind[key],
-  }));
+  }]);
   const books = [...skills, ...others];
   const booksByKey = new Map(books.map(book => [book.key, book]));
+  const buffKeys = others.filter(book => book.kind === 'buff').map(book => book.key);
+  const worldCells = [['quill', 'glossary']];
+  for (let start = 0; start < buffKeys.length; start += 3) worldCells.push(buffKeys.slice(start, start + 3));
+  worldCells[worldCells.length - 1].push('hourglass');
   const rooms = new Map([
     // 棚の区画を左上から順に。区画の中は本と小物（PROP_KEYS）を並べた順に置く。
     ['adventurers', ['冒険者', 4, [['Ps', 'Pb', 'Pp'], ['Ms', 'Mb', 'Mp'], ['B', 'C', 'D'], ['radiance', 'item']], ['Ps', 'Ms', 'radiance']]],
     ['monsters', ['魔物', 1, [['candle', 'E', 'enemy', 'passive', 'dice']], ['E', 'enemy', 'passive']]],
-    ['world', ['世界の理', 1, [['quill', 'glossary', 'buff', 'hourglass']], ['glossary', 'buff']]],
+    ['world', ['世界の理', worldCells.length, worldCells, ['glossary', ...buffKeys.slice(0, 1)]]],
   ].map(([key, [title, columns, cells, ornaments]]) => {
     const shelfRows = cells.map(items => items.map(id => PROP_KEYS.has(id) ? id : booksByKey.get(id)));
     return [key, { title, columns, shelfRows, books:shelfRows.flat().filter(item => typeof item !== 'string'), ornaments }];
@@ -86,7 +99,12 @@ window.createEncyclopediaView = function (panel, DATA) {
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
   })[ch]);
   const readable = row => row && row.met;
-  const plain = value => String(value ?? '').replace(termPattern, (_, id, label) => label || byId.get(id)?.name || id);
+  // バフの文章の {{value}} などはゲーム内で数値に置き換わる。図鑑では「X」と書く。
+  const variablePattern = /{{\s*(?:value|count|duration)\s*}}/gi;
+  const hasVariable = value => /{{\s*(?:value|count|duration)\s*}}/i.test(String(value ?? ''));
+  const variables = html => html.replace(variablePattern, '<var class="encyclopedia-variable">X</var>');
+  const plain = value => String(value ?? '').replace(termPattern, (_, id, label) => label || byId.get(id)?.name || id)
+    .replace(variablePattern, 'X');
   const description = row => row.data.long || row.data.short || row.data.description || row.data.発動時効果 || '';
   const link = (id, label) => readable(byId.get(id)) ? `<a href="#${h(id)}" data-entry="${h(id)}">${h(label)}</a>` : h(label);
   function markup(value) {
@@ -95,10 +113,10 @@ window.createEncyclopediaView = function (panel, DATA) {
     let output = '';
     for (const [match, id, label] of text.matchAll(termPattern)) {
       const index = text.indexOf(match, start);
-      output += h(text.slice(start, index)) + link(id, label || byId.get(id)?.name || id);
+      output += variables(h(text.slice(start, index))) + link(id, label || byId.get(id)?.name || id);
       start = index + match.length;
     }
-    return output + h(text.slice(start));
+    return output + variables(h(text.slice(start)));
   }
 
   const searchable = new Map(all.map(row => [row.id, [row.id, row.name, description(row), row.data.short, row.data.flavor,
@@ -175,6 +193,7 @@ window.createEncyclopediaView = function (panel, DATA) {
     return `${values.length ? `<dl class="facts">${values.map(([label,value]) => `<div><dt>${label}</dt><dd>${h(value)}</dd></div>`).join('')}</dl>` : ''}
       ${data.short && data.long && data.short !== data.long ? `<p>${markup(data.short)}</p>` : ''}
       <p>${markup(description(row) || '説明未登録')}</p>
+      ${hasVariable(description(row)) ? '<p class="variable-note"><var class="encyclopedia-variable">X</var> は、このバフを付ける効果で決まる値。</p>' : ''}
       ${links ? `<section class="detail-links"><h3>${row.kind === 'enemy' ? '所持スキル' : '関連用語'}</h3><ul>${links}</ul></section>` : ''}`;
   }
 
@@ -411,5 +430,32 @@ window.createEncyclopediaView = function (panel, DATA) {
   leaf.addEventListener('animationcancel', finishTurn);
 
   renderDoors();
-  return {destroy() { clearTurn(); if (dialog.open) dialog.close(); panel.replaceChildren(); }};
+  return {
+    openEntry(id) {
+      const destination = locationById.get(id);
+      if (!destination || !readable(byId.get(id))) return false;
+      activeRoom = [...rooms].find(([, room]) => room.books.includes(destination.book))?.[0] || null;
+      renderShelf(); renderSearch();
+      openBook(destination.book, destination.page, null);
+      return true;
+    },
+    getState() {
+      return { room:activeRoom, book:dialog.open ? activeBook.key : null, page,
+        entryId:dialog.open ? activeBook.pages[page].row?.id : null, query:query.value };
+    },
+    restore(position) {
+      if (!position) return;
+      activeRoom = rooms.has(position.room) ? position.room : null;
+      renderShelf();
+      query.value = position.query || '';
+      renderSearch();
+      const book = booksByKey.get(position.book);
+      if (position.entryId && this.openEntry(position.entryId)) return;
+      if (book) {
+        const target = Math.min(Math.max(position.page || 0, 0), book.pages.length - 1);
+        openBook(book, !book.pages[target].row || readable(book.pages[target].row) ? target : 0, null);
+      }
+    },
+    destroy() { clearTurn(); if (dialog.open) dialog.close(); panel.replaceChildren(); },
+  };
 };

@@ -1,4 +1,25 @@
 (function () {
+  const buffBooks = [
+    ['能力の増減', '盛衰の書', 'emerald'], ['状態異常の強化', '傷痕の書', 'kyanite'],
+    ['特殊スタック', '蓄積の書', 'sunstone'], ['出身の恩恵', '故郷の書', 'jade'],
+    ['物語', '伝承の書', 'zircon'], ['', '雑録の書', 'smoky'],
+  ];
+  function buffVolumes(rows) {
+    return buffBooks.map(([category, title, color], index) => ({
+      key:`buff-${index}`, kind:'buff', title, color,
+      rows:rows.filter(row => (row.data.category || '') === category),
+    })).filter(book => book.rows.length);
+  }
+  async function load({ room, signal } = {}) {
+    const kinds = ['glossary', 'skill', 'buff', 'item', 'radiance', 'passive'];
+    const url = '/api/encyclopedia' + (room ? '?room=' + encodeURIComponent(room) : '');
+    const responses = await Promise.all([url, ...kinds.map(kind => `/api/get_${kind}_data`)].map(async path => {
+      const response = await fetchWithSession(path, { signal, cache:'no-cache' });
+      if (!response.ok) throw new Error('図鑑を読み込めませんでした。接続とログインを確認してください。');
+      return response.json();
+    }));
+    return { masters:Object.fromEntries(kinds.map((kind, index) => [kind, responses[index + 1]])), extra:responses[0] };
+  }
   const types = [
     ['glossary', '用語'], ['skill', 'スキル'], ['buff', 'バフ'], ['item', 'アイテム'],
     ['enemy', 'エネミー'], ['radiance', '輝化スキル'], ['passive', '特殊パッシブ'],
@@ -33,5 +54,5 @@
     }));
     return { types, groups, rowsByKind, markLabels:extra.mark_labels };
   }
-  window.EncyclopediaData = { build };
+  window.EncyclopediaData = { build, buffVolumes, load };
 })();

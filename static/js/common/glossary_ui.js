@@ -321,6 +321,7 @@
             }
         }
 
+        window.attachEncyclopediaLink?.(popup, termId, hideAll);
         backdrop.classList.add('is-open');
         backdrop.setAttribute('aria-hidden', 'false');
     }
@@ -431,7 +432,7 @@
     }
 
     function _onKeyDown(e) {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]')) {
             hideAll();
             return;
         }

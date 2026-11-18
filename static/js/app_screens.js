@@ -6,7 +6,7 @@
   const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'users', 'encyclopedia'];
   // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
   const WORKSPACES = {
-    encyclopedia: host => mountEncyclopedia(host),
+    encyclopedia: (host, options) => mountEncyclopedia(host, options),
     characters: host => mountOwnedCharacters(host),
     units: (host, options) => mountUnitManagement(host, options),
     master: (host, options) => mountCatalogWorkspace(host, { onOpenUnit: openReferencedUnit, ...options }),
@@ -116,6 +116,11 @@
     mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'), options)};
   }
 
+  window.openMenuEncyclopedia = async entryId => {
+    if (!(await canLeaveWorkspace())) return;
+    if (mounted?.name === 'encyclopedia') return mounted.controller.openEntry(entryId);
+    followWorkspaceLink('encyclopedia', { entryId });
+  };
   function followWorkspaceLink(name, options) {
     history.replaceState(null, '', '#' + name);
     showWorkspace(name, options);
@@ -194,6 +199,7 @@
   }
 
   function exitRoomTo(name) {
+    window.resetRoomEncyclopedia?.();
     setRoomVisible(false);
     goScreen(name);
   }
