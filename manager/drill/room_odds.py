@@ -37,6 +37,7 @@ def calculate_room_odds(room, source, target, candidates, yield_work=lambda: Non
         return {}
     characters={char['id']:char for char in snapshot.get('characters',[])}
     result={}
+    failed=[]
     for skill_id in dict.fromkeys(candidates):
         yield_work()
         skill=all_skill_data.get(skill_id)
@@ -64,9 +65,12 @@ def calculate_room_odds(room, source, target, candidates, yield_work=lambda: Non
         if not paired:
             continue
         try:
-            odds=calculate_match(characters[slots[source]['actor_id']],characters[slots[target]['actor_id']],skill_id,opponent_id)
-        except Exception:
-            logger.debug('Forecast skipped for skill %s',skill_id,exc_info=True)
+            odds=calculate_match(characters[slots[source]['actor_id']],characters[slots[target]['actor_id']],skill_id,opponent_id,
+                                 trusted=True)
+        except Exception as error:
+            failed.append(f'{skill_id}: {error}')
             continue
         result[skill_id]={key:odds[key] for key in ('advantage','win_rate','has_excluded_effects')}
+    if failed:
+        logger.warning('Forecast skipped %d of %d skills (%s)',len(failed),len(candidates),'; '.join(failed[:3]))
     return result

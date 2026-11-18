@@ -23,8 +23,8 @@ def scene(monkeypatch):
     monkeypatch.setitem(user_sids,'sid',{'room':'room'})
     for key in ('atk','def','broken'):
         monkeypatch.setitem(all_skill_data,key,{'id':key,'target_scope':'enemy'})
-    def calculate(a,b,skill,other):
-        assert a == actor and b == target
+    def calculate(a,b,skill,other,*,trusted):
+        assert a == actor and b == target and trusted
         assert other=='def'
         if skill=='broken': raise RuntimeError('cannot calculate')
         return {'advantage':'有利','win_rate':.7,'has_excluded_effects':True,'excluded_effects':['secret']}
@@ -83,3 +83,23 @@ def test_contention_and_evade_use_existing_selectors(scene,monkeypatch):
     assert 'atk' in call(skill_ids=['atk'])['odds']
     monkeypatch.setattr(room_odds,'select_evade_insert_slot',lambda *args:('another_slot','evade_slot_reuse'))
     assert call(skill_ids=['atk'])=={'odds':{}}
+
+
+def test_room_values_skip_the_api_size_limits():
+    # デバッグ用キャラは全スキルのパレットを持ち、API の文字数の上限を超える（2026-11-19 本番で予測が出なかった）。
+    from manager.drill.match import calculate_match
+    skill={'id':'long','tags':[],'チャットパレット':'2+1d6 【long】'}
+    original=all_skill_data.get('long')
+    all_skill_data['long']=skill
+    try:
+        def char(key):
+            return {'id':key,'name':key,'hp':10,'maxHp':10,'params':[],'states':[],'special_buffs':[],
+                    'commands':'x'*4000}
+        with pytest.raises(ValueError):
+            calculate_match(char('a'),char('b'),'long','long')
+        assert calculate_match(char('a'),char('b'),'long','long',trusted=True)['advantage']=='拮抗'
+    finally:
+        if original is None:
+            all_skill_data.pop('long',None)
+        else:
+            all_skill_data['long']=original

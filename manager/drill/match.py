@@ -68,11 +68,13 @@ def _damage(decision, raw, hit, half, fissure, multiplier):
     return finish_damage(amount, feint=half)
 
 
-def calculate_match(actor, target, skill_id, target_skill_id=None):
-    validate_snapshot(actor)
-    validate_snapshot(target)
-    validate_skill_id(skill_id)
-    validate_skill_id(target_skill_id, optional=True)
+def calculate_match(actor, target, skill_id, target_skill_id=None, *, trusted=False):
+    # 入力の大きさの上限は外から受けた値のためのもの。ルームの値（trusted）には掛けない。
+    if not trusted:
+        validate_snapshot(actor)
+        validate_snapshot(target)
+        validate_skill_id(skill_id)
+        validate_skill_id(target_skill_id, optional=True)
     actor, target = deepcopy(actor), deepcopy(target)
     if not actor.get('id') or not target.get('id') or actor.get('id') == target.get('id'):
         actor['id'], target['id'] = '__drill_actor', '__drill_target'
