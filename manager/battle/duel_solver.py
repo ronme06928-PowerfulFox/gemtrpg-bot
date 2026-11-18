@@ -26,6 +26,14 @@ from manager.battle.core import (
     process_on_hit_buffs
 )
 from manager.battle.skill_rules import _resolve_skill_role, _extract_rule_data_from_skill
+from manager.battle.match_rules import (
+    is_feint_skill as _is_feint_skill, is_normal_skill as _is_normal_skill,
+    is_unmatchable_skill as _is_unmatchable_skill,
+    is_defense_or_evasion_skill as _is_defense_or_evasion_skill,
+    damage_from_rolls as _compute_match_damage_from_rolls,
+    feint_damage, scale_damage, decide_match,
+)
+
 from manager.battle.duel_log_utils import format_duel_result_lines
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change, consume_granted_skill_use
@@ -58,71 +66,19 @@ compute_origin_skill_modifiers = getattr(_utils_mod, 'compute_origin_skill_modif
 apply_dice_power_bonus_to_command = getattr(_utils_mod, 'apply_dice_power_bonus_to_command', lambda command, *_args, **_kwargs: command)
 
 execution_lock = Lock()
-def _extract_skill_tags(skill_data):
-    if not isinstance(skill_data, dict):
-        return []
-    tags = []
-    if isinstance(skill_data.get('tags'), list):
-        tags.extend([str(v).strip() for v in skill_data.get('tags', []) if str(v).strip()])
-    rule_data = skill_data.get('rule_data')
-    if isinstance(rule_data, dict) and isinstance(rule_data.get('tags'), list):
-        tags.extend([str(v).strip() for v in rule_data.get('tags', []) if str(v).strip()])
-    return tags
-
-def _has_any_tag(skill_data, candidates):
-    tags = set(_extract_skill_tags(skill_data))
-    for candidate in candidates:
-        if str(candidate) in tags:
-            return True
-    return False
-
-def _is_hard_skill(skill_data):
-    return _has_any_tag(skill_data, ['強硬', '強硬スキル', 'hard_skill'])
-
-def _is_feint_skill(skill_data):
-    return _has_any_tag(skill_data, ['牽制', '牽制スキル', 'feint_skill'])
-
-def _is_normal_skill(skill_data):
-    return (not _is_hard_skill(skill_data)) and (not _is_feint_skill(skill_data))
-
-def _is_unmatchable_skill(skill_data):
-    tags = _extract_skill_tags(skill_data)
-    joined = " ".join(tags)
-    name = str((skill_data or {}).get("name") or "").lower()
-    return (
-        ("unmatchable" in joined.lower())
-        or ("マッチ不可" in joined)
-        or ("unmatchable" in name)
-    )
-
-def _is_defense_or_evasion_skill(skill_data, skill_id=None):
-    tags = _extract_skill_tags(skill_data)
-    category = str((skill_data or {}).get("分類") or (skill_data or {}).get("attribute") or "")
-    name = str((skill_data or {}).get("name") or "")
-    sid = str(skill_id or "")
-    joined = " ".join(tags + [category, name, sid]).lower()
-    return (
-        ("defense" in joined)
-        or ("evade" in joined)
-        or ("防御" in joined)
-        or ("回避" in joined)
-        or ("守備" in joined)
-    )
 
 def _apply_feint_half_if_needed(final_damage, winner_skill_data, loser_skill_data, log_snippets):
     dmg = int(final_damage or 0)
     if dmg <= 0:
         return 0
     if _is_feint_skill(winner_skill_data) and _is_normal_skill(loser_skill_data):
-        halved = dmg // 2
         if isinstance(log_snippets, list):
             log_snippets.append("[牽制半減]")
-        return halved
-    return dmg
+    return feint_damage(dmg, winner_skill_data, loser_skill_data)
 
 def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=None, incoming_label='防'):
     mult_info = compute_damage_multipliers(attacker, defender)
-    final_damage = int(int(raw_damage or 0) * float(mult_info.get('final', 1.0) or 1.0))
+    final_damage = scale_damage(raw_damage, mult_info.get('final', 1.0))
     if isinstance(log_snippets, list):
         incoming_logs = mult_info.get('incoming_logs', []) or []
         outgoing_logs = mult_info.get('outgoing_logs', []) or []
@@ -133,22 +89,6 @@ def _apply_total_damage_multiplier(attacker, defender, raw_damage, log_snippets=
         if outgoing_logs:
             log_snippets.append(f"(攻:{'/'.join(outgoing_logs)} x{outgoing:.2f})")
     return final_damage
-
-def _is_damage_reducing_defense_skill(skill_data):
-    return _resolve_skill_role(skill_data) == 'defense'
-
-def _compute_match_damage_from_rolls(winner_total, loser_total, loser_skill_data):
-    try:
-        winner_power = int(winner_total or 0)
-    except Exception:
-        winner_power = 0
-    try:
-        loser_power = int(loser_total or 0)
-    except Exception:
-        loser_power = 0
-    if _is_damage_reducing_defense_skill(loser_skill_data):
-        return max(0, winner_power - loser_power), "差分ダメージ"
-    return max(0, winner_power), "ダイスダメージ"
 
 def update_duel_declaration(room, data, username):
     state = get_room_state(room)
@@ -804,14 +744,17 @@ def execute_duel_match(room, data, username):
                 _update_char_stat(room, actor, "荊棘重絡", entangle_val - 1, username="[荊棘重絡消費]")
             else:
                 _update_char_stat(room, actor, "荊棘", 0, username="[荊棘消滅]")
-        if "free_cost" in attacker_tags or "free_cost" in defender_tags:
+        decision = decide_match(skill_data_a or {}, skill_data_d or {},
+                                result_a['total'], result_d['total'], one_sided=is_one_sided,
+                                incapacitated_a=is_incap_a, incapacitated_d=is_incap_d)
+        if decision.branch == 'effects_only':
             winner_message = "<strong>Skill effects only</strong>"
             damage_message = "(no direct damage)"
 
-        elif is_incap_a or is_incap_d:
+        elif decision.branch == 'incapacitated':
             damage_message = ""
             if is_incap_a:
-                damage = result_d['total']
+                damage = decision.damage_a
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -835,7 +778,7 @@ def execute_duel_match(room, data, username):
                     winner_message = f"<strong>{actor_name_d} wins (opponent incapacitated)</strong>"
 
             elif is_incap_d:
-                damage = result_a['total']
+                damage = decision.damage_d
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -862,12 +805,12 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong>{actor_name_a} wins (opponent incapacitated)</strong>"
 
-        elif is_one_sided:
+        elif decision.branch == 'one_sided':
             if "守備" in attacker_tags:
                 winner_message = f"<strong>{actor_name_a} wins one-sidedly</strong>"
                 damage_message = "(damage 0)"
             else:
-                damage = result_a['total']
+                damage = decision.damage_d
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, "亀裂")
 
@@ -985,7 +928,7 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong> → {actor_name_a} の一方攻撃</strong>"
 
-        elif _is_unmatchable_skill(skill_data_a) or _is_unmatchable_skill(skill_data_d):
+        elif decision.branch == 'unmatchable':
             winner_message = "<strong> → 相互一方攻撃(マッチ不可)</strong>"
             broadcast_log(room, "相互一方攻撃", "info", save=False)
 
@@ -994,7 +937,7 @@ def execute_duel_match(room, data, username):
                 dmg_a = 0
                 log_snippets.append(f"attacker category {attacker_category} causes no damage")
             else:
-                dmg_a = result_a['total']
+                dmg_a = decision.damage_d
 
             if actor_d_char:
 
@@ -1032,7 +975,7 @@ def execute_duel_match(room, data, username):
                 dmg_d = 0
                 log_snippets.append(f"defender category {defender_category} causes no damage")
             else:
-                dmg_d = result_d['total']
+                dmg_d = decision.damage_a
 
             if actor_a_char:
 
@@ -1065,17 +1008,17 @@ def execute_duel_match(room, data, username):
                      buff_dmg = process_on_damage_buffs(room, actor_a_char, final_dmg_d, username, log_snippets, attacker_char=actor_d_char)
                      if buff_dmg > 0: damage_report['A'].append({'source': 'on_damage', 'value': buff_dmg})
 
-        elif attacker_category == "防御" and defender_category == "防御":
+        elif decision.branch == 'defense_defense':
             winner_message = "<strong> → 双方防御のため、ダメージなし</strong>"; damage_message = "(相殺)"
-        elif (attacker_category == "防御" and defender_category == "回避") or (attacker_category == "回避" and defender_category == "防御"):
+        elif decision.branch == 'defense_evade':
             winner_message = "<strong> → 防御と回避のためスキル不発</strong>"; damage_message = "(効果なし)"
-        elif attacker_category == "回避" and defender_category == "回避":
+        elif decision.branch == 'evade_evade':
             winner_message = "<strong> → 回避どうしのためスキル不発</strong>"; damage_message = "(効果なし)"
 
-        elif "守備" in defender_tags and defender_category == "防御":
-            if result_a['total'] > result_d['total']:
+        elif decision.branch == 'guard_defense':
+            if decision.winner == 1:
 
-                damage = result_a['total'] - result_d['total']
+                damage = decision.damage_d
                 kiretsu = get_status_value(actor_d_char, "亀裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 for evt in dmg_evts:
@@ -1105,10 +1048,10 @@ def execute_duel_match(room, data, username):
                 winner_message = _apply_defensive_win('defender')
                 damage_message = "(ダメージ 0)"
 
-        elif "守備" in defender_tags and defender_category == "回避":
-            if result_a['total'] > result_d['total']:
+        elif decision.branch == 'guard_evade':
+            if decision.winner == 1:
 
-                damage = result_a['total']
+                damage = decision.damage_d
                 kiretsu = get_status_value(actor_d_char, "亀裂")
                 bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'attacker', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
                 for evt in dmg_evts:
@@ -1138,13 +1081,13 @@ def execute_duel_match(room, data, username):
                 winner_message = _apply_defensive_win('defender')
                 damage_message = "(ダメージ 0)"
 
-        elif attacker_category == "回避":
-            if result_a['total'] >= result_d['total']:
+        elif decision.branch == 'attacker_evade':
+            if decision.winner == 1:
                 winner_message = _apply_defensive_win('attacker')
                 damage_message = "(ダメージ 0)"
-            elif result_d['total'] > result_a['total']:
+            elif decision.winner == -1:
 
-                damage = result_d['total']
+                damage = decision.damage_a
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)
@@ -1172,7 +1115,7 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong> → {actor_name_d} の勝利</strong> (カウンター)"
 
-        elif result_a['total'] > result_d['total'] or (result_a['total'] == result_d['total'] and _resolve_skill_role(skill_data_a) in {'defense', 'evade'}):
+        elif decision.branch == 'compare_attacker':
             if _resolve_skill_role(skill_data_a) in {'defense', 'evade'}:
                 winner_message = _apply_defensive_win('attacker')
                 damage_message = "(ダメージ 0)"
@@ -1185,7 +1128,8 @@ def execute_duel_match(room, data, username):
                 if not is_defender_using_defense:
                     grant_win_fp(actor_a_char)
 
-                damage, damage_source = _compute_match_damage_from_rolls(result_a['total'], result_d['total'], skill_data_d)
+                _, damage_source = _compute_match_damage_from_rolls(result_a['total'], result_d['total'], skill_data_d)
+                damage = decision.damage_d
                 if actor_d_char:
                     kiretsu = get_status_value(actor_d_char, "亀裂")
                     logger.debug(f"[NORMAL MATCH] Attacker wins. Calling apply_skill_effects_bidirectional")
@@ -1221,7 +1165,7 @@ def execute_duel_match(room, data, username):
 
                     winner_message = f"<strong> → {actor_name_a} の勝利</strong>"
 
-        elif result_d['total'] > result_a['total'] or (result_d['total'] == result_a['total'] and _resolve_skill_role(skill_data_d) in {'defense', 'evade'}):
+        elif decision.branch == 'compare_defender':
             if _resolve_skill_role(skill_data_d) in {'defense', 'evade'}:
                 winner_message = _apply_defensive_win('defender')
                 damage_message = "(ダメージ 0)"
@@ -1234,7 +1178,8 @@ def execute_duel_match(room, data, username):
                 if not is_attacker_using_defense:
                     grant_win_fp(actor_d_char)
 
-                damage, damage_source = _compute_match_damage_from_rolls(result_d['total'], result_a['total'], skill_data_a)
+                _, damage_source = _compute_match_damage_from_rolls(result_d['total'], result_a['total'], skill_data_a)
+                damage = decision.damage_a
                 if actor_a_char:
                     kiretsu = get_status_value(actor_a_char, "亀裂")
                     bonus_damage, logs, custom_dmg, dmg_evts = apply_skill_effects_bidirectional(room, state, username, 'defender', actor_a_char, actor_d_char, skill_data_a, skill_data_d, damage)

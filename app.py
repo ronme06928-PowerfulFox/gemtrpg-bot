@@ -448,6 +448,8 @@ def register_http_routes(flask_app):
     flask_app.register_blueprint(units_bp)
     from routes.encyclopedia import encyclopedia_bp
     flask_app.register_blueprint(encyclopedia_bp)
+    from routes.drill import drill_bp
+    flask_app.register_blueprint(drill_bp)
     flask_app.register_blueprint(owned_characters_bp)
 
 

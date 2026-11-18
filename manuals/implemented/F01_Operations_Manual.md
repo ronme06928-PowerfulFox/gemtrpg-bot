@@ -1426,3 +1426,12 @@ egatari v0.4.5の標準audio/manifest.jsonへ、段階の長さに無音を足�
 ## 図鑑の出会い（計画66 PR66-4）
 
 CatalogEncounterの種類にitemを追加する。敵の登場時、そのキャラのinventoryにある正の個数のアイテムを接続中のログインユーザー全員へ記録する。初回だけを残す一意性・まとめ書き・戦闘を止めない保存は従来どおり。GET /api/encyclopediaは本人の種類・ID・first_seen_atと閲覧可能な敵ユニット、can_view_all・is_catalog_authorを返す。GMのルーム権限はこの画面の全件閲覧権限にしない。
+
+
+## 演習場のマッチ見込み API（計画63 PR63-1）
+
+ログイン必須の `POST /api/drill/match`。要求は `{actor, target, skill_id, target_skill_id?}`。actor/targetはルームと同じキャラクター辞書、target_skill_idの省略/nullは一方攻撃。敵スキルの閲覧制限はこのAPIでは掛けない。ルーム・DB・出会い・HPを変更しない。
+
+返事は勝ち/引き分け/負けのprobabilities、win_rate（引き分け半分）、advantage（5段階）、power_distributions、damage_distributions（actor/targetの受ける量と勝敗別の条件付き分布）、has_excluded_effects・notice・excluded_effects。分布の各行はvalueとprobability。起こらない条件の分布は空配列。
+
+入力は128KiB、各キャラでネスト8段・4096要素、各辞書/配列128要素・キー128字、文字列2048字、有限の数値の絶対値100000まで。スキルIDは80字まで。params/states/special_buffsは辞書の配列。ダイスは各64個・1024面・分布幅1024通りまで、両分布の組は65536通りまでに制限する。形・値・式・計算量が範囲外なら422と理由を返す。未ログインは401。計算できない式を0扱いで成功させない。
