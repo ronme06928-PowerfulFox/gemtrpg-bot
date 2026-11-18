@@ -1,0 +1,61 @@
+window.encyclopediaTemplate = `
+  <main class="cabinet">
+    <header class="cabinet-head">
+      <div class="cabinet-title"><h1>ジェムリア図鑑</h1><p id="total-count" aria-live="polite"></p></div>
+      <div class="search-row"><label for="query">横断検索</label><input type="search" id="query" placeholder="すべての本から ID・名前・説明を探す"></div>
+    </header>
+    <section id="search-results" aria-label="横断検索結果" hidden></section>
+    <div id="doors">
+      <div class="door locked" role="img" aria-label="ホロウ、錠の掛かった扉。解禁 0、不明">
+        <span class="door-emblem"><span class="door-lock" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+            <rect x="5" y="10" width="14" height="11" rx="2"/>
+            <path d="M12 14v3" stroke-linecap="round"/>
+          </svg>
+        </span></span>
+        <strong class="door-title">ホロウ</strong>
+        <small class="door-count">解禁 0/？</small>
+      </div>
+    </div>
+    <section id="shelves" aria-labelledby="shelf-title" hidden>
+      <header class="shelf-header">
+        <button type="button" id="close-shelf">扉へ戻る</button>
+        <h2 id="shelf-title" tabindex="-1"></h2>
+      </header>
+      <div id="shelf-books"></div>
+    </section>
+  </main>
+  <dialog id="book-window" aria-labelledby="book-title">
+    <header class="book-bar">
+      <button type="button" id="close-book">棚へ戻る</button>
+      <h2 id="book-title"></h2>
+    </header>
+    <div class="open-book">
+      <article id="spread" aria-label="見開き"></article>
+      <div class="turn-shadow" aria-hidden="true"></div>
+      <div class="turn-leaf" aria-hidden="true" inert>
+        <div class="turn-face turn-front"></div>
+        <div class="turn-face turn-back"></div>
+      </div>
+    </div>
+    <nav id="chapter-tabs" aria-label="用語の章" hidden></nav>
+    <footer class="book-nav" aria-label="ページ送り">
+      <button type="button" id="show-contents">目次へ戻る</button>
+      <button type="button" id="previous">前へ</button>
+      <details id="page-jump">
+        <summary><span>ページ</span> <span id="page-number" aria-live="polite"></span></summary>
+        <form id="page-jump-form">
+          <label for="page-target">移動先のページ</label>
+          <div class="page-jump-fields">
+            <input id="page-target" type="number" required min="1" step="1" aria-describedby="page-range">
+            <button type="submit">移動</button>
+          </div>
+          <p id="page-range"></p>
+          <p class="page-jump-error" role="alert" hidden></p>
+        </form>
+      </details>
+      <button type="button" id="next">次へ</button>
+    </footer>
+  </dialog>
+`;

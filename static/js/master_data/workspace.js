@@ -324,7 +324,12 @@
       const labels = markLabels();
       if (state.section !== 'body' || !labels) return '';
       const invalid = 'marks' in state.payload && !Array.isArray(state.payload.marks);
-      const boxes = Object.entries(labels).map(([key,label]) => `<label><input type="checkbox" data-mark="${h(key)}" ${marksOf(state.payload).includes(key) ? 'checked' : ''} ${invalid ? 'disabled' : ''}> ${h(label)}</label>`).join('');
+      const enemy = state.kind === 'skill'
+        ? (state.edit.target_id || state.edit.id_prefix || '').startsWith('E')
+        : marksOf(state.payload).includes('enemy');
+      const boxes = Object.entries(labels).filter(([key]) =>
+        (key !== 'known' || enemy) && (state.kind !== 'skill' || key !== 'enemy'))
+        .map(([key,label]) => `<label><input type="checkbox" data-mark="${h(key)}" ${marksOf(state.payload).includes(key) ? 'checked' : ''} ${invalid ? 'disabled' : ''}> ${h(label)}</label>`).join('');
       return `<fieldset class="cat-array-field cat-field-wide"><legend>印</legend><div class="cat-mark-options">${boxes}</div>${invalid ? '<p class="cat-field-error">JSONの節で印を配列に直してください。</p>' : ''}</fieldset>`;
     }
     function renderWriting() {
@@ -955,7 +960,9 @@
         const mark = control.dataset.mark;
         const marks = marksOf(state.payload);
         state.payload.marks = control.checked ? [...new Set([...marks, mark])] : marks.filter(value => value !== mark);
-        state.dirty = true; state.jsonText = pretty(state.payload); renderPreview(); return;
+        state.dirty = true; state.jsonText = pretty(state.payload); renderPreview();
+        if (mark === 'enemy') renderInput();
+        return;
       }
       if (control.dataset.filter) { state.filters[control.dataset.filter] = control.value; renderList(); if (state.kind === 'skill') for (const [,items] of model.groups) for (const [prefix] of items) panel.querySelector(`[data-skill-category="${prefix}"] .cat-nav-count`).textContent = model.filter(rows(),{...state.filters,category:prefix}).length; return; }
       if (control.id === 'cat-official-id') state.reviewId = control.value;

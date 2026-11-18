@@ -125,7 +125,7 @@ window.formatGlossaryMarkupToHTML = function (value) {
     return window.formatGlossaryMarkupFallbackHTML(value);
 };
 
-window.formatSkillDetailHTML = function (skillData) {
+window.formatSkillDetailHTML = function (skillData, options = {}) {
     if (!skillData) return "";
 
     const escapeText = (value) => {
@@ -140,6 +140,7 @@ window.formatSkillDetailHTML = function (skillData) {
             .replace(/'/g, '&#39;');
     };
     const markupToHtml = (value) => {
+        if (options.markupToHtml) return options.markupToHtml(value);
         if (typeof window.formatGlossaryMarkupToHTML === 'function') {
             return window.formatGlossaryMarkupToHTML(value);
         }

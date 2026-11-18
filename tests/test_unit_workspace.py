@@ -20,6 +20,7 @@ await import('./static/js/master_data/glossary.js');
 await import('./static/js/master_data/skill.js');
 await import('./static/js/units/patterns.js');
 await import('./static/js/units/forms.js');
+UnitForms.configureMarks({enemy:'敵専用', hollow:'ホロウ専用', known:'図鑑に最初から載せる'});
 await import('./static/js/units/views.js');
 const api = UnitApi;
 const merged = UnitForms.overwriteUnit({collection_id:'SC-01',default_pattern_id:'BP-1',
@@ -78,6 +79,13 @@ const collections = [{kind:'unit_collection',entry_id:'SC-01',payload:{name:'長
 const basic = UnitForms.render('basic',{...context,records:collections});
 assert.match(basic, /長い分類名・シナリオの続き/);
 assert.match(basic, /data-source="collection"/);
+assert.match(basic, /data-unit-mark="known"/);
+unit.payload.marks = ['known'];
+assert.match(UnitForms.badges(unit), /図鑑に最初から載せる/);
+unit.payload.allow_enemy = false;
+assert.doesNotMatch(UnitForms.render('basic',{...context,records:collections}), /data-unit-mark="known"/);
+unit.payload.allow_enemy = true;
+
 unit.payload.tags = ['既存タグ'];
 const tagged = UnitForms.render('basic',{...context,records:collections});
 assert.match(tagged, /cat-chip[\s\S]*既存タグ/);

@@ -342,7 +342,7 @@ def test_startup_removes_initial_states_from_units_and_history(unit_app):
         db.session.expire_all()
         current = repository.get("unit", key)
         assert current.revision == 1
-        assert current.payload == {"name": "Enemy", "hp": 9, "initial_hp": 4}
+        assert current.payload == {"name": "Enemy", "hp": 9, "initial_hp": 4, "marks": []}
         assert [snapshot.payload for snapshot in repository.history("unit", key)] == [current.payload]
 
 

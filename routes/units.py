@@ -4,6 +4,7 @@ from functools import wraps
 from flask import Blueprint, abort, g, jsonify, request
 
 from manager.room_access import GM_ROLES, resolve_room_role
+from manager.catalog.kinds import MARK_LABELS
 from manager.units import repository, transfer
 from manager.units.characters import read_character
 from manager.units.validation import IDS, master_links
@@ -55,7 +56,8 @@ def _visible(kind, entry_id):
 def list_entries(kind=None):
     rows = repository.entries(include_staff=g.units_staff,
                               include_deprecated=request.args.get("include_deprecated") == "1")
-    return jsonify(entries=[row for (row_kind, _), row in rows.items() if kind is None or kind == row_kind])
+    return jsonify(entries=[row for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
+                   marks=MARK_LABELS)
 
 
 @units_bp.get("/<kind>/<entry_id>")

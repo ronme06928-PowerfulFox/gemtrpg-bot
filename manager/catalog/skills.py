@@ -32,7 +32,7 @@ DEFAULTS = {**dict.fromkeys(TEXT_FIELDS, ""), "分類": "補助", "特記処理"
 def from_cache(record):
     from .kinds import CatalogValidationError
     payload = {**deepcopy(DEFAULTS), **{key: deepcopy(record[key])
-        for key in (*TEXT_FIELDS, "特記処理") if key in record}}
+        for key in (*TEXT_FIELDS, "特記処理", "marks") if key in record}}
     raw = payload["特記処理"]
     if isinstance(raw, str):
         try:

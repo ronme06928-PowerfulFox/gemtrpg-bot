@@ -15,7 +15,7 @@ from models import CatalogEncounter, User
 
 logger = setup_logger(__name__)
 _candidate_buffs = ContextVar("candidate_encounter_buffs", default=None)
-_KINDS = {"unit", "passive", "skill", "buff"}
+_KINDS = {"unit", "passive", "skill", "buff", "item"}
 
 
 class _EncounterBatch:
@@ -118,6 +118,10 @@ def record_arrivals(room, characters, buff_ids=()):
             passives = char.get("SPassive")
             if isinstance(passives, list):
                 entries.extend(("passive", key) for key in passives if isinstance(key, str) and key.startswith("Pa-"))
+            inventory = char.get("inventory")
+            if isinstance(inventory, dict):
+                entries.extend(("item", key) for key, count in inventory.items()
+                               if isinstance(count, (int, float)) and count > 0)
         entries.extend(("buff", buff_entry_id(row)) for row in char.get("special_buffs") or [] if isinstance(row, dict))
     record(room, entries)
 

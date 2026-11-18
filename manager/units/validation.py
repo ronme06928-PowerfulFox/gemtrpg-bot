@@ -3,6 +3,7 @@ from copy import deepcopy
 import re
 
 from models import CatalogEntry
+from manager.catalog.kinds import MARK_LABELS
 from manager.battle.enemy_behavior import BEHAVIOR_NO_ACTION_TOKEN, normalize_behavior_profile
 from manager.battle.pve_intent_planner import _is_random_usable_skill_token
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
@@ -18,7 +19,7 @@ UNIT_FIELDS = {
     "skills": list, "other_lines": list, "passives": list, "radiance": list,
     "items": list, "special_buffs": list, "tags": list, "disabled_tags": list,
     "behavior": dict, "patterns": list, "default_pattern_id": (str, type(None)),
-    "collection_id": (str, type(None)),
+    "collection_id": (str, type(None)), "marks": list,
 }
 
 
@@ -58,6 +59,11 @@ def _check_unit(unit, errors, previous):
             errors[field] = "値の型が不正です"
     if errors:
         return
+    marks = unit.setdefault("marks", [])
+    if any(not isinstance(mark, str) or mark not in MARK_LABELS for mark in marks):
+        errors["marks"] = "未定義の印があります"
+    elif len(marks) != len(set(marks)):
+        errors["marks"] = "同じ印は重複して指定できません"
     for field in ("hp", "mp"):
         maximum = unit.get(field, 0)
         initial = unit.get("initial_" + field, maximum)

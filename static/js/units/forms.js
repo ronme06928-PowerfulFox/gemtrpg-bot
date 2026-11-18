@@ -33,11 +33,14 @@
     return '';
   }
   const badge = (label, style = '') => `<span class="cat-badge ${style}">${label}</span>`;
+  const markLabels = {};
+  const configureMarks = labels => Object.assign(markLabels, labels);
   const badges = row => {
     const p = row.payload;
     return [p.allow_ally && badge('味方','unit-ally'), p.allow_enemy && badge('敵','unit-enemy'),
       p.type && badge(sides[p.type], p.type === 'enemy' ? 'unit-enemy' : 'unit-ally'),
-      row.visibility === 'staff' && badge('非公開','unit-staff'), row.deprecated && badge('廃止','unit-deprecated')].filter(Boolean).join(' ');
+      row.visibility === 'staff' && badge('非公開','unit-staff'), row.deprecated && badge('廃止','unit-deprecated'),
+      ...(p.marks || []).map(mark => badge(h(markLabels[mark] || mark),'unit-mark'))].filter(Boolean).join(' ');
   };
   const textLines = value => Array.isArray(value) ? value.join('\n') : '';
   const nameOf = p => p?.デフォルト名称 || p?.display_name || p?.name || '';
@@ -47,7 +50,7 @@
   function defaults(kind, side) {
     if (kind === 'unit') return {name:'', image:'', allow_ally: true, allow_enemy: true, scenario:false,
       gm_only:false, hp:0, mp:0, params:[], skills:[], other_lines:[], passives:[], radiance:[],
-      items:[], tags:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
+      items:[], tags:[], marks:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
     if (kind === 'formation') return {name:'', type:side, recommended_ally_count:0, members:[]};
     return {name:'', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
   }
@@ -109,7 +112,10 @@
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
         card('画像',image(p.image) + '<div class="unit-row-actions">' + (edit ? button('画像を選択','image') + (p.image ? button('解除','clear-image') : '') : '') + '</div>'),
         card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy !== false,'checkbox')),
-        field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GMのみ操作可能','gm_only',p.gm_only,'checkbox')) + common + tags();
+        field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GMのみ操作可能','gm_only',p.gm_only,'checkbox')) +
+        card('印', Object.entries(markLabels).filter(([key]) => key !== 'known' || p.allow_enemy)
+          .map(([key,label]) => `<label class="unit-inline"><input type="checkbox" data-unit-mark="${key}" ${p.marks?.includes(key) ? 'checked' : ''}> ${h(label)}</label>`).join('')) +
+        common + tags();
       if (kind === 'formation') return field('編成名','name',p.name) +
         grid(`<p>種類 <strong>${h(sides[p.type])}</strong></p>`,num('推奨人数','recommended_ally_count',p.recommended_ally_count,'min="0"')) + common;
       return field('名前','name',p.name) + `<div class="unit-stage-description">${field('コンセプト','concept',p.concept)}
@@ -214,5 +220,5 @@
     return '';
   }
 
-  window.UnitForms = {sections, sides, button, options, field, card, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain};
+  window.UnitForms = {sections, sides, button, options, field, card, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain, markLabels, configureMarks};
 })();

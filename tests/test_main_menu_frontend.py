@@ -23,11 +23,11 @@ assert.equal(s.screenFromHash(''), 'menu');
 assert.equal(s.screenFromHash('#sessions'), 'sessions');
 assert.equal(s.screenFromHash('#help'), 'help');
 assert.equal(s.screenFromHash('#nope'), 'menu');
-for (const name of ['characters', 'units', 'master', 'users']) assert.equal(s.screenFromHash('#' + name), name);
+for (const name of ['characters', 'units', 'master', 'users', 'encyclopedia']) assert.equal(s.screenFromHash('#' + name), name);
 
 const html = s.menuHtml({name: 'Alice', isAppAdmin: false});
 const order = [...html.matchAll(/data-screen-card="(\w+)"/g)].map(m => m[1]);
-assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'help', 'units', 'master']);
+assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'encyclopedia', 'help', 'units', 'master']);
 assert.match(html, /data-screen-card="dungeon"[^>]*disabled/);
 assert.match(html, /準備中/);
 assert.match(html, /Alice/);

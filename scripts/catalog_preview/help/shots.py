@@ -147,6 +147,9 @@ def main():
         page.locator('[data-filter="mark"]').select_option('enemy')
         page.locator('#cat-detail [data-catalog-mark="enemy"]').wait_for()
         capture(page, "08_marks")
+        page.locator('#cat-detail [data-action="edit"]').click()
+        page.locator('[data-mark="known"]').wait_for()
+        capture(page, "09_known", selector="#cat-input-content")
         browser.close()
 
 

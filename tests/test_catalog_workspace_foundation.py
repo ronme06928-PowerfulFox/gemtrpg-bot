@@ -164,3 +164,31 @@ await click({action:'back'});assert.equal(panel.querySelector('.cat-leave-overla
 await click({leave:'save'});assert.deepEqual(calls,[]);assert.match(panel.querySelector('.cat-scene').innerHTML,/cat-editor/);
 controller.destroy();
 """)
+
+
+def test_known_mark_field_only_for_hidden_entries():
+    run_node(r"""
+const labels={enemy:'敵専用',hollow:'ホロウ専用',known:'図鑑に最初から載せる'};
+window.CatalogApi.overview=async()=>({counts:{},pending:[],marks:{kinds:['buff','passive','item','skill'],labels}});
+await controller.refresh();
+activeKind='buff';
+await click({kind:'buff'});
+await click({action:'edit'});
+assert.doesNotMatch(panel.querySelector('#cat-input-content').innerHTML,/data-mark="known"/);
+records.buff.payload.marks=['enemy'];
+await click({action:'back'});
+await click({action:'edit'});
+assert.match(panel.querySelector('#cat-input-content').innerHTML,/data-mark="known"/);
+await click({action:'back'});
+activeKind='skill';
+await click({kind:'skill'});
+await click({action:'edit'});
+assert.doesNotMatch(panel.querySelector('#cat-input-content').innerHTML,/data-mark="known"/);
+await click({action:'back'});
+records.skill.entry_id='E-01';
+await controller.refresh();
+await click({skillCategory:'E'});
+await click({action:'edit'});
+assert.match(panel.querySelector('#cat-input-content').innerHTML,/data-mark="known"/);
+controller.destroy();
+""")

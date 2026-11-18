@@ -195,3 +195,16 @@ def test_new_skill_own_palette_id_is_replaced_but_other_drafts_still_block(catal
     published = repo.approve_draft(draft.id, "admin", entry_id="Ps-99")
     assert "【Ps-99 新規スキル】" in published.payload["チャットパレット"]
     assert "X-" not in published.payload["チャットパレット"]
+
+
+def test_known_mark_is_published_with_enemy_skill(catalog):
+    author, admin = client(catalog, "author"), client(catalog, "admin")
+    draft = author.post("/api/catalog/skill/drafts", json={"id_prefix": "E"}).json
+    url = f'/api/catalog/drafts/{draft["id"]}'
+    result = author.put(url, json={"payload": payload(marks=["known", "hollow"])})
+    assert result.status_code == 200
+    assert result.json["payload"]["marks"] == ["known", "hollow"]
+    assert author.post(url + "/submit").status_code == 200
+    key = admin.get("/api/catalog/skill/next_id?prefix=E").json["entry_id"]
+    assert admin.post(url + "/approve", json={"entry_id": key}).status_code == 200
+    assert catalog.test_client().get("/api/get_skill_data").json[key]["marks"] == ["known", "hollow"]

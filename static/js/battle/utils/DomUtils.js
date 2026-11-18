@@ -6,7 +6,7 @@ export function formatWideResult(data) {
     return `Range: ${min}～${max} (${data.final_command})`;
 }
 
-export function formatSkillDetailHTML(skillData) {
+export function formatSkillDetailHTML(skillData, options = {}) {
     if (!skillData) return "";
 
     const escapeText = (value) => {
@@ -21,6 +21,7 @@ export function formatSkillDetailHTML(skillData) {
             .replace(/'/g, '&#39;');
     };
     const markupToHtml = (value) => {
+        if (options.markupToHtml) return options.markupToHtml(value);
         if (typeof window.formatGlossaryMarkupToHTML === 'function') {
             return window.formatGlossaryMarkupToHTML(value);
         }

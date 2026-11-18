@@ -30,7 +30,7 @@
     const notify = notice(get('.cat-message'));
     const masters = Object.fromEntries(views.master.map(kind => [kind,[]]));
     const state = {author:false, busy:false, kind:'unit', records:[], selected:null, draft:null, section:'basic',
-      search:'', collection:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
+      search:'', collection:'', mark:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
       rawConstraints:null, conflict:false, wideConfirm:false, patternAdditions:new Map()};
     let checkTimer, checkToken = 0, dialogFocus;
     let referenceBack = options.onReferenceBack;
@@ -100,6 +100,7 @@
     function renderList() {
       const query = state.search.trim().toLowerCase();
       const rows = tabRows().filter(row => (!state.collection || row.payload.collection_id === state.collection) &&
+        (state.kind !== 'unit' || !state.mark || row.payload.marks?.includes(state.mark)) &&
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
       get('.unit-records').innerHTML = rows.map(row => views.recordRow(row,row.entry_id === state.selected)).join('')
         || '<p class="cat-empty">該当する資源はありません。</p>';
@@ -114,6 +115,7 @@
       get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
       get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
         <label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>
+        ${state.kind === 'unit' ? `<label class="cat-field">印<select data-filter="mark"><option value="">すべての印</option>${Object.entries(forms.markLabels).map(([key,label])=>`<option value="${key}" ${state.mark === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>` : ''}
         <label class="unit-inline"><input type="checkbox" aria-label="廃止済みも表示" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済み</label>`;
       renderList();
     }
@@ -251,7 +253,8 @@
     }
 
     async function reload(id = state.selected, section = state.section, fromReference = false) {
-      const {entries} = await api.list();
+      const {entries, marks} = await api.list();
+      forms.configureMarks(marks || {});
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
       const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
       if (fromReference) state.deprecated = !!row?.deprecated;
@@ -792,6 +795,12 @@
         else renderList();
         return;
       }
+      if (input.dataset.unitMark && canEdit() && state.draft) {
+        const marks = payload().marks || [];
+        setPath('marks', input.checked ? [...new Set([...marks,input.dataset.unitMark])] : marks.filter(mark=>mark !== input.dataset.unitMark));
+        update(true);
+        return;
+      }
       const path = input.dataset.path;
       if (!path || !canEdit() || !state.draft || state.busy) return;
       let value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value || 0) : input.value;
@@ -814,7 +823,7 @@
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
-      const refresh = path.endsWith('.pattern_id');
+      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy';
       update(refresh);
       if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});
       if (path.startsWith('patterns.') && path.endsWith('.name')) {

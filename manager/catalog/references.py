@@ -99,6 +99,8 @@ def enemy_reference_warnings(kind, entry_id, id_prefix, payload):
     for target in targets:
         if (target.kind, target.entry_id) == (kind, entry_id):
             continue
+        if target.kind == "skill" and not target.entry_id.startswith("E-"):
+            continue
         if target.kind != "skill" and not _enemy_mark(target.payload):
             continue
         for path in target_paths(payload, target.kind, target.entry_id, target.payload.get("name")):

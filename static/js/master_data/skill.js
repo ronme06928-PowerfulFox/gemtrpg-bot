@@ -6,7 +6,7 @@
   const fields = [['デフォルト名称','名前'],['分類','分類'],['距離','距離'],['属性','属性'],['取得コスト','取得コスト'],
     ['基礎威力','基礎威力'],['ダイス威力','ダイス威力'],['コスト','コスト'],['特記','特記'],['発動時効果','発動時効果'],['チャットパレット','チャットパレット'],['特記処理','特記処理']];
   const choices = {分類:['物理','魔法','補助','防御','回避'],距離:['','近接','遠隔','広域-個別','広域-合算'],属性:['','打撃','斬撃','貫通']};
-  const defaults = () => ({...Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,''])),分類:'物理',ダイス威力:'+0',特記処理:{}});
+  const defaults = () => ({...Object.fromEntries(fields.slice(0,-1).map(([key])=>[key,''])),分類:'物理',ダイス威力:'+0',特記処理:{},marks:[]});
   function configure(value, refs) { schemas = value; references = refs; }
   function palette(payload, id) {
     const correction = window.CatalogSkillNotes.omitsCorrection(payload.分類, payload.特記) ? '' : {物理:'+1d{物理補正}',魔法:'+1d{魔法補正}'}[payload.分類] || '';

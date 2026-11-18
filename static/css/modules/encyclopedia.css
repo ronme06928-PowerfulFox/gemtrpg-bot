@@ -1,0 +1,406 @@
+
+.encyclopedia {
+  --velvet: #1d1829;
+  --cabinet: #292136;
+  --tray: #211b2c;
+  --on-dark: #f8f0ec;
+  --muted-dark: #d7c9de;
+  --dark-frame: #a497b5;
+  --paper: #f7efe0;
+  --paper-left: #f0e5d2;
+  --ink: #2d2529;
+  --secondary: #594b51;
+  --control: #766479;
+  --rule: #c6b6a7;
+  --sans: "Yu Gothic UI", "Meiryo", sans-serif;
+  --book-serif: "Yu Mincho", "Hiragino Mincho ProN", "BIZ UDPMincho", serif;
+  font-family: var(--sans);
+  color-scheme: light;
+}
+.encyclopedia * { box-sizing: border-box; }
+.encyclopedia [hidden] { display: none !important; }
+.encyclopedia { margin: 0; color: var(--on-dark); background: var(--velvet); }
+.encyclopedia button, .encyclopedia input, .encyclopedia select { font: inherit; }
+.encyclopedia button, .encyclopedia select { cursor: pointer; }
+.encyclopedia button:disabled { cursor: default; }
+.encyclopedia :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.encyclopedia code { font-family: Consolas, monospace; }
+.encyclopedia h1, .encyclopedia h2, .encyclopedia h3, .encyclopedia p { margin: 0; }
+.encyclopedia header { padding: 0; color: inherit; background: transparent; }
+.encyclopedia .cabinet {
+  width: calc(100% - 48px); max-width: 1208px; min-width: 850px;
+  margin: 12px auto 16px; padding: 14px 20px 18px;
+  background-color: var(--cabinet);
+  background-image: repeating-linear-gradient(115deg, #aca1bc08 0 1px, transparent 2px 5px);
+  border: 1px solid var(--dark-frame); outline: 1px solid #754e46;
+  outline-offset: -5px; border-radius: 11px; box-shadow: 0 14px 36px #0a0813b0;
+}
+.encyclopedia .cabinet-head {
+  display: flex; justify-content: space-between; align-items: end; gap: 30px;
+  margin: 1px 2px 12px;
+}
+.encyclopedia .cabinet-title h1 { font: 750 37px/1.12 var(--book-serif); letter-spacing: .075em; }
+.encyclopedia #total-count { color: var(--muted-dark); margin-top: 7px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.encyclopedia .search-row { display: flex; gap: 10px; align-items: center; width: min(48%, 530px); }
+.encyclopedia .search-row label { white-space: nowrap; font-size: 13px; font-weight: 700; }
+.encyclopedia #query {
+  background: var(--tray); color: var(--on-dark); color-scheme: dark;
+  border: 1px solid var(--dark-frame); border-radius: 5px; padding: 7px 11px; width: 100%; min-height: 39px;
+}
+.encyclopedia #query::placeholder { color: var(--muted-dark); opacity: 1; font-size: 13px; }
+.encyclopedia #doors, .encyclopedia #shelves {
+  --divider: #473139;
+  --brass: #cead90;
+  padding: 12px; border: 1px solid var(--brass); border-radius: 8px;
+  background-color: var(--divider);
+  background-image: repeating-linear-gradient(169deg, #ffc79810 0 1px, transparent 2px 5px);
+  box-shadow: inset 0 0 0 3px #1b1321, 0 8px 15px #100b1788;
+}
+.encyclopedia #doors { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.encyclopedia .door {
+  --door: #38273b;
+  position: relative; display: grid; justify-items: center; align-content: center; gap: 16px; min-height: max(327px, calc(100vh - 252px));
+  padding: 16px; border: 1px solid var(--brass); border-radius: 6px;
+  color: var(--on-dark); background-color: var(--door);
+  background-image: radial-gradient(ellipse at 50% 35%, #fff1cf16, transparent 64%),
+    repeating-linear-gradient(96deg, #e3b3950e 0 1px, transparent 2px 9px);
+  box-shadow: inset 0 0 0 4px #1b1321, inset 0 0 0 5px #886354, inset 0 0 26px #1b1321;
+}
+.encyclopedia .door::before, .encyclopedia .door::after {
+  content: ''; position: absolute; inset: 19px 20px auto; height: 19px; pointer-events: none;
+  border-block-start: 1px solid var(--brass); border-radius: 50%;
+}
+.encyclopedia .door::after { inset: auto 20px 19px; border-block: 0 1px solid var(--brass); }
+.encyclopedia .door[data-door="monsters"] { --door: #462830; }
+.encyclopedia .door[data-door="world"] { --door: #263d43; }
+.encyclopedia .door.locked { --door: #29232d; }
+.encyclopedia button.door:hover { box-shadow: inset 0 0 0 4px #1b1321, inset 0 0 0 5px var(--brass), inset 0 0 28px #cb997a4d; }
+.encyclopedia .door-emblem {
+  display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 116px; height: 63px;
+  border: 1px solid var(--brass); border-radius: 50%; background: var(--tray);
+}
+.encyclopedia .door-emblem .gem { width: 30px; height: 34px; }
+.encyclopedia .door-lock {
+  display: grid; place-items: center; width: 35px; height: 35px;
+  border: 1px solid var(--brass); border-radius: 4px;
+  color: #fae3be; background: var(--tray);
+}
+.encyclopedia .door-lock svg { width: 23px; height: 23px; }
+.encyclopedia .door-title { font: 750 29px/1.2 var(--book-serif); letter-spacing: .12em; }
+.encyclopedia .door-count { color: var(--muted-dark); font-size: 14px; font-variant-numeric: tabular-nums; }
+.encyclopedia .door-title, .encyclopedia .door-count { background-color: var(--door); padding: 3px 8px; border-radius: 3px; }
+.encyclopedia .shelf-header {
+  display: grid; grid-template-columns: 108px 1fr 108px; align-items: center;
+  padding: 9px 12px; border: 1px solid var(--dark-frame); border-radius: 4px 4px 0 0; background: var(--tray);
+}
+.encyclopedia .shelf-header h2 { text-align: center; font: 750 24px/1.2 var(--book-serif); letter-spacing: .12em; }
+.encyclopedia #close-shelf {
+  padding: 7px 9px; border: 1px solid var(--brass); border-radius: 4px;
+  background: var(--cabinet); color: var(--on-dark);
+}
+.encyclopedia #close-shelf:hover { background: #483555; }
+.encyclopedia #shelf-books {
+  display: grid; grid-template-columns: repeat(var(--shelf-columns, 1), auto); justify-content: center; gap: 10px 10px;
+  padding: 20px 12px 13px; background-color: var(--tray);
+  background-image: radial-gradient(ellipse at 50% 95%, #64475255, transparent 79%);
+  border-inline: 1px solid var(--dark-frame); border-bottom: 4px solid var(--brass); border-radius: 0 0 4px 4px;
+}
+.encyclopedia .shelf-row {
+  display: flex; flex-wrap: nowrap; justify-content: center; align-items: flex-end; gap: 10px;
+  min-height: 298px; padding: 12px 14px 0; border: 1px solid var(--dark-frame); border-bottom: 6px solid #6b4a3e;
+  border-radius: 3px 3px 0 0; background: #00000026; box-shadow: inset 0 6px 14px #0d0913, 0 3px 0 #1b1321;
+}
+.encyclopedia #search-results h2 { margin: 0 0 8px 3px; color: var(--muted-dark); font: 700 14px/1.4 var(--sans); }
+.encyclopedia .shelf-book {
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto auto; justify-items: center; gap: 4px;
+  flex: none; width: 80px; height: 278px; padding: 10px 5px 10px;
+  border: 1px solid var(--jewel); border-radius: 8px 8px 3px 3px;
+  color: var(--on-dark); background-color: var(--jewel-deep);
+  background-image: linear-gradient(90deg, #080611b5, transparent 22% 68%, #08061198),
+    repeating-linear-gradient(112deg, #fff9ef10 0 1px, transparent 1px 4px),
+    linear-gradient(var(--jewel-mid), var(--jewel-deep) 52%, var(--jewel-mid));
+  box-shadow: inset 0 0 0 2px #110c1b6b, 3px 3px 6px #100b17, 0 4px 2px #100b17;
+  text-align: center;
+}
+.encyclopedia .shelf-book::before, .encyclopedia .shelf-book::after {
+  content: ''; position: absolute; inset: 4px 0 auto; height: 3px; pointer-events: none;
+  background: linear-gradient(transparent, var(--jewel), #0e0a18);
+}
+.encyclopedia .shelf-book::after { inset: auto 0 3px; }
+.encyclopedia .shelf-book:hover { box-shadow: inset 0 0 0 2px var(--jewel), 3px 3px 6px #0d0913; }
+@media (prefers-reduced-motion: no-preference) {
+.encyclopedia .shelf-book { transition: transform .18s ease-out; }
+.encyclopedia .shelf-book:hover { transform: translateY(-7px); }
+}
+.encyclopedia .spine-mark {
+  grid-area: 1 / 1;
+  display: flex; flex-direction: column; justify-content: center; align-items: center;
+  align-self: start; padding-top: 3px; gap: 2px;
+}
+.encyclopedia .spine-mark .gem { width: 37px; height: 38px; }
+.encyclopedia .spine-mark code {
+  padding: 2px 3px; border-radius: 2px; color: var(--on-dark); background: var(--jewel-deep);
+  font-size: 11px; font-weight: 700;
+}
+.encyclopedia .spine-heading {
+  grid-area: 2 / 1; align-self: center; display: grid; justify-items: center; gap: 8px;
+}
+.encyclopedia .spine-category {
+  padding: 2px 5px; border-radius: 2px; background: var(--jewel-deep);
+  font-size: 11px; letter-spacing: .15em;
+}
+.encyclopedia .spine-title {
+  writing-mode: vertical-rl;
+  padding: 4px 3px; border-radius: 2px; border-inline: 1px solid var(--jewel);
+  background: var(--jewel-deep); color: var(--on-dark);
+  font: 750 16px/1.25 var(--book-serif); letter-spacing: .12em; white-space: nowrap;
+}
+.encyclopedia .spine-category + .spine-title { font-size: 20px; letter-spacing: .22em; }
+.encyclopedia .spine-count {
+  grid-area: 4 / 1; align-self: center; padding: 1px 2px; border-radius: 2px; line-height: 1.2; background: var(--jewel-deep);
+  font-size: 11px; color: var(--on-dark); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.encyclopedia .clasp {
+  position: relative; grid-area: 3 / 1; justify-self: center;
+  display: grid; place-items: center; min-width: 23px; min-height: 22px; padding: 1px 2px;
+  border: 1px solid var(--jewel); border-radius: 4px; background: #241d30;
+  color: var(--on-dark); font-size: 9px; line-height: 1.1;
+}
+.encyclopedia .clasp.complete { padding-bottom: 3px; }
+.encyclopedia .clasp .gem { width: 18px; height: 18px; }
+.encyclopedia .clasp-hole { width: 9px; height: 9px; border: 1px solid var(--muted-dark); transform: rotate(45deg); }
+.encyclopedia .gem-definitions { position: absolute; width: 0; height: 0; overflow: hidden; pointer-events: none; }
+.encyclopedia .gem { display: block; overflow: visible; filter: drop-shadow(0 3px 5px #0905177d); }
+.encyclopedia .prism {
+  --dispersion: linear-gradient(120deg, #f9c5da, #efd297, #9cddce, #a3cfff, #d9b1ed);
+}
+.encyclopedia .shelf-book.prism {
+  background-image: linear-gradient(90deg, #08061170, #0d081533 40%, #0806118a),
+    linear-gradient(0deg, #24183270, #291c3ba0), var(--dispersion);
+}
+.encyclopedia .shelf-book.prism::before, .encyclopedia .shelf-book.prism::after { background: var(--dispersion); }
+.encyclopedia .prism .clasp.complete {
+  background-image: linear-gradient(#211b2cea, #211b2cd4), var(--dispersion);
+}
+.encyclopedia .spark { fill: #fff; transform-box: fill-box; transform-origin: center; animation: twinkle 2.8s ease-in-out infinite; }
+.encyclopedia .spark.second { animation-delay: 1.35s; }
+@keyframes twinkle {
+  0%, 100% { opacity: .2; transform: scale(.56); }
+  46% { opacity: 1; transform: scale(1.06); }
+  72% { opacity: .32; transform: scale(.66); }
+}
+.encyclopedia #search-results { margin-top: 20px; }
+.encyclopedia #search-results h2 small { margin-left: 8px; font-size: 12px; }
+.encyclopedia .search-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; }
+.encyclopedia .search-hit {
+  display: grid; text-align: left; gap: 4px; min-height: 79px; padding: 9px 12px;
+  border: 1px solid var(--dark-frame); border-radius: 4px; background: var(--tray); color: var(--on-dark);
+}
+.encyclopedia .search-hit code, .encyclopedia .search-hit small { color: var(--muted-dark); font-size: 12px; }
+.encyclopedia .search-hit strong { font-size: 15px; }
+.encyclopedia .search-hit:hover:not(:disabled) { background: #40324c; }
+.encyclopedia .search-hit.locked { border-style: dashed; }
+.encyclopedia #book-window {
+  padding: 0; width: min(1148px, calc(100vw - 58px)); height: min(740px, calc(100vh - 44px));
+  border: 1px solid var(--jewel); border-radius: 11px;
+  background: var(--tray); color: var(--on-dark); box-shadow: 0 17px 50px #080510d6; overflow: visible;
+}
+.encyclopedia #book-window[open] { display: grid; grid-template-rows: auto minmax(0,1fr) auto; }
+.encyclopedia #book-window.chaptered { translate: -28px 0; }
+.encyclopedia #chapter-tabs {
+  position: absolute; z-index: 5; top: 78px; left: 100%;
+  display: grid; gap: 6px; align-items: start;
+}
+.encyclopedia #chapter-tabs button {
+  width: 82px; min-height: 37px; padding: 5px 4px 5px 8px;
+  border: 1px solid var(--dark-frame); border-radius: 0 6px 6px 0;
+  background: var(--cabinet); color: var(--on-dark); text-align: left;
+  font-size: 12px; font-weight: 700;
+}
+.encyclopedia #chapter-tabs button:hover { background: #483555; }
+.encyclopedia #chapter-tabs button[aria-current] {
+  width: 89px; border-color: var(--jewel); background: #435461;
+  box-shadow: inset 3px 0 var(--jewel);
+}
+.encyclopedia #book-window::backdrop { background: #0d0915c8; }
+.encyclopedia .book-bar, .encyclopedia .book-nav { display: flex; align-items: center; gap: 12px; padding: 9px 16px; }
+.encyclopedia .book-bar { display: grid; grid-template-columns: 110px 1fr 110px; }
+.encyclopedia .book-bar h2 { flex: 1; text-align: center; font: 750 21px/1.3 var(--book-serif); }
+.encyclopedia .book-bar button, .encyclopedia .book-nav button, .encyclopedia #page-jump summary {
+  min-width: 79px; min-height: 34px; padding: 4px 10px;
+  border: 1px solid var(--dark-frame); border-radius: 4px; color: var(--on-dark); background: var(--cabinet);
+  font-size: 13px; font-weight: 700;
+}
+.encyclopedia .book-bar button:hover:not(:disabled), .encyclopedia .book-nav button:hover:not(:disabled), .encyclopedia #page-jump summary:hover { background: #483555; }
+.encyclopedia .book-bar button:disabled, .encyclopedia .book-nav button:disabled { color: #b3a5bc; border-style: dashed; }
+.encyclopedia .book-nav { justify-content: center; position: relative; z-index: 3; }
+.encyclopedia #show-contents { position: absolute; left: 16px; border-color: var(--jewel); }
+.encyclopedia #show-contents:disabled { visibility: hidden; }
+.encyclopedia #page-jump { position: relative; }
+.encyclopedia #page-jump summary { display: flex; gap: 9px; align-items: center; cursor: pointer; }
+.encyclopedia #page-jump summary::after { content: '▴'; }
+.encyclopedia #page-jump[open] summary::after { content: '▾'; }
+.encyclopedia #page-number { font: 700 15px/1.25 Consolas, monospace; }
+.encyclopedia #page-jump-form {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  width: 250px; padding: 15px; border: 1px solid var(--dark-frame); border-radius: 6px;
+  background: var(--tray); box-shadow: 0 8px 25px #120e1e80;
+  font-size: 14px;
+}
+.encyclopedia #page-jump-form label { font-weight: 700; }
+.encyclopedia .page-jump-fields { display: flex; gap: 8px; margin: 9px 0; }
+.encyclopedia #page-target {
+  min-width: 0; width: 100%; padding: 4px 8px; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--dark-frame); border-radius: 4px;
+}
+.encyclopedia #page-range { font-size: 12px; color: var(--muted-dark); }
+.encyclopedia .page-jump-error { margin-top: 8px; color: #ffb7c4; }
+.encyclopedia .open-book {
+  position: relative; min-height: 0; margin: 0 12px; perspective: 6500px;
+  border: 1px solid var(--jewel); border-radius: 8px; box-shadow: 0 4px var(--jewel-mid);
+}
+.encyclopedia .open-book:has(.turn-leaf[data-direction]) { z-index: 4; }
+.encyclopedia #spread {
+  position: relative; display: grid; grid-template-columns: 1fr 1fr; height: 100%; min-height: 0;
+  color: var(--ink); border-radius: inherit; overflow: clip;
+}
+.encyclopedia #spread::after {
+  content: ''; position: absolute; pointer-events: none; inset: 0 auto 0 calc(50% - 12px); width: 24px;
+  background: linear-gradient(90deg, transparent, #32263714 45%, #68504249 50%, #32263713 54%, transparent);
+}
+.encyclopedia .specimen-page, .encyclopedia .text-page, .encyclopedia .contents {
+  min-height: 0; min-width: 0; overflow: auto; padding: 27px 29px; scrollbar-gutter: stable;
+}
+.encyclopedia .specimen-page {
+  display: flex; flex-direction: column; align-items: center; justify-content: safe center; text-align: center;
+  gap: 15px; color: var(--ink); background: var(--paper-left); border-radius: 4px 0 0 4px;
+}
+.encyclopedia .specimen-mount {
+  display: grid; flex: none; place-items: center; width: 192px; aspect-ratio: 1;
+  padding: 15px; border: 1px solid var(--jewel-mid); border-radius: 50%; background: #e4d8c9;
+  background-image: radial-gradient(ellipse, #faf8ed, #d5c3b0);
+  outline: 1px solid var(--jewel-deep); outline-offset: 7px; box-shadow: inset 0 0 18px #a17a6c3b;
+}
+.encyclopedia .specimen-mount .gem { width: 100%; }
+.encyclopedia .prism .specimen-mount {
+  background: radial-gradient(ellipse, #fffffff2, #fffcf4b3 58%, #fffcf449), var(--dispersion);
+  border-color: var(--jewel-deep);
+}
+.encyclopedia .specimen-label { margin-top: 5px; color: var(--ink); }
+.encyclopedia .specimen-label h3 { font: 750 33px/1.25 var(--book-serif); margin: 5px 0 7px; }
+.encyclopedia .specimen-label p { color: var(--secondary); font-size: 13px; }
+.encyclopedia .specimen-id { font-size: 15px; color: var(--secondary); }
+.encyclopedia .specimen-tags { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0; list-style: none; }
+.encyclopedia .specimen-tags li {
+  padding: 4px 9px; border: 1px solid var(--control); border-radius: 4px;
+  background: var(--paper); font-size: 13px; font-weight: 700;
+}
+.encyclopedia .flavor {
+  max-width: 26em; padding: 13px 12px 0; border-top: 1px solid var(--rule);
+  font: 500 16px/1.7 var(--book-serif); white-space: pre-line; text-align: start;
+}
+.encyclopedia .encounter-date {
+  margin: 0; min-width: 12em; padding-top: 10px; border-top: 1px solid var(--rule); font-size: 14px;
+}
+.encyclopedia .encounter-date dt { color: var(--secondary); font-size: 12px; }
+.encyclopedia .encounter-date dd { margin: 4px 0 0; font-weight: 700; }
+.encyclopedia .text-page {
+  --book-ink: var(--ink); --book-accent: var(--secondary);
+  color: var(--ink); background: var(--paper); border-radius: 0 4px 4px 0;
+}
+.encyclopedia .book-reading-body { font: 500 16px/1.8 var(--book-serif); }
+.encyclopedia .book-reading-body p { white-space: pre-line; margin-bottom: 8px; }
+.encyclopedia .open-book a { color: #432b49; text-decoration: underline; text-underline-offset: .18em; }
+.encyclopedia .open-book a:hover { text-decoration-thickness: 2px; }
+.encyclopedia .detail-links { padding-top: 12px; }
+.encyclopedia .detail-links h3 { font: 700 15px/1.4 var(--sans); }
+.encyclopedia .detail-links ul { margin: 7px 0 0; list-style: none; padding: 0; }
+.encyclopedia .detail-links li { padding: 5px 0; border-bottom: 1px solid var(--rule); font: 500 14px/1.5 var(--sans); }
+.encyclopedia .flavor { color: var(--secondary); }
+.encyclopedia .facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 11px; font: 500 14px/1.5 var(--sans); }
+.encyclopedia .facts div { display: flex; gap: 7px; background: #eadfce; border-radius: 4px; padding: 5px 8px; }
+.encyclopedia .facts dt { color: var(--secondary); }
+.encyclopedia .facts dd { margin: 0; font-weight: 700; }
+.encyclopedia .text-page .skill-detail-tags { display: none; }
+.encyclopedia .skill-detail-command {
+  background: #eadfce; color: var(--ink); border-color: var(--rule);
+}
+.encyclopedia .skill-detail-divider { border-color: var(--rule); }
+.encyclopedia .skill-detail-empty { color: var(--secondary); }
+.encyclopedia .contents {
+  display: grid; grid-template-rows: 40px minmax(min-content, 1fr); gap: 6px;
+  padding: 15px 18px; background: var(--paper-left); color: var(--ink);
+}
+.encyclopedia .contents-right { background: var(--paper); }
+.encyclopedia .contents > header { display: flex; align-items: center; gap: 19px; }
+.encyclopedia .contents h3 { font: 750 27px/1.15 var(--book-serif); }
+.encyclopedia .contents h3 small { color: var(--secondary); font: 700 15px/1.25 Consolas, monospace; }
+.encyclopedia .contents header p { font-size: 13px; color: var(--secondary); }
+.encyclopedia .contents-grid {
+  grid-row: 2; display: grid; place-content: start;
+  grid-template-columns: repeat(3, minmax(0, 168px));
+  grid-auto-rows: clamp(88px, calc((100dvh - 292px) / 4), 127px); gap: 9px;
+}
+.encyclopedia .contents-entry {
+  display: grid; justify-items: center; align-content: center; gap: 4px;
+  padding: 7px; border: 1px solid var(--control); border-radius: 5px;
+  text-align: center; color: var(--ink); background: #fcf4e7;
+}
+.encyclopedia .contents-entry .gem { width: 33px; height: 33px; }
+.encyclopedia .contents-entry code, .encyclopedia .contents-entry small { color: var(--secondary); font-size: 13px; }
+.encyclopedia .contents-entry strong { font-size: 16px; line-height: 1.15; overflow-wrap: anywhere; }
+.encyclopedia .contents-entry:hover:not(:disabled) { background: #e7d9ce; }
+.encyclopedia .contents-entry.locked { background: #eadfce; border-style: dashed; }
+.encyclopedia .contents-entry.highlighted {
+  background: #fff6d7; border-color: #744124;
+  box-shadow: inset 0 0 0 2px #744124;
+}
+.encyclopedia .turn-leaf {
+  display: none; position: absolute; inset-block: 0; width: 50%; z-index: 2; pointer-events: none;
+  transform-style: preserve-3d;
+}
+.encyclopedia .turn-face {
+  position: absolute; inset: 0; display: grid; backface-visibility: hidden;
+  box-shadow: 0 2px 8px #37253338;
+}
+.encyclopedia .turn-back { transform: rotateY(180deg); }
+.encyclopedia .turn-face::after {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, #37243338, transparent 72%); animation: page-shade .5s ease-in-out both;
+}
+.encyclopedia .turn-shadow { display: none; position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.encyclopedia .turn-leaf[data-direction="forward"] { display: block; left: 50%; transform-origin: left center; animation: turn-forward .5s ease-in-out both; }
+.encyclopedia .turn-leaf[data-direction="back"] { display: block; right: 50%; transform-origin: right center; animation: turn-back .5s ease-in-out both; }
+.encyclopedia .open-book:has(.turn-leaf[data-direction]) > .turn-shadow {
+  display: block; background: linear-gradient(90deg, transparent 12%, #21142940 49%, #21142940 51%, transparent 88%);
+  animation: page-shade .5s ease-in-out both;
+}
+@keyframes turn-forward { to { transform: rotateY(-180deg); } }
+@keyframes turn-back { to { transform: rotateY(180deg); } }
+@keyframes page-shade { 0%, 100% { opacity: 0; } 48% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+.encyclopedia .spark, .encyclopedia .turn-leaf[data-direction] { animation: none; }
+.encyclopedia .turn-leaf[data-direction] { display: none; }
+}
+.encyclopedia .shelf-prop { display: block; flex: none; color: #b48f6a; opacity: .8; filter: drop-shadow(0 0 7px #f3c88c26) drop-shadow(2px 4px 3px #0d0913); }
+.encyclopedia .shelf-prop .prop { display: block; width: auto; height: 96px; }
+.encyclopedia .shelf-prop .prop-dice { height: 48px; }
+@media (prefers-reduced-motion: no-preference) {
+.encyclopedia .prop-candle .flame { transform-origin: 22px 22px; animation: flame-flicker 2.4s ease-in-out infinite; }
+.encyclopedia .prop-hourglass .sand-fall { animation: sand-fall 1.6s steps(2) infinite; }
+}
+@keyframes flame-flicker { 0%, 100% { transform: scale(1, 1); opacity: 1; } 40% { transform: scale(.94, 1.06); opacity: .9; } 70% { transform: scale(1.04, .96); } }
+@keyframes sand-fall { 50% { opacity: .35; } }
+
+.encyclopedia { display: flow-root; min-height: calc(100dvh - 70px); padding-bottom: 12px; }
+.encyclopedia .encyclopedia-toolbar { display:flex; justify-content:flex-end; padding:8px 24px 0; gap:12px; }
+.encyclopedia .encyclopedia-toolbar label { color:var(--on-dark); font: 14px var(--sans); }
+.encyclopedia .encyclopedia-toolbar input {
+  appearance: none; vertical-align: middle; width: 17px; height: 17px;
+  border: 1px solid var(--dark-frame); border-radius: 3px; background: var(--tray);
+}
+.encyclopedia .encyclopedia-toolbar input:checked {
+  background: var(--paper); box-shadow: inset 0 0 0 3px var(--tray);
+}
+.encyclopedia button, .encyclopedia input { font-family:var(--sans); }

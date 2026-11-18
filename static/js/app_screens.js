@@ -3,9 +3,10 @@
 // main.js のグローバル（showRoomPortal・leaveCurrentSocketRoom など）を使う。
 
 (function () {
-  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'users'];
+  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'users', 'encyclopedia'];
   // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
   const WORKSPACES = {
+    encyclopedia: host => mountEncyclopedia(host),
     characters: host => mountOwnedCharacters(host),
     units: (host, options) => mountUnitManagement(host, options),
     master: (host, options) => mountCatalogWorkspace(host, { onOpenUnit: openReferencedUnit, ...options }),
@@ -19,6 +20,7 @@
     ['sessions', 'sapphire', 'セッション', 'ルーム一覧'],
     ['dungeon', 'ruby', 'ダンジョン', '準備中'],
     ['characters', 'topaz', 'マイキャラクター', '作成・管理'],
+    ['encyclopedia', 'emerald', '図鑑', '世界の理・技能と魔物'],
     ['help', 'quartz', '使い方', 'ルールブック・ガイド'],
   ];
   const DATA_CARDS = [

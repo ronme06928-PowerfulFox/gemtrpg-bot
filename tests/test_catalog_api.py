@@ -253,7 +253,7 @@ def test_catalog_marks_allow_only_unique_known_strings(kind):
         assert any(p["field"] == "marks" and p["level"] == "error" for p in problems)
 
 
-@pytest.mark.parametrize("kind", ["skill", "glossary", "radiance", "summon"])
+@pytest.mark.parametrize("kind", ["glossary", "radiance", "summon"])
 def test_catalog_marks_are_undefined_for_other_kinds(kind):
     assert {"field": "marks", "message": "未定義の項目です", "level": "error"} in inspect_payload(
         kind, {"marks": ["enemy"]}, stage="submit")
@@ -289,7 +289,7 @@ def test_pre_save_inspection_warns_only_for_non_enemy_sources(api):
     assert warnings(author.post("/api/catalog/item/inspect", json={"payload": item})) == []
     assert CatalogDraft.query.count() == 0
     assert author.get("/api/catalog/overview").json["marks"] == {
-        "kinds": ["buff", "passive", "item"], "labels": {"enemy": "敵専用", "hollow": "ホロウ専用"},
+        "kinds": ["buff", "passive", "item", "skill"], "labels": {"enemy": "敵専用", "hollow": "ホロウ専用", "known": "図鑑に最初から載せる"},
     }
 
 

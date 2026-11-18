@@ -82,3 +82,13 @@ def test_manual_add_and_gm_unhide_use_the_actual_character(room, monkeypatch):
     socket_char.handle_state_update({"room": "test", "charId": enemy["id"], "changes": {"hidden_skills": []}})
     tasks.pop()()
     assert {(r.kind, r.entry_id) for r in CatalogEncounter.query.all()} == {("passive", "Pa-01"), ("skill", "E-01")}
+
+
+def test_enemy_inventory_records_positive_items_for_connected_users(room):
+    _, tasks = room
+    enemy = {"type": "enemy", "inventory": {"I-01": 2, "I-02": 0}}
+    encounters.record_arrivals("test", [enemy, {"type": "ally", "inventory": {"I-03": 1}}])
+    encounters.record_arrivals("test", [enemy])
+    tasks.pop()()
+    assert {(row.user_id, row.kind, row.entry_id) for row in CatalogEncounter.query.all()} == {
+        (user, "item", "I-01") for user in ("gm", "player")}
