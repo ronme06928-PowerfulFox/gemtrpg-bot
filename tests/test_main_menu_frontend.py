@@ -27,7 +27,7 @@ for (const name of ['characters', 'units', 'master', 'users', 'encyclopedia']) a
 
 const html = s.menuHtml({name: 'Alice', isAppAdmin: false});
 const order = [...html.matchAll(/data-screen-card="(\w+)"/g)].map(m => m[1]);
-assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'encyclopedia', 'help', 'units', 'master']);
+assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'encyclopedia', 'drill', 'help', 'units', 'master']);
 assert.match(html, /data-screen-card="dungeon"[^>]*disabled/);
 assert.match(html, /準備中/);
 assert.match(html, /Alice/);

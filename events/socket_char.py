@@ -18,17 +18,13 @@ from manager.game_logic import process_battle_start, process_skill_effects
 from manager.battle.combat_session import mark_combat_arrival
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.utils import (
-    get_status_value, set_status_value, apply_origin_bonus_buffs, apply_buff, remove_buff,
-    apply_passive_effect_buffs
+    get_status_value, set_status_value, apply_buff, remove_buff,
 )
 from manager.json_rule_audit import append_audit
 from manager.room_access import is_sid_in_room
 from manager.character_tags import (
     CharacterTagValidationError,
-    apply_character_tag_policy,
     is_scenario_character,
-    normalize_character_tag_state,
-    validate_player_radiance_budget,
 )
 from manager.radiance.loader import radiance_loader
 
@@ -85,15 +81,11 @@ def handle_add_character(data):
         str(user_info.get("attribute", "")).strip().upper() == "GM"
         and is_scenario_character(char_data)
     )
-    radiance_skills = radiance_loader.load_skills()
+    from manager.character_runtime import apply_play_character_policy, prepare_character_for_play
+    from manager.encounters import record_arrivals
     try:
-        if not allow_gm_tags:
-            validate_player_radiance_budget(char_data, radiance_skills)
-        apply_character_tag_policy(
-            char_data,
-            allow_gm_tags=allow_gm_tags,
-            radiance_catalog=radiance_skills,
-        )
+        apply_play_character_policy(char_data, allow_gm_tags=allow_gm_tags,
+                                    radiance_catalog=radiance_loader.load_skills())
     except CharacterTagValidationError as exc:
         emit('error', {'message': str(exc)}, to=request.sid)
         return
@@ -131,76 +123,7 @@ def handle_add_character(data):
     char_data['owner_id'] = session.get('user_id')
     # === ▲▲▲ 追加ここまで ▲▲▲
 
-    # === ▼▼▼ 追加: フラグ初期化 ▼▼▼
-    if 'flags' not in char_data:
-        char_data['flags'] = {}
-    char_data['flags']['immediate_action_used'] = False
-    # === ▲▲▲ 追加ここまで ▲▲▲
-
-    # === ▼▼▼ 追加: 輝化スキルとアイテムの初期化 ▼▼▼
-    if 'SPassive' not in char_data:
-        char_data['SPassive'] = []
-    if 'radiance_skills' not in char_data: # 新しい輝化スキルリスト
-        char_data['radiance_skills'] = []
-
-    # ★追加: 出身国ボーナスバフ自動付与
-    apply_origin_bonus_buffs(char_data)
-    apply_passive_effect_buffs(char_data)
-
-    if 'inventory' not in char_data:
-        char_data['inventory'] = {}
-    if 'hidden_skills' not in char_data:
-        char_data['hidden_skills'] = []
-    from manager.encounters import hide_enemy_skills, record_arrivals
-    hide_enemy_skills(char_data)
-    # === ▲▲▲ 追加ここまで ▲▲▲
-
-    # === ▼▼▼ 初期座標の設定（未配置状態） ▼▼▼
-    if 'x' not in char_data:
-        char_data['x'] = -1
-    if 'y' not in char_data:
-        char_data['y'] = -1
-    # === ▲▲▲ 追加ここまで ▲▲▲
-
-    # === ▼▼▼ Phase 6: 輝化スキル適用 ▼▼▼
-    if char_data.get('SPassive'):
-        try:
-            from manager.radiance.applier import radiance_applier
-            radiance_ids = [
-                str(skill_id).strip()
-                for skill_id in char_data.get('SPassive', [])
-                if str(skill_id).strip().upper().startswith('S-')
-            ]
-            if radiance_ids:
-                char_data = radiance_applier.apply_radiance_skills(char_data, radiance_ids)
-        except Exception as e:
-            print(f"[ERROR] 輝化スキル適用エラー: {e}")
-    # === ▲▲▲ Phase 6ここまで ▲▲▲
-
-    # === ▼▼▼ Phase 6 & 9: 初期状態を保存（リセット用） ▼▼▼
-
-    # paramsから初期値を抽出して保存
-    initial_params = {}
-    if 'params' in char_data and isinstance(char_data['params'], list):
-        for p in char_data['params']:
-            label = p.get('label')
-            value = p.get('value')
-            if label and value is not None:
-                # 数値変換を試みる（ダイス威力などは文字列のまま）
-                try:
-                    initial_params[label] = int(value)
-                except ValueError:
-                    initial_params[label] = value
-
-    char_data['initial_data'] = initial_params
-
-    char_data['initial_state'] = {
-        'inventory': dict(char_data.get('inventory', {})),
-        'special_buffs': [dict(b) for b in char_data.get('special_buffs', [])],
-        'maxHp': int(char_data.get('maxHp', 0)),
-        'maxMp': int(char_data.get('maxMp', 0))
-    }
-    # === ▲▲▲ 初期状態保存ここまで ▲▲▲
+    char_data = prepare_character_for_play(char_data)
 
     print(f"User {username} adding character to room '{room}': {displayName}")
 

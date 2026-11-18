@@ -99,6 +99,10 @@ const CLASSIC_SCRIPTS = [
   'js/encyclopedia/view.js',
   'js/encyclopedia/workspace.js',
   'js/encyclopedia/room.js',
+  'js/drill/data.js',
+  'js/drill/calculation.js',
+  'js/drill/view.js',
+  'js/drill/workspace.js',
 ];
 
 const BATTLE_ENTRY = path.join(JS, 'battle', 'index.js');

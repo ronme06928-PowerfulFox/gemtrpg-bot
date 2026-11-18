@@ -1,6 +1,6 @@
 """Authenticated, read-only drill calculations."""
 import json
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
 from manager.utils import session_required
 from manager.drill.match import calculate_match
 
@@ -25,4 +25,42 @@ def match():
         return jsonify(calculate_match(body.get('actor'),body.get('target'),body.get('skill_id'),
                                        body.get('target_skill_id')))
     except ValueError as error:
+        return jsonify(error=str(error)), 422
+
+
+@drill_bp.post('/api/drill/character')
+@session_required
+def character():
+    from copy import deepcopy
+    from models import OwnedCharacter
+    from manager.character_runtime import build_owned_character_for_play
+    from manager.units.characters import build_character
+    from manager.utils import apply_passive_effect_buffs
+    from manager.encyclopedia import unit_entries
+
+    if (request.content_length or 0) > 131072:
+        return jsonify(error='要求は128KiBまでです。'), 422
+    body=request.get_json(silent=True)
+    if (not isinstance(body,dict) or body.keys() != {'source','id','side'}
+            or body.get('source') not in ('owned','unit') or body.get('side') not in ('ally','enemy')
+            or not isinstance(body.get('id'),str) or not 1 <= len(body['id']) <= 80):
+        return jsonify(error='source・id・sideを確認してください。'), 422
+    user=g.authenticated_user
+    try:
+        if body['source']=='owned':
+            row=OwnedCharacter.query.filter_by(id=body['id'],user_id=user.id,deleted_at=None).first()
+            if row is None:
+                return jsonify(error='キャラクターが見つかりません。'), 404
+            result=build_owned_character_for_play(row.data,body['side'])
+        else:
+            row=next((row for row,readable in unit_entries(user,full=user.is_catalog_author or user.is_app_admin)
+                      if row.entry_id==body['id'] and readable),None)
+            if row is None:
+                return jsonify(error='キャラクターが見つかりません。'), 404
+            payload=deepcopy(row.payload)
+            payload['allow_'+body['side']]=True
+            result=build_character(payload,body['side'],0,source_unit_id=row.entry_id)
+            apply_passive_effect_buffs(result)
+        return jsonify(character=result)
+    except (ValueError,TypeError,KeyError) as error:
         return jsonify(error=str(error)), 422

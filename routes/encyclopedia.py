@@ -7,7 +7,7 @@ from manager.utils import session_required
 from manager.catalog.kinds import MARK_LABELS
 from manager.units.repository import entry_json
 from manager.room_access import GM_ROLES, resolve_room_role
-from models import CatalogEncounter, CatalogEntry
+from models import CatalogEncounter
 
 encyclopedia_bp = Blueprint("encyclopedia", __name__)
 
@@ -26,17 +26,8 @@ def get_encyclopedia():
     can_view_all = bool(user.is_catalog_author or user.is_app_admin or room_gm)
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()
-    seen_units = {row.entry_id for row in encounters if row.kind == "unit"}
-    units = []
-    for row in CatalogEntry.query.filter_by(kind="unit", deprecated=False).order_by(CatalogEntry.entry_id):
-        if row.payload.get("allow_enemy", True) is False:
-            continue
-        if not can_view_all:
-            if "hollow" in row.payload.get("marks", []):
-                continue
-            if row.visibility != "public" and row.entry_id not in seen_units:
-                continue
-        units.append(entry_json(row))
+    from manager.encyclopedia import unit_entries
+    units = [entry_json(row) for row, _ in unit_entries(user,full=can_view_all)]
     return jsonify(
         can_view_all=can_view_all,
         is_catalog_author=bool(user.is_catalog_author),

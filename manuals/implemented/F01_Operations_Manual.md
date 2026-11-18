@@ -1435,3 +1435,12 @@ CatalogEncounterの種類にitemを追加する。敵の登場時、そのキャ
 返事は勝ち/引き分け/負けのprobabilities、win_rate（引き分け半分）、advantage（5段階）、power_distributions、damage_distributions（actor/targetの受ける量と勝敗別の条件付き分布）、has_excluded_effects・notice・excluded_effects。分布の各行はvalueとprobability。起こらない条件の分布は空配列。
 
 入力は128KiB、各キャラでネスト8段・4096要素、各辞書/配列128要素・キー128字、文字列2048字、有限の数値の絶対値100000まで。スキルIDは80字まで。params/states/special_buffsは辞書の配列。ダイスは各64個・1024面・分布幅1024通りまで、両分布の組は65536通りまでに制限する。形・値・式・計算量が範囲外なら422と理由を返す。未ログインは401。計算できない式を0扱いで成功させない。
+
+
+### 演習場用のキャラクター変換（PR63-2）
+
+ログイン必須のPOST /api/drill/characterは{source:'owned'|'unit', id, side:'ally'|'enemy'}を受け、{character}を返す。ownedは本人の未削除の持ちキャラだけ。unitは図鑑の閲覧条件（public/staff、出会い/known、hollow、allow_enemy、廃止）を共有し、その人が読める敵だけ。本人以外・未解禁・範囲外は404、要求の形やsideが不正なら422。制作者・アプリ管理者は図鑑と同じく全件閲覧できる。
+
+持ちキャラはルームの入力パーサと同じ形に正規化し、共通のタグ方針・出身/パッシブ/輝化の準備を行う。敵ユニットはbuild_characterと配置時のパッシブ準備を使う。名前の連番、ルームへの追加、保存、出会いの記録は行わない。選んだ陣営の配置許可は一時コピー上で認め、元のデータは変えない。GET /api/encyclopediaと共通のサーバー部品で敵の公開範囲を判定する。
+
+実アプリの確認は、写しを指定して起動した上で `python scripts/drill/check_app.py --db _local/agent_db/gemtrpg.db` を実行する。確認用アカウントとデータは写しだけに作り、遊ぶ人の写真2枚を `_local/drill_shots/` に残す。
