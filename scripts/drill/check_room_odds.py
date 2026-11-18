@@ -110,8 +110,16 @@ def main():
             assert forecast(pc,source,target)==after
             assert_contrast(pc)
             pc.screenshot(path=str(OUT/'cards.png'),animations='disabled')
+            # Choosing a card shows its cached forecast at once, and the own intent preview that follows
+            # must not blank it out and bring it back seconds later (2026-11-19 report).
+            pc.evaluate("""()=>{window.__sealRemoved=0;new MutationObserver(rows=>{for(const row of rows)
+                for(const node of row.removedNodes) if(node.classList?.contains('battle-odds-seal')) window.__sealRemoved++;
+            }).observe(document.body,{childList:true});}""")
             pc.locator(PANEL+' .skill-picker-card[data-skill-id="Ps-01"]').click()
-            expect(pc.locator('.battle-odds-seal')).to_be_visible()
+            expect(pc.locator('.battle-odds-seal')).to_be_visible(timeout=300)
+            pc.wait_for_function('s=>BattleStore.state.intents[s]?.skill_id==="Ps-01"',arg=source)
+            pc.wait_for_timeout(1200)
+            assert pc.evaluate('window.__sealRemoved')==0
             seal=pc.locator('.battle-odds-seal')
             assert '戦況予測' in seal.inner_text() and '%' not in seal.inner_text()
             pc.wait_for_timeout(450)
@@ -120,11 +128,11 @@ def main():
             for control in ('#declare-commit-btn-header','#declare-close-btn'):
                 assert pc.locator(PANEL+' '+control).evaluate('node=>{const r=node.getBoundingClientRect();return node.contains(document.elementFromPoint(r.x+r.width/2,r.y+r.height/2));}')
             pc.locator(PANEL+' #declare-minimize-btn').click()
-            assert not pc.locator('.battle-odds-seal').count()
+            expect(pc.locator('.battle-odds-seal')).to_have_count(0)
             pc.locator(PANEL+' #declare-minimize-btn').click()
             expect(pc.locator('.battle-odds-seal')).to_be_visible()
             pc.locator(PANEL+' #declare-close-btn').click()
-            assert not pc.locator('.battle-odds-seal').count()
+            expect(pc.locator('.battle-odds-seal')).to_have_count(0)
             assert not errors,errors
             print('Verified PvE GM/player badges, opponent re-declaration, compact cards, selected seal, minimize/close and header actions.')
             print('Screenshots:',OUT)

@@ -151,7 +151,7 @@ class DeclarePanel {
         if (phase !== 'select' || !shouldShowPanel) {
             this._odds.update(null);
             this._oddsPanel = null;
-            this._hideOddsSeal();
+            this._hideOddsSeal(true);
             root.style.display = 'none';
             leftPanel.style.display = 'none';
             rightPanel.style.display = 'none';
@@ -214,11 +214,16 @@ class DeclarePanel {
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
         const forecastSkills = this._extractActorSkillCandidates(sourceChar, window.allSkillData || {}).map(row => row.id);
         if (skillId && !forecastSkills.includes(skillId)) forecastSkills.push(skillId);
-        const forecastTarget = state.intents?.[effectiveTargetSlotId]?.skill_id;
-        this._odds.update(!isMassTarget && effectiveTargetSlotId && effectiveTargetSlotId !== sourceSlotId && forecastTarget
+        const opponentIntent = state.intents?.[effectiveTargetSlotId];
+        // 自分の宣言は候補ごとに差し替えて計算するので、その変化（選ぶ・確定する）では計算し直さない。
+        const otherIntents = Object.fromEntries(Object.entries(state.intents || {})
+            .filter(([slot]) => String(slot) !== String(sourceSlotId)));
+        this._odds.update(!isMassTarget && effectiveTargetSlotId && effectiveTargetSlotId !== sourceSlotId && opponentIntent?.skill_id
             ? { room: state.room_id || state.room_name || window.currentRoomName, battle: state.battle_id,
-                source: sourceSlotId, target: effectiveTargetSlotId, skills: forecastSkills,
-                characters: state.characters, intents: state.intents, slots: state.slots, timeline: state.timeline }
+                source: sourceSlotId, target: effectiveTargetSlotId,
+                opponent: [opponentIntent.skill_id, opponentIntent.target], priority: skillId || null,
+                skills: forecastSkills, characters: state.characters, intents: otherIntents,
+                slots: state.slots, timeline: state.timeline }
             : null);
         this._oddsPanel = { panel: interactivePanel, skill: skillId, minimized: interactiveMinimized };
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
@@ -947,13 +952,22 @@ class DeclarePanel {
             ? '<span class="battle-odds-mark" title="見込みに含まない効果あり" aria-label="見込みに含まない効果あり">!</span>' : ''}`;
     }
 
-    _hideOddsSeal() {
-        this._oddsSeal?.remove(); this._oddsSeal=null;
+    _hideOddsSeal(soon=false) {
+        // 描き直しの途中で一瞬だけ隠れる場面がある（宣言の確定など）。すぐ同じ札に戻るなら作り直さず、
+        // 弾む動きを繰り返さない。閉じる・最小化などはそのまま消える。
+        clearTimeout(this._oddsSealTimer);
+        if (!this._oddsSeal) return;
+        if (soon) {
+            this._oddsSeal.style.visibility='hidden';
+            this._oddsSealTimer=setTimeout(() => this._hideOddsSeal(), 400);
+            return;
+        }
+        this._oddsSeal.remove(); this._oddsSeal=null; this._oddsSealContent=null;
     }
 
     _paintOdds() {
         const info=this._oddsPanel;
-        if (!info?.panel?.isConnected || !info.panel.getClientRects().length) { this._hideOddsSeal(); return; }
+        if (!info?.panel?.isConnected || !info.panel.getClientRects().length) { this._hideOddsSeal(true); return; }
         for (const card of info.panel.querySelectorAll('.skill-picker-card')) {
             card.querySelector('.battle-odds-chip')?.remove();
             const row=this._odds.rows[card.dataset.skillId];
@@ -965,13 +979,16 @@ class DeclarePanel {
         const row=this._odds.rows[info.skill];
         if (info.minimized || !this._oddsMarkup(row)) { this._hideOddsSeal(); return; }
         const content=this._oddsMarkup(row,true);
-        if (!this._oddsSeal || this._oddsSeal.innerHTML !== content) {
+        clearTimeout(this._oddsSealTimer);
+        if (!this._oddsSeal || this._oddsSealContent !== content) {
             this._hideOddsSeal();
             this._oddsSeal=document.createElement('div');
             this._oddsSeal.className='battle-odds-seal'; this._oddsSeal.dataset.theme='paper';
             this._oddsSeal.dataset.level=row.advantage; this._oddsSeal.innerHTML=content;
+            this._oddsSealContent=content;
             document.body.appendChild(this._oddsSeal);
         }
+        this._oddsSeal.style.visibility='';
         const rect=info.panel.getBoundingClientRect(), seal=this._oddsSeal;
         const width=seal.offsetWidth;
         const left=rect.right+width+12 < innerWidth ? rect.right+6 : Math.max(8,rect.left-width-6);
