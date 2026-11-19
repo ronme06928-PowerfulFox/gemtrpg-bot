@@ -812,6 +812,9 @@ def force_end_match_logic(room, username):
     broadcast_log(room, f"[Force End] GM {username} force-ended the current match.", "match-end")
 
 def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
+    from manager.practice_rooms import is_practice
+    if is_practice(room):
+        return
     state = get_room_state(room)
     if not state: return
 
@@ -1453,19 +1456,3 @@ def process_ai_suggest_skill(room, char_id):
     if not char: return None
 
     return ai_suggest_skill(char)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

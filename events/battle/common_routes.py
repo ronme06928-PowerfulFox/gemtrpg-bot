@@ -101,6 +101,9 @@ def _complete_round_after_resolve(room, username, expected_round):
 
     end_result = process_full_round_end(room, username)
     flush_room_state_now(room)
+    from manager.practice_rooms import is_practice
+    if end_result and is_practice(room):
+        process_round_start(room,username)
     return bool(end_result)
 
 

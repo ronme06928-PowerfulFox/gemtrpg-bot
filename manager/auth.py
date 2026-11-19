@@ -55,6 +55,9 @@ def verify_room_gm_key(room, key):
 
 
 def resolve_room_attribute(room_name, requested_role=PLAYER_ATTRIBUTE, gm_key=None):
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return None  # Practice entry authorizes its owner before the PIN path.
     role = normalize_entry_role(requested_role)
     if role != GM_ATTRIBUTE:
         return PLAYER_ATTRIBUTE
@@ -65,4 +68,3 @@ def resolve_room_attribute(room_name, requested_role=PLAYER_ATTRIBUTE, gm_key=No
     if verify_room_gm_key(room, gm_key):
         return GM_ATTRIBUTE
     return None
-

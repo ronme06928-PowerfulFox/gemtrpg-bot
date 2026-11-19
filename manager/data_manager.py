@@ -53,6 +53,9 @@ def read_saved_room(room_name):
 
     get_room_state のキャッシュミス時に全ルームをロードしないための軽量版。
     """
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return None
     try:
         room = Room.query.filter_by(name=room_name).first()
         return room.data if room else None
@@ -87,6 +90,9 @@ def save_room_to_db(room_name, room_state, update_only=False):
     デバウンス自動保存が削除直後のルームを gm_pin_hash 等を欠落させたまま
     復活させる事故を防ぐために使う。
     """
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return False
     _t0 = time.perf_counter() if _PERF_LOG else None
     try:
         room = Room.query.filter_by(name=room_name).first()

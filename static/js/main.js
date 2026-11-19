@@ -867,7 +867,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
             }
         }
 
-        window.AppLoading.begin({title: roomName, step: 'ルームを読み込み中'});
+        window.AppLoading.begin({title: roomName.startsWith('__practice__:') ? '演習場' : roomName, step: 'ルームを読み込み中'});
         const entryResponse = await fetchWithSession('/api/enter_room', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -914,6 +914,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
         updateHeaderUserInfo();
         await loadTabContent('visual');
+        window.PracticeRoom?.sync(battleState);
         await window.AppLoading.waitForImage(roomBackgroundUrl(battleState));
         await window.AppLoading.end();
     } catch (error) {
@@ -1020,13 +1021,14 @@ function initializeSocketIO() {
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
             window.SocketClient.initialize();
         }
-        showStartScreen();
+        if (!window.PracticeRoom?.resume()) showStartScreen();
     });
     socket.on('disconnect', () => {
         socketInitInFlight = false;
         console.warn('WebSocket サーバーから切断されました。');
         // ログアウトで切ったときは知らせずに読み込み直す。
         if (entryPortal.style.display === 'block') { location.reload(); return; }
+        if (window.PracticeRoom?.active) { window.PracticeRoom.disconnected(); return; }
         showAppAlert('サーバーとの接続が切れました。ページを読み込み直します。', { title: '接続切れ' })
             .then(() => location.reload());
     });
@@ -1034,6 +1036,7 @@ function initializeSocketIO() {
     registerAppSocketHandler('state_updated', (newState) => {
         const previousState = battleState;
         battleState = newState;
+        window.PracticeRoom?.sync(newState);
         refreshOpenCharacterSkills(previousState, newState);
         rememberLogIdsFromState(newState);
 

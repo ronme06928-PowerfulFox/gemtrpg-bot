@@ -44,6 +44,10 @@ def handle_disconnect():
 
     if user_info:
         room = user_info.get('room')
+        from manager import practice_rooms
+        if practice_rooms.is_practice(room):
+            practice_rooms.detached(room)
+            return
         if not room:
             return
         username = user_info.get('username', '不明なユーザー')
@@ -66,6 +70,12 @@ def handle_leave_room(_data=None):
     room = user_info.get('room')
     if not room:
         return {'ok': True, 'room': None, 'already_left': True}
+
+    from manager import practice_rooms
+    if practice_rooms.is_practice(room):
+        practice_rooms.drop(room)
+        session['attribute']=PLAYER_ATTRIBUTE
+        return {'ok':True,'room':room,'already_left':False}
 
     username = user_info.get('username', '不明なユーザー')
     leave_room(room)
@@ -90,6 +100,10 @@ def handle_join_room(data):
     # 表示名は payload ではなく session のユーザー情報から採る（なりすまし防止）。
     username = session.get('username')
     user_id = session.get('user_id')
+    from manager import practice_rooms
+    if practice_rooms.is_practice(room) and practice_rooms.owner(room)!=user_id:
+        emit('join_room_error',{'error':'この練習用のルームには入れません。'},to=request.sid)
+        return
     requested_role = data.get('role') or data.get('attribute') or PLAYER_ATTRIBUTE
     gm_key = data.get('gm_pin') or data.get('gm_key') or ''
 
@@ -110,6 +124,8 @@ def handle_join_room(data):
             ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
         preparation_stage = 'state'
         state = get_room_state(room)
+        if practice_rooms.is_practice(room):
+            practice_rooms.joined(room)
         preparation_stage = 'participant_payload'
         participant_state = build_participant_state(state)
     except Exception as exc:
@@ -142,7 +158,10 @@ def handle_join_room(data):
     # move SID from previous room when switching rooms
     if prev_room and prev_room != room:
         leave_room(prev_room)
-        broadcast_user_list(prev_room)
+        if practice_rooms.is_practice(prev_room):
+            practice_rooms.drop(prev_room)
+        else:
+            broadcast_user_list(prev_room)
 
     join_room(room)
 

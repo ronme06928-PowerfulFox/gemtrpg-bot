@@ -67,6 +67,9 @@ def _resolve_owned_character_tag(data):
 @socketio.on('request_add_character')
 def handle_add_character(data):
     room = data.get('room')
+    from manager.practice_rooms import is_practice
+    if is_practice(room):
+        return
     char_data = data.get('charData')
     if not room or not char_data:
         return
@@ -452,6 +455,9 @@ def handle_add_debug_character(data):
 @socketio.on('request_delete_character')
 def handle_delete_character(data):
     room = data.get('room')
+    from manager.practice_rooms import is_practice
+    if is_practice(room) and data.get('charId') in ('practice_0','practice_1'):
+        return
     char_id = data.get('charId')
     if not room or not char_id:
         return

@@ -188,6 +188,9 @@ def set_cached_room_owner(room_name, owner_id):
 
 
 def get_room_state(room_name):
+    from manager.practice_rooms import is_practice, owner
+    if is_practice(room_name) and (not owner(room_name) or room_name not in active_room_states):
+        return None
     cached_state = active_room_states.get(room_name)
     room_db = None
     if cached_state is None:
@@ -529,6 +532,10 @@ atexit.register(flush_pending_saves)
 
 def flush_room_state_now(room_name):
     """指定ルームの保留保存を即時フラッシュする。"""
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        discard_pending_save(room_name)
+        return True
     if room_name:
         _dirty_rooms.add(room_name)
         _save_retry_counts.pop(room_name, None)
@@ -539,6 +546,9 @@ def flush_room_state_now(room_name):
 def save_specific_room_state(room_name, immediate=False):
     """ルーム状態の永続化を要求する（通常はデバウンスして後でまとめて保存）。"""
     global _app_ref
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return False
     state = active_room_states.get(room_name)
     if not state:
         return False
@@ -562,6 +572,10 @@ def trim_room_logs_with_archive(room_name, state, limit=500):
         return False
     logs = state.get('logs')
     if not isinstance(logs, list) or len(logs) <= limit:
+        return True
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        state['logs'] = logs[-limit:]
         return True
     overflow_logs = logs[:-limit]
     try:
@@ -615,6 +629,8 @@ def build_participant_state(state):
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """Append and broadcast a log entry for the room."""
     state = get_room_state(room_name)
+    if state is None:
+        return
     if 'logs' not in state:
         state['logs'] = []
     if '_log_seq' not in state:

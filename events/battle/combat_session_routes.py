@@ -41,6 +41,10 @@ def _emit_error(sid, message):
 def _authorized_normal_room(data):
     sid = _sid()
     room = _room_from(data)
+    from manager.practice_rooms import is_practice
+    if is_practice(room):
+        _emit_error(sid,'練習用のルームでは戦闘の終了・報酬処理を使いません。')
+        return None,None,None
     if not room:
         _emit_error(sid, "room is required")
         return None, None, None

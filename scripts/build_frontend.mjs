@@ -102,7 +102,9 @@ const CLASSIC_SCRIPTS = [
   'js/drill/data.js',
   'js/drill/calculation.js',
   'js/drill/view.js',
+  'js/drill/detail.js',
   'js/drill/workspace.js',
+  'js/drill/practice_room.js',
 ];
 
 const BATTLE_ENTRY = path.join(JS, 'battle', 'index.js');

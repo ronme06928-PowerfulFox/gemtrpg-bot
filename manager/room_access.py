@@ -27,12 +27,18 @@ VIS_CLOSED = "closed"
 
 
 def _get_room(room_name):
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return None
     if not room_name:
         return None
     return Room.query.filter_by(name=room_name).first()
 
 
 def get_room_owner_id(room_name):
+    from manager.practice_rooms import is_practice, owner
+    if is_practice(room_name):
+        return owner(room_name)
     if not room_name:
         return None
     room = Room.query.filter_by(name=room_name).first()
@@ -93,6 +99,9 @@ def resolve_room_role(user_id, room_name, *, app_admin=False):
     Room.owner_id は変更しない。それ以外は RoomMember を正本とし、membership
     が無い場合のみ移行期の暫定判定へフォールバックする。
     """
+    from manager.practice_rooms import is_practice, owner
+    if is_practice(room_name):
+        return GM if user_id and owner(room_name)==user_id else None
     if not user_id or _get_room(room_name) is None:
         return None
     if app_admin:
@@ -177,6 +186,9 @@ def ensure_join_membership(room_id, user_id, is_gm, *, commit=True):
 
 def ensure_join_membership_by_name(room_name, user_id, is_gm, *, commit=True):
     """ルーム名で入室 membership を整える（Socket join_room 用）。"""
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return None
     room = _get_room(room_name)
     if room is None:
         return None
@@ -234,7 +246,10 @@ def build_lobby_cards(user_id):
     from manager.user_manager import is_user_management_admin
     admin_access = is_user_management_admin(user_id)
     cards = []
+    from manager.practice_rooms import is_practice
     for room in Room.query.order_by(Room.name).all():
+        if is_practice(room.name):
+            continue
         role = _lobby_role(user_id, room)
         is_member = role is not None
         vis = room.lobby_visibility or VIS_HIDDEN

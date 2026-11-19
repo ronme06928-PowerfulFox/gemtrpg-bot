@@ -81,6 +81,9 @@ class _EncounterBatch:
 
 
 def record(room, entries):
+    from manager.practice_rooms import is_practice
+    if is_practice(room):
+        return
     if not room or not has_app_context():
         return
     users = {row["user_id"] for row in user_sids.copy().values()

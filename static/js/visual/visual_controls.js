@@ -157,6 +157,7 @@ window.setupBattleTokenDrag = function () {
     let hasMovedSignificantDistance = false;
 
     tokenLayer.addEventListener('mousedown', (e) => {
+        if (window.PracticeRoom?.active) return;
         if (e.button !== 0) return;
         const target = e.target.closest('.map-token');
         if (!target) return;

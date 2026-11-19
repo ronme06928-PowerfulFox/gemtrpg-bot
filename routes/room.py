@@ -39,6 +39,12 @@ def enter_room():
 
     if not room_name:
         return jsonify({"error": "Room name required"}), 400
+    from manager.practice_rooms import is_practice, owner
+    if is_practice(room_name):
+        if owner(room_name)!=user_id:
+            return jsonify(error='この練習用のルームには入れません。'),403
+        session['attribute']=GM_ATTRIBUTE
+        return jsonify(room_name=room_name,attribute=GM_ATTRIBUTE)
     if not Room.query.filter_by(name=room_name).first():
         return jsonify({"error": "Room not found"}), 404
 
@@ -111,6 +117,9 @@ def load_room():
     # 参加者向けルーム状態は、入室済み（enter_room）か owner/参加者のみ返す。
     # mobile は開発停止につき考慮不要（/mobile は停止済み）。
     from manager.room_access import user_can_access_room
+    from manager.practice_rooms import is_practice, owner
+    if is_practice(room_name) and owner(room_name)!=session.get('user_id'):
+        return jsonify(error='この練習用のルームには入れません。'),403
     entered = session.get('entered_rooms') or []
     user_id = session.get('user_id')
     if room_name not in entered and not user_can_access_room(
@@ -132,6 +141,9 @@ def create_room():
     gm_pin = str(data.get('gm_pin') or '').strip()
     if not room_name:
         return jsonify({"error": "No name"}), 400
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return jsonify(error='予約されたルーム名です。'),400
     if not is_valid_gm_pin(gm_pin):
         return jsonify({"error": "GM PINは4桁の数字で入力してください"}), 400
 
@@ -208,6 +220,9 @@ def delete_room():
 def save_room_route():
     data = request.get_json(silent=True) or {}
     room_name = data.get('room_name')
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return jsonify(error='練習用のルームは保存できません。'),403
     state = data.get('state')
     if not room_name:
         return jsonify({"error": "Room name required"}), 400

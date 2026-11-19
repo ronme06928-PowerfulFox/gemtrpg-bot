@@ -181,6 +181,8 @@ GMが画面で行う手順は[A02](A02_GM_Creator_Manual.md)を入口にする�
 
 ## 2. ルームGM PIN
 
+練習用ルーム（PR63-4）はPIN・DBのRoomMemberを使わず、メモリの登録簿の所有者だけをGMとする。通常のルームと同じ保存・一覧には載せない。詳細は末尾の「保存しない練習用のルーム」。
+
 - ルーム作成時、4桁数字のGM PINを必須入力する。
 - GM PINは平文保存せず、ハッシュとして `rooms.gm_pin_hash` に保存する。
 - プレイヤーとして入室する場合、PIN入力は不要。
@@ -1443,4 +1445,10 @@ CatalogEncounterの種類にitemを追加する。敵の登場時、そのキャ
 
 持ちキャラはルームの入力パーサと同じ形に正規化し、共通のタグ方針・出身/パッシブ/輝化の準備を行う。敵ユニットはbuild_characterと配置時のパッシブ準備を使う。名前の連番、ルームへの追加、保存、出会いの記録は行わない。選んだ陣営の配置許可は一時コピー上で認め、元のデータは変えない。GET /api/encyclopediaと共通のサーバー部品で敵の公開範囲を判定する。
 
-実アプリの確認は、写しを指定して起動した上で `python scripts/drill/check_app.py --db _local/agent_db/gemtrpg.db` を実行する。確認用アカウントとデータは写しだけに作り、遊ぶ人の写真2枚を `_local/drill_shots/` に残す。
+実アプリの確認は、写しを指定して起動した上で `python scripts/drill/check_app.py --db _local/agent_db/gemtrpg.db` を実行する。確認用アカウントとデータは写しだけに作り、遊ぶ人の練習用ルームの写真2枚を `_local/practice_room_shots/` に残す。
+
+### 保存しない練習用のルーム（PR63-4）
+
+POST /api/drill/practiceはログイン必須で、actor/targetに選択元(source・id、素の値ではname)を受ける。本人の持ちキャラと図鑑で読める敵ユニットだけからサーバーで組み直す。返すのはroom_nameと参加者用state。Socketのpractice_control（room・action・mode）は所有者かつ在室の人だけがreset・mode（manual/auto）を行う。クライアントのキャラ辞書は受け付けない。
+
+予約名__practice__:はメモリの登録簿だけで認可し、作った人をGMとして扱う。管理者を含む他人は入れない。Room・RoomMember・ログアーカイブ・CatalogEncounterに行を作らず、ロビーにも出さない。通常の保存経路、即時フラッシュ、DB保存の入口でも予約名を除く。退室と作り直しでは即時破棄、切断と未入室では60秒後に破棄し、再接続で猶予を解除する。タブには再接続用のルーム名だけをsessionStorageに保ち、状態の保存先にはしない。プロセスが止まると消える。

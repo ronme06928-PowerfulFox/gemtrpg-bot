@@ -184,6 +184,7 @@
   }
 
   async function leaveRoomTo(name) {
+    if (window.PracticeRoom?.active) return window.PracticeRoom.leave(name==='sessions'?'menu':name);
     const ok = await showAppConfirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）', {
       defaultFocus: 'cancel', title: 'ルーム一覧へ戻る', confirmText: '戻る',
     });
@@ -244,6 +245,7 @@
       });
     } catch (_e) { /* 失効はベストエフォート */ }
     clearSavedRecoveryToken();
+    window.PracticeRoom?.clear();
     showEntryPortal();  // 先にログインの画面へ移し、切断の知らせを出さない（main.js の disconnect）。
     try { if (socket && socket.connected) socket.disconnect(); } catch (_e) {}
   }

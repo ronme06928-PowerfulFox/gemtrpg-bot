@@ -1,0 +1,23 @@
+.practice-room #dock-add-char-icon, .practice-room #dock-staging-icon,
+.practice-room #dock-to-exploration-btn, .practice-room #combat-session-controls,
+.practice-room #visual-round-start-btn, .practice-room #visual-round-end-btn,
+.practice-room #visual-room-actions, .practice-room #battle-bg-settings-btn,
+.practice-room #user-list-btn, .practice-room #visual-chat-input,
+.practice-room #user-settings-btn,
+.practice-room #visual-chat-send, .practice-room #visual-show-history-btn,
+.practice-room #visual-chat-area .filter-btn, .practice-room #visual-controls-area { display: none !important; }
+.practice-room header h1 { font-size: 20px; white-space: nowrap; }
+.practice-room #current-room-name { white-space: nowrap; }
+.practice-room .header-room-info { gap: 12px; }
+.practice-controls { display: flex; align-items: center; gap: 8px; margin-left: auto; white-space: nowrap; }
+.practice-controls button, .practice-detail-close { color: var(--ui-text); background: var(--ui-bg);
+  border: 1px solid var(--ui-control); border-radius: 5px; padding: 7px 10px; font: 600 12px/1.2 sans-serif; cursor: pointer; }
+.practice-mode { display: inline-flex; align-items: center; gap: 4px; color: var(--ui-text); background: var(--ui-bg); padding-left: 8px; border-radius: 5px; }
+.practice-mode [aria-pressed="true"] { background: var(--ui-primary-soft); font-weight: 800; }
+.practice-detail { width: min(1240px,96vw); height: 94dvh; max-width: none; max-height: 94dvh; box-sizing: border-box;
+  padding: 20px; border: 2px solid var(--ui-gold-strong); border-radius: 12px; color: var(--ui-text); background: var(--ui-bg); overflow: auto; }
+.practice-detail::backdrop { background: var(--ui-overlay); }
+.practice-detail-close { display: block; margin-left: auto; }
+.drill-start { display: block; margin: 25px auto; font-size: 18px !important; padding: 12px 24px !important; }
+.drill-selection-preview { margin-top: 16px; }
+@media (max-width: 900px) { .practice-controls { flex-wrap: wrap; gap: 4px; } .practice-room header h1 { display: none; } }

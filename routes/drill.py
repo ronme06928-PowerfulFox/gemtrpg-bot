@@ -31,36 +31,44 @@ def match():
 @drill_bp.post('/api/drill/character')
 @session_required
 def character():
-    from copy import deepcopy
-    from models import OwnedCharacter
-    from manager.character_runtime import build_owned_character_for_play
-    from manager.units.characters import build_character
-    from manager.utils import apply_passive_effect_buffs
-    from manager.encyclopedia import unit_entries
-
-    if (request.content_length or 0) > 131072:
-        return jsonify(error='要求は128KiBまでです。'), 422
+    from manager.drill.characters import build_selection, CharacterNotFound
+    if (request.content_length or 0)>131072:
+        return jsonify(error='要求は128KiBまでです。'),422
     body=request.get_json(silent=True)
-    if (not isinstance(body,dict) or body.keys() != {'source','id','side'}
-            or body.get('source') not in ('owned','unit') or body.get('side') not in ('ally','enemy')
-            or not isinstance(body.get('id'),str) or not 1 <= len(body['id']) <= 80):
-        return jsonify(error='source・id・sideを確認してください。'), 422
-    user=g.authenticated_user
+    if (not isinstance(body,dict) or body.keys()!={'source','id','side'}
+            or body.get('side') not in ('ally','enemy')):
+        return jsonify(error='source・id・sideを確認してください。'),422
     try:
-        if body['source']=='owned':
-            row=OwnedCharacter.query.filter_by(id=body['id'],user_id=user.id,deleted_at=None).first()
-            if row is None:
-                return jsonify(error='キャラクターが見つかりません。'), 404
-            result=build_owned_character_for_play(row.data,body['side'])
-        else:
-            row=next((row for row,readable in unit_entries(user,full=user.is_catalog_author or user.is_app_admin)
-                      if row.entry_id==body['id'] and readable),None)
-            if row is None:
-                return jsonify(error='キャラクターが見つかりません。'), 404
-            payload=deepcopy(row.payload)
-            payload['allow_'+body['side']]=True
-            result=build_character(payload,body['side'],0,source_unit_id=row.entry_id)
-            apply_passive_effect_buffs(result)
+        result=build_selection(g.authenticated_user,{'source':body['source'],'id':body['id']},body['side'])
         return jsonify(character=result)
+    except CharacterNotFound as error:
+        return jsonify(error=str(error)),404
     except (ValueError,TypeError,KeyError) as error:
-        return jsonify(error=str(error)), 422
+        return jsonify(error=str(error)),422
+
+
+@drill_bp.post('/api/drill/practice')
+@session_required
+def create_practice():
+    from manager import practice_rooms
+    from manager.drill.characters import build_selection, CharacterNotFound
+    from manager.room_manager import get_room_state, build_participant_state
+    if (request.content_length or 0)>8192:
+        return jsonify(error='要求が大きすぎます。'),422
+    try:
+        body=request.get_json(silent=True)
+    except (ValueError,UnicodeError,RecursionError):
+        body=None
+    if (not isinstance(body,dict) or body.keys()-{'actor','target','mode'}
+            or body.get('mode','manual') not in ('manual','auto')):
+        return jsonify(error='2人の選択を確認してください。'),422
+    try:
+        selection={key:body.get(key) for key in ('actor','target')}
+        characters=[build_selection(g.authenticated_user,selection[key],side,allow_blank=True)
+                    for key,side in (('actor','ally'),('target','enemy'))]
+        name,_=practice_rooms.create(g.authenticated_user,selection,characters,body.get('mode','manual'))
+        return jsonify(room_name=name,state=build_participant_state(get_room_state(name))),201
+    except CharacterNotFound as error:
+        return jsonify(error=str(error)),404
+    except (ValueError,TypeError,KeyError) as error:
+        return jsonify(error=str(error)),422

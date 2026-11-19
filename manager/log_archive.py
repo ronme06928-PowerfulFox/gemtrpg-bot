@@ -28,6 +28,9 @@ def archive_room_logs(room_name, logs):
     Returns True when there is nothing to archive or archival succeeds. Returns
     False when the room no longer exists or DB persistence fails.
     """
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return True
     rows = [_normalize_log_payload(log) for log in (logs or [])]
     if not rows:
         return True
@@ -59,6 +62,9 @@ def archive_room_logs(room_name, logs):
 
 
 def get_archived_room_logs(room_name):
+    from manager.practice_rooms import is_practice
+    if is_practice(room_name):
+        return []
     room = Room.query.filter_by(name=room_name).first()
     if room is None:
         return []

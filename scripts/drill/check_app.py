@@ -1,159 +1,136 @@
-"""Exercise the real drill UI using only an explicitly selected disposable DB."""
+"""Exercise the real private practice room on an explicitly selected disposable DB."""
 import argparse
 from pathlib import Path
 import sqlite3
 import uuid
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, expect
 
-ROOT = Path(__file__).resolve().parents[2]
-OUT = ROOT / '_local' / 'drill_shots'
-
-
-def api(page, path, body=None):
-    result = page.evaluate("""async ({path,body}) => {
-      const response=await fetch(path,{method:body === null ? 'GET' : 'POST',
-        headers:{'Content-Type':'application/json'},body:body === null ? undefined : JSON.stringify(body)});
-      return {status:response.status,data:await response.json()};
-    }""", {'path': path, 'body': body})
-    assert result['status'] < 400, result
-    return result['data']
+ROOT=Path(__file__).resolve().parents[2]
+OUT=ROOT/'_local/practice_room_shots'
 
 
-def ready(page):
-    page.locator('.drill[data-drill-state="ready"]').wait_for()
-
-
-def change(page, selector, value):
-    with page.expect_response(lambda r: r.url.endswith('/api/drill/match')) as pending:
-        page.locator(selector).fill(value)
-    response = pending.value
-    assert response.status == 200, response.text()
-    ready(page)
+def api(page,path,body=None):
+    response=page.request.post(path,data=body) if body is not None else page.request.get(path)
+    assert response.ok,(path,response.status,response.text())
     return response.json()
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--db', required=True)
-    parser.add_argument('--base', default='http://127.0.0.1:5000')
-    args = parser.parse_args()
-    copied = Path(args.db).resolve()
-    if copied.parent != (ROOT / '_local/agent_db').resolve() or not copied.is_file():
-        parser.error('--db must be an existing disposable DB in _local/agent_db')
-    OUT.mkdir(parents=True, exist_ok=True)
-    errors, skill_counts = [], {}
-    with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(channel='chrome')
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--db',required=True)
+    parser.add_argument('--base',default='http://127.0.0.1:5000')
+    args=parser.parse_args()
+    copied=Path(args.db).resolve()
+    if copied.parent!=(ROOT/'_local/agent_db').resolve() or not copied.is_file():
+        parser.error('--db must select an existing disposable DB in _local/agent_db')
+    OUT.mkdir(parents=True,exist_ok=True)
+    errors=[]
+    with sync_playwright() as p:
+        browser=p.chromium.launch(channel='chrome')
         try:
-            units = []
-            for role in ('author', 'player'):
-                context = browser.new_context(viewport={'width': 1280, 'height': 900})
-                page = context.new_page()
-                page.on('pageerror', lambda error: errors.append(str(error)))
-                page.goto(args.base)
-                name = 'drill_' + uuid.uuid4().hex[:8]
-                api(page, '/api/register', {'login_name': name, 'password': uuid.uuid4().hex})
-                with sqlite3.connect(copied) as connection:
-                    user_id = connection.execute('SELECT id FROM users WHERE name=?', (name,)).fetchone()[0]
-                    if role == 'author':
-                        connection.execute('UPDATE users SET is_catalog_author=1 WHERE id=?', (user_id,))
-                    connection.execute('INSERT INTO catalog_encounters(user_id,kind,entry_id,first_seen_at,room_name) VALUES (?,?,?,?,?)',
-                                       (user_id, 'skill', 'E-00', '2026-11-19 00:00:00', 'drill_check'))
-                if role == 'author':
-                    for label, marks, visibility in [('解禁済みの魔物', ['known'], 'public'),
-                                                      ('未遭遇の魔物', [], 'public'),
-                                                      ('非公開の魔物', [], 'staff')]:
-                        row = api(page, '/api/units/unit', {'visibility': visibility, 'payload': {
-                            'name': label, 'allow_enemy': True, 'allow_ally': False, 'marks': marks,
-                            'hp': 30, 'mp': 10, 'params': [{'label': '物理補正', 'value': 6}],
-                            'skills': [{'id': 'E-00'}]}})['entry']
-                        units.append(row['entry_id'])
-                owned = api(page, '/api/owned_characters', {'kind': 'character', 'data': {
-                    'name': '演習の冒険者', 'status': [{'label': 'HP', 'value': 20, 'max': 20},
-                                              {'label': 'MP', 'value': 10, 'max': 10}],
-                    'params': [{'label': '物理補正', 'value': 3}, {'label': '出身', 'value': 0}],
-                    'commands': '4+1d2+1d{物理補正} 【Ps-00 基本の一太刀】', 'SPassive': [], 'inventory': {}}})['character']
-                original = api(page, '/api/owned_characters/' + owned['id'])
-                page.goto(args.base + '/#menu')
-                page.reload()
-                page.locator('[data-screen-card="drill"]').click()
-                page.locator('[data-side="actor"] [data-source]').wait_for()
-                assert page.url.endswith('#drill')
-                actor = '[data-side="actor"] '
-                target = '[data-side="target"] '
-                page.locator(actor + '[data-source]').select_option('owned')
-                page.locator(actor + '[data-record]').select_option(owned['id'])
-                page.locator(actor + '[data-skill] option[value="Ps-00"]').wait_for(state='attached')
-                page.locator(target + '[data-source]').select_option('unit')
-                visible_units = page.locator(target + '[data-record] option').evaluate_all('rows=>rows.map(r=>r.value)')
-                assert units[0] in visible_units
-                assert (units[1] in visible_units) == (role == 'author')
-                assert (units[2] in visible_units) == (role == 'author')
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')) as pending:
-                    page.locator(target + '[data-record]').select_option(units[0])
-                assert pending.value.status == 200, pending.value.text()
-                ready(page)
-                initial = pending.value.json()
-                assert page.locator(target + '[data-skill]').input_value() == 'E-00'
-                skill_counts[role] = page.locator(actor + '[data-skill] option[value^="E-"]').count()
-                modified = change(page, actor + '[data-key="物理補正"]', '12')
-                assert initial['win_rate'] != modified['win_rate'], (initial['win_rate'], modified['win_rate'])
-                change(page, actor + '[data-key="物理補正"]', '3')
-                assert api(page, '/api/owned_characters/' + owned['id']) == original
-                assert page.locator('.drill-caution').is_visible()
-                page.locator('.drill-caution').click()
-                assert page.locator('.drill-caution li').count() > 0
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')) as pending:
-                    page.locator(target + '[data-skill]').select_option('')
-                assert pending.value.status == 200
-                assert pending.value.json()['probabilities']['win'] == 1
-                ready(page)
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')):
-                    page.locator(target + '[data-skill]').select_option('E-00')
-                ready(page)
-                page.locator('[data-drill-scope]').select_option('on_win')
-                assert page.locator('.drill-chart').count() == 4
-                page.locator('[data-drill-scope]').select_option('on_lose')
-                page.locator('[data-drill-scope]').select_option('all')
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')) as pending:
-                    page.locator(actor + '[data-key="物理補正"]').fill('100001')
-                assert pending.value.status == 422
-                page.locator('.drill-result [role="alert"]').wait_for()
-                assert '範囲外' in page.locator('.drill-result').inner_text() or '100000' in page.locator('.drill-result').inner_text()
-                change(page, actor + '[data-key="物理補正"]', '3')
-                # Exercise local buff editing without touching either source record.
-                page.locator(actor + '.drill-buffs').evaluate("node=>node.closest('details').open=true")
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')) as pending:
-                    page.locator(actor + '[data-add-buff]').click()
-                assert pending.value.status == 200, pending.value.text()
-                ready(page)
-                change(page, actor + '[data-buff-field="value"]', '2')
-                with page.expect_response(lambda r: r.url.endswith('/api/drill/match')):
-                    page.locator(actor + '[data-remove-buff]').click()
-                ready(page)
-                assert api(page, '/api/owned_characters/' + owned['id']) == original
-                if role == 'player':
-                    page.locator('.drill-editor').evaluate_all('rows=>rows.forEach(row=>row.open=false)')
-                    page.evaluate('scrollTo(0,0)')
-                    page.screenshot(path=str(OUT / 'player-wide.png'), full_page=True, animations='disabled')
-                    page.set_viewport_size({'width': 375, 'height': 900})
-                    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth'), page.evaluate('document.documentElement.scrollWidth')
-                    page.screenshot(path=str(OUT / 'player-375.png'), full_page=True, animations='disabled')
-                # Verify menu navigation destroys the mount and its pending calculations.
-                page.get_by_role('button', name='← メインメニュー', exact=True).click()
-                assert not page.locator('.drill').count()
-                page.locator('[data-screen-card="drill"]').click()
-                page.locator('[data-side="actor"] [data-source]').wait_for()
-                context.close()
-            assert skill_counts['author'] > skill_counts['player'] > 0, skill_counts
-            assert not errors, errors
-            print('Verified author/player visibility, owned vs unit, edits, one-sided attack, exclusions, 422, buffs, charts, cleanup and 375px.')
-            print('Enemy skill choices:', skill_counts)
-            print('Screenshots:', OUT)
+            staff=browser.new_context(base_url=args.base)
+            author=staff.new_page()
+            tag=uuid.uuid4().hex[:8]
+            who=api(author,'/api/register',{'login_name':'practice_author_'+tag,'password':uuid.uuid4().hex})
+            with sqlite3.connect(copied) as connection:
+                connection.execute('UPDATE users SET is_catalog_author=1 WHERE id=?',(who['user_id'],))
+            unit=api(author,'/api/units/unit',{'visibility':'public','payload':{
+                'name':'演習の番兵','allow_ally':False,'allow_enemy':True,'marks':['known'],
+                'hp':80,'mp':20,'image':'/static/images/characters/人狼型シュラーカー.png',
+                'params':[{'label':'速度','value':2},{'label':'五感','value':2},{'label':'物理補正','value':3}],
+                'skills':[{'id':'E-00'}]}})['entry']
+            staff.close()
+            context=browser.new_context(base_url=args.base,viewport={'width':1280,'height':800})
+            page=context.new_page(); page.on('pageerror',lambda error:errors.append(str(error)))
+            user=api(page,'/api/register',{'login_name':'practice_player_'+tag,'password':uuid.uuid4().hex})
+            skills=api(page,'/api/get_skill_data')
+            hero=api(page,'/api/owned_characters',{'kind':'character','data':{
+                'name':'演習の冒険者','image':'/static/images/characters/女冒険者.png',
+                'status':[{'label':'HP','value':40,'max':40},{'label':'MP','value':20,'max':20},{'label':'FP','value':8,'max':8}],
+                'params':[{'label':'速度','value':2},{'label':'五感','value':2},{'label':'物理補正','value':3}],
+                'commands':'\n'.join(skills[key]['チャットパレット'] for key in ('Ps-00','Ps-01'))}})['character']
+            page.goto(args.base+'/#drill'); page.reload()
+            page.locator('[data-side="actor"] [data-source]').select_option('owned')
+            page.locator('[data-side="actor"] [data-record]').select_option(hero['id'])
+            page.locator('[data-side="target"] [data-source]').select_option('unit')
+            page.locator('[data-side="target"] [data-record]').select_option(unit['entry_id'])
+            expect(page.locator('.drill-start')).to_be_enabled()
+            assert not page.locator('.drill input[type="number"]').count()
+            page.locator('.drill-start').click()
+            page.wait_for_function('window.BattleStore?.state?.round===1 && Object.keys(BattleStore.state.slots).length>=2')
+            expect(page.locator('.practice-controls')).to_be_visible()
+            room=page.evaluate('currentRoomName')
+            assert room.startswith('__practice__:')
+            assert page.locator('#header-attribute').inner_text()=='GM'
+            assert api(page,'/list_rooms')['rooms']==[]
+            page.evaluate('socket.disconnect()')
+            expect(page.locator('.practice-controls')).to_contain_text('再接続しています')
+            page.evaluate('socket.connect()')
+            page.wait_for_function('socket.connected && document.querySelector("[data-practice=reset]") && window.BattleStore?.state?.round===1')
+            page.locator('.app-loading').wait_for(state='hidden')
+            assert page.evaluate('currentRoomName')==room
+            page.locator('[data-practice="mode"][data-mode="auto"]').click()
+            page.wait_for_function('Object.values(BattleStore.state.intents).some(row=>row.skill_id==="E-00" && row.committed)')
+            def select_source():
+                page.evaluate('''() => {
+                  const slots=Object.values(BattleStore.state.slots);
+                  const a=slots.find(s=>s.actor_id==='practice_0'),b=slots.find(s=>s.actor_id==='practice_1');
+                  BattleStore.setDeclare({sourceSlotId:a.slot_id,targetSlotId:b.slot_id,skillId:null,mode:'editing'});
+                }''')
+            select_source()
+            page.locator('.skill-picker-card[data-skill-id="Ps-00"]').click()
+            expect(page.locator('.battle-odds-seal')).to_be_visible()
+            page.wait_for_timeout(450)
+            page.screenshot(path=str(OUT/'declare.png'),animations='disabled')
+            page.locator('#declare-commit-btn-header').click()
+            expect(page.locator('#sr-resolve-confirm-btn')).to_be_enabled()
+            page.locator('#sr-resolve-confirm-btn').click()
+            page.locator('.resolve-flow-next-btn').wait_for()
+            # Use the normal presentation buttons until the existing completion path starts round 2.
+            for _ in range(20):
+                if page.evaluate('BattleStore.state.round>=2'): break
+                next_button=page.locator('.resolve-flow-next-btn')
+                if next_button.count() and next_button.is_visible() and next_button.is_enabled(): next_button.click()
+                page.wait_for_timeout(700)
+            page.wait_for_function('BattleStore.state.round===2 && BattleStore.state.phase==="select"',timeout=20000)
+            assert page.evaluate('battleState.characters.find(c=>c.id==="practice_1").hp')<80
+            page.locator('[data-practice="reset"]').click()
+            page.wait_for_function('BattleStore.state.round===1 && battleState.characters.find(c=>c.id==="practice_1").hp===80')
+            select_source()
+            page.locator('.skill-picker-card[data-skill-id="Ps-00"]').click()
+            expect(page.locator('.battle-odds-seal')).to_be_visible()
+            page.locator('[data-practice="detail"]').click()
+            expect(page.locator('.practice-detail .drill-verdict')).to_be_visible()
+            assert not page.locator('.practice-detail [data-source]').count()
+            assert not page.locator('.practice-detail input[type="number"]').count()
+            page.set_viewport_size({'width':1280,'height':1200})
+            page.screenshot(path=str(OUT/'detail.png'),animations='disabled')
+            page.locator('.practice-detail-close').click()
+            page.set_viewport_size({'width':1280,'height':800})
+            assert not page.locator('.practice-detail').count()
+            page.locator('[data-practice="mode"][data-mode="manual"]').click()
+            page.wait_for_function('battleState.battle_mode==="pvp"')
+            page.locator('[data-practice="choose"]').click()
+            page.wait_for_url('**/#drill')
+            assert page.locator('[data-side="actor"] [data-record]').input_value()==hero['id']
+            assert page.locator('[data-side="target"] [data-record]').input_value()==unit['entry_id']
+            expect(page.locator('.drill-start')).to_be_enabled()
+            page.locator('.drill-start').click()
+            expect(page.locator('.practice-controls')).to_be_visible()
+            page.evaluate("leaveRoomTo('menu')")
+            page.wait_for_url('**/#menu')
+            assert not page.locator('.practice-controls').count()
+            assert api(page,'/list_rooms')['rooms']==[]
+            with sqlite3.connect(copied) as connection:
+                assert connection.execute('SELECT count(*) FROM rooms').fetchone()[0]==0
+                assert connection.execute('SELECT count(*) FROM catalog_encounters WHERE user_id=?',(user['user_id'],)).fetchone()[0]==0
+            assert not errors,errors
+            print('Verified player-owned vs known unit, private GM controls, real match/odds, next round, reset, detail, manual/auto, reselect, menu, no Room/Encounter rows.')
+            print('Screenshots:',OUT)
         finally:
             browser.close()
 
 
-if __name__ == '__main__':
+if __name__=='__main__':
     main()

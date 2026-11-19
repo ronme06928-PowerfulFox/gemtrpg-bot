@@ -1819,7 +1819,7 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
             if (backdrop) backdrop.remove();
         }
     };
-    menu.appendChild(withdrawBtn);
+    if (!window.PracticeRoom?.active) menu.appendChild(withdrawBtn);
 
     const deleteBtn = document.createElement('button');
     deleteBtn.textContent = 'キャラクターを削除';
@@ -1837,7 +1837,7 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
             if (backdrop) backdrop.remove();
         }
     };
-    menu.appendChild(deleteBtn);
+    if (!window.PracticeRoom?.active) menu.appendChild(deleteBtn);
 
     const transferBtn = document.createElement('button');
     transferBtn.textContent = '所有権を譲渡 ▶';
@@ -1846,7 +1846,7 @@ window.toggleCharSettingsMenu = function (charId, btnElement) {
         e.stopPropagation();
         showTransferSubMenu(charId, menu, transferBtn);
     };
-    menu.appendChild(transferBtn);
+    if (!window.PracticeRoom?.active) menu.appendChild(transferBtn);
 
     document.body.appendChild(menu);
 
