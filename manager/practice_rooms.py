@@ -96,7 +96,7 @@ def create(user,selection,characters,mode='manual'):
         drop(name)
         for index,char in enumerate(characters):
             char.update(id='practice_'+str(index),type='ally' if index==0 else 'enemy',
-                        owner=user.name,owner_id=user.id,x=2 if index==0 else 5,y=2)
+                        owner=user.name,owner_id=user.id,x=10 if index==0 else 14,y=12)
             # A selected enemy is operated by the same owner in manual mode.
             char.setdefault('flags',{})['auto_target_select']=False
         state={'characters':characters,'character_owners':{char['id']:user.name for char in characters},

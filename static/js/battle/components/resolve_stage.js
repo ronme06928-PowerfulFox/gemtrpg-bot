@@ -49,7 +49,7 @@ export function renderResolveStage(flow, step, state, layout) {
     // 不発の守備側も札を残す。進行・判定用の一方攻撃判定とは分ける。
     if (step.kind === 'fizzle' && side === 'defender' && step.defenderSkillId) {
       meta.id = step.defenderSkillId;
-      meta.name = flow._skillNameFromData(flow._skillById(meta.id)) || meta.id;
+      meta.name = step.defenderSkillNameHint || flow._skillNameFromData(flow._skillById(meta.id)) || meta.id;
     }
     if (group && meta.id === '-') {
       meta.id = '';

@@ -62,6 +62,8 @@ def test_private_memory_only_and_rebuilds_characters(app):
     state=get_room_state(name)
     assert state['characters'][0]['hp']==20
     assert state['characters'][1]['hp']==30
+    # 25マス四方のマップの真ん中の列に、左右対称に置く。
+    assert [(c['x'],c['y']) for c in state['characters']]==[(10,12),(14,12)]
     assert resolve_room_role('me',name)=='gm'
     assert resolve_room_role('other',name) is None
     assert resolve_room_role('admin',name,app_admin=True) is None

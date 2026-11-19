@@ -18,6 +18,7 @@ from manager.room_manager import (
 from manager.summons.service import apply_summon_change, process_summon_round_end
 from manager.granted_skills.service import apply_grant_skill_change, process_granted_skill_round_end
 from manager.battle.skill_rules import _extract_rule_data_from_skill
+from manager.battle.duel_log_utils import skill_name_from_commands
 from manager.battle.effect_presentation import snapshot_gains, record_gains
 from manager.utils import set_status_value, apply_origin_bonus_buffs, get_round_end_origin_recoveries
 
@@ -72,33 +73,6 @@ def extract_cost_from_text(text):
         return match.group(1).strip()
     return "なし"
 
-def extract_custom_skill_name(character, skill_id):
-    """
-    キャラクターの `commands` から、指定スキルIDのカスタム名を抽出する。
-
-    Args:
-        character (dict): キャラクターデータ
-        skill_id (str): スキルID (例: "Pp-01")
-
-    Returns:
-        str | None: カスタムスキル名
-    """
-    if not character or not skill_id:
-        return None
-
-    commands = character.get('commands', '')
-    if not commands:
-        return None
-
-    # 例: "【Pp-01 斬り込む】" / "【Pp-01: 斬り込む】"
-    pattern = rf'【{re.escape(skill_id)}[\s:：]+(.*)】'
-    match = re.search(pattern, commands)
-
-    if match:
-        return match.group(1).strip()
-
-    return None
-
 def format_skill_name_for_log(skill_id, skill_data, character=None):
     """
     ログ表示用のスキル名をフォーマットする。
@@ -118,7 +92,7 @@ def format_skill_name_for_log(skill_id, skill_data, character=None):
     # カスタム名を優先
     custom_name = None
     if character:
-        custom_name = extract_custom_skill_name(character, skill_id)
+        custom_name = skill_name_from_commands(character, skill_id)
 
     # カスタム名がなければスキル定義名
     if custom_name:
@@ -145,7 +119,7 @@ def format_skill_display_from_command(command_str, skill_id, skill_data, charact
     """
     custom_name = None
     if character and skill_id:
-        custom_name = extract_custom_skill_name(character, skill_id)
+        custom_name = skill_name_from_commands(character, skill_id)
 
     text = ""
     if custom_name:

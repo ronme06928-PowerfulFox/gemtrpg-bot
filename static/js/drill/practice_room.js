@@ -1,9 +1,9 @@
 (function () {
-  let active=null, selection=null, dialog=null, controller=null;
+  let active=null, selection=null, dialog=null, controller=null, centered=null;
   const resumeKey='gemPracticeRoom';
   function closeDetails() { if (dialog) dialog.close(); }
   function clear() {
-    closeDetails(); active=null;
+    closeDetails(); active=null; centered=null;
     sessionStorage.removeItem(resumeKey);
     document.body.classList.remove('practice-room');
     document.querySelector('.practice-controls')?.remove();
@@ -11,6 +11,7 @@
   function sync(state) {
     if (!state?.practice) { if (active) clear(); return; }
     active=state.practice; selection=JSON.parse(JSON.stringify(active.selection));
+    if (centered!==active.instance_id && centerOn(state.characters)) centered=active.instance_id;
     if (currentRoomName) sessionStorage.setItem(resumeKey,currentRoomName);
     document.body.classList.add('practice-room');
     const name=document.getElementById('current-room-name');
@@ -22,6 +23,18 @@
       bar.setAttribute('aria-label','練習の操作'); name.before(bar);
     }
     bar.innerHTML=`<span class="practice-mode">相手：<button type="button" data-practice="mode" data-mode="manual" aria-pressed="${active.opponent_mode==='manual'}">自分で</button><button type="button" data-practice="mode" data-mode="auto" aria-pressed="${active.opponent_mode==='auto'}">自動</button></span><button type="button" data-practice="reset">⟲ 最初に戻す</button><button type="button" data-practice="detail">詳しく見る</button><button type="button" data-practice="choose">キャラを選び直す</button>`;
+  }
+  // 前のルームで残った画面の位置ではなく、2人の駒の真ん中を画面の中央に置く。
+  function centerOn(characters) {
+    const viewport=document.getElementById('map-viewport');
+    const tokens=(characters || []).filter(char=>char.x>=0 && char.y>=0);
+    if (!viewport?.clientWidth || !viewport.clientHeight || !tokens.length) return false;
+    const middle=key=>(Math.min(...tokens.map(c=>c[key]))+Math.max(...tokens.map(c=>c[key]))+1)/2*GRID_SIZE;
+    visualOffsetX=viewport.clientWidth/2-middle('x')*visualScale;
+    visualOffsetY=viewport.clientHeight/2-middle('y')*visualScale;
+    window.visualViewNeedsCenter=false; window.visualViewNeedsTokenCheck=false;
+    if (typeof updateMapTransform==='function') updateMapTransform();
+    return true;
   }
   function request(action,mode) {
     return new Promise((resolve,reject)=>socket.timeout(10000).emit('practice_control',{room:currentRoomName,action,mode},

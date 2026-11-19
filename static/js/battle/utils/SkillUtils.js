@@ -1,3 +1,15 @@
+// キャラのチャットパレットの【ID 名前】（[ID 名前]・区切りの「:」「：」も可）から、そのスキルに付けた名前を返す。無ければ ''。
+export function skillNameFromCommands(actor, skillId) {
+    const sid = String(skillId || '').trim();
+    if (!sid) return '';
+    const regex = /[【\[]([^\s:：\]】]+)[\s:：]+([^】\]]+)[】\]]/g;
+    for (const match of String(actor?.commands || '').matchAll(regex)) {
+        const name = match[2].trim();
+        if (match[1] === sid && name) return name;
+    }
+    return '';
+}
+
 export function isWideSkillData(skillData) {
     if (!skillData) return false;
     const tags = skillData['tags'] || [];
@@ -22,5 +34,8 @@ export function hasWideSkill(char) {
 }
 
 // Global Bridge
-window.isWideSkillData = isWideSkillData;
-window.hasWideSkill = hasWideSkill;
+if (typeof window !== 'undefined') {
+    window.isWideSkillData = isWideSkillData;
+    window.hasWideSkill = hasWideSkill;
+    window.skillNameFromCommands = skillNameFromCommands;
+}

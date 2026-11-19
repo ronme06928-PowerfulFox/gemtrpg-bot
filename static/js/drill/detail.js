@@ -20,7 +20,7 @@
       const char=snapshot[key], held=new Set(data.heldSkills(char,skills).map(row=>row.id));
       const rows=[...skills.filter(row=>held.has(row.id)),...skills.filter(row=>!held.has(row.id))];
       return `<fieldset class="drill-side" data-side="${key}"><legend>${key==='actor'?'使う人':'相手'}：${h(char.name)}</legend><p>HP ${h(char.hp)} / MP ${h(char.mp)}</p>
-        <label>スキルを探す<input type="search" data-search></label><label>スキル<select data-skill><option value="">${key==='target'?'無し（一方攻撃）':'選んでください'}</option>${rows.map(row=>`<option value="${h(row.id)}" ${chosen[key]===row.id?'selected':''}>${held.has(row.id)?'★ ':''}${h(row.id)} ${h(row.name)}</option>`).join('')}</select></label></fieldset>`;
+        <label>スキルを探す<input type="search" data-search></label><label>スキル<select data-skill><option value="">${key==='target'?'無し（一方攻撃）':'選んでください'}</option>${rows.map(row=>`<option value="${h(row.id)}" ${chosen[key]===row.id?'selected':''}>${held.has(row.id)?'★ ':''}${h(row.id)} ${h(window.skillNameFromCommands(char,row.id) || row.name)}</option>`).join('')}</select></label></fieldset>`;
     }
     function change(event) {
       if (event.target.matches('[data-drill-scope]')) { scope=event.target.value; if (latest) result.innerHTML=view.result(latest,scope); return; }

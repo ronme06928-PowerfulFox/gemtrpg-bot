@@ -10,6 +10,7 @@ from manager.room_manager import (
     save_specific_room_state as _default_save_specific_room_state,
     trim_room_logs_with_archive as _default_trim_room_logs_with_archive,
 )
+from manager.battle.duel_log_utils import skill_name_from_commands
 from manager.battle.trace_helpers import (
     _trace_kind_label,
     _trace_outcome_label,
@@ -242,7 +243,8 @@ def _build_trace_popup_payload(trace_entry, room_state):
             'slot_speed': init_a,
             'slot_index_in_actor': idx_a,
             'skill_id': attacker_skill_id or None,
-            'skill_name': attacker_skill_meta.get('name') or parsed_a.get('name') or None,
+            'skill_name': (skill_name_from_commands(chars_by_id.get(attacker_id), attacker_skill_id)
+                           or attacker_skill_meta.get('name') or parsed_a.get('name') or None),
             'skill_meta': attacker_skill_meta or {},
             'power_snapshot': _sanitize_power_snapshot(snap_a_raw),
             'power_breakdown': _sanitize_power_breakdown(breakdown_a_raw),
@@ -256,7 +258,8 @@ def _build_trace_popup_payload(trace_entry, room_state):
             'slot_speed': init_b,
             'slot_index_in_actor': idx_b,
             'skill_id': defender_skill_id or None,
-            'skill_name': defender_skill_meta.get('name') or parsed_b.get('name') or None,
+            'skill_name': (skill_name_from_commands(chars_by_id.get(defender_id), defender_skill_id)
+                           or defender_skill_meta.get('name') or parsed_b.get('name') or None),
             'skill_meta': defender_skill_meta or {},
             'power_snapshot': _sanitize_power_snapshot(snap_b_raw),
             'power_breakdown': _sanitize_power_breakdown(breakdown_b_raw),

@@ -2,6 +2,7 @@ import { store } from '../core/BattleStore.js';
 import { socketClient } from '../core/SocketClient.js';
 import { intentPerformance } from '../core/IntentPerformance.js';
 import { MatchOdds } from './MatchOdds.js';
+import { skillNameFromCommands } from '../utils/SkillUtils.js';
 
 class DeclarePanel {
     constructor() {
@@ -235,7 +236,7 @@ class DeclarePanel {
         const skillPickerHtml = showSkillPicker
             ? this._buildSkillPickerHtml(sourceChar, state, sourceSlotId, effectiveTargetSlotId, skillId)
             : '';
-        const meta = this._resolveDisplayMeta(skillId, calc);
+        const meta = this._resolveDisplayMeta(skillId, calc, sourceChar);
         const commandText = this._resolveCommandText(calc);
         const powerAdjustRows = this._resolvePowerAdjustRows(calc);
         const powerSummary = this._resolvePowerSummaryText(calc, powerAdjustRows);
@@ -584,7 +585,7 @@ class DeclarePanel {
             ? (context.skillId || '')
             : String((state?.intents?.[slotId]?.skill_id || '') || '');
         const calc = isSource ? (context.calc || null) : (context.compareCalc || null);
-        const meta = this._resolveDisplayMeta(skillId, calc);
+        const meta = this._resolveDisplayMeta(skillId, calc, actor);
         const commandText = this._resolveCommandText(calc) || '';
         const rangeText = this._resolveReadonlyRangeText(meta, calc, actor, skillId);
         const label = this._formatSlotLabel(state, slotId);
@@ -631,7 +632,7 @@ class DeclarePanel {
             && nameFromMeta !== '(none)'
             && nameFromMeta !== sid
         );
-        const nameFromCommands = this._findSkillNameFromActorCommands(actor, sid);
+        const nameFromCommands = skillNameFromCommands(actor, sid);
         // キャラクターが付けた名前（オリジナル名）を優先し、なければスキルデータの名前を使う
         const resolvedName = nameFromCommands || (isMetaUsable ? nameFromMeta : '');
         if (sid && resolvedName && resolvedName !== sid) return `${sid} ${resolvedName}`;
@@ -641,22 +642,7 @@ class DeclarePanel {
     }
 
     _skillNameForActor(actor, skillId) {
-        return this._findSkillNameFromActorCommands(actor, skillId) || this._readSkillMeta(skillId).name || skillId;
-    }
-
-    _findSkillNameFromActorCommands(actor, skillId) {
-        const sid = String(skillId || '').trim();
-        if (!sid) return '';
-        const commands = String(actor?.commands || '');
-        if (!commands) return '';
-        const regex = /[\u3010\[]([^ \]\u3011]+)\s+([^\u3011\]]+)[\u3011\]]/g;
-        let match;
-        while ((match = regex.exec(commands)) !== null) {
-            const id = String(match[1] || '').trim();
-            const name = String(match[2] || '').trim();
-            if (id === sid && name) return name;
-        }
-        return '';
+        return skillNameFromCommands(actor, skillId) || this._readSkillMeta(skillId).name || skillId;
     }
 
     _toggleSideMinimized(side) {
@@ -1630,9 +1616,14 @@ class DeclarePanel {
         return `${name} #${index}`;
     }
 
-    _resolveDisplayMeta(skillId, calc) {
+    _resolveDisplayMeta(skillId, calc, actor = null) {
         const base = this._readSkillMeta(skillId);
-        const baseSkill = (window.allSkillData || {})[skillId] || {};
+        const masterSkill = (window.allSkillData || {})[skillId] || {};
+        // 説明のコマンド欄の【ID 名前】も、キャラが付けた名前にそろえる。
+        const ownName = skillNameFromCommands(actor, skillId);
+        const baseSkill = (ownName && masterSkill['チャットパレット'])
+            ? { ...masterSkill, 'チャットパレット': String(masterSkill['チャットパレット']).replace(/【[^】]*】/, `【${skillId} ${ownName}】`) }
+            : masterSkill;
         if (!calc || calc.error) {
             const baseDetailHtml = (baseSkill && typeof window.formatSkillDetailHTML === 'function')
                 ? window.formatSkillDetailHTML(baseSkill)

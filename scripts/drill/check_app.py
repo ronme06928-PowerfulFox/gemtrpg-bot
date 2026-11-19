@@ -39,7 +39,7 @@ def main():
                 'name':'演習の番兵','allow_ally':False,'allow_enemy':True,'marks':['known'],
                 'hp':80,'mp':20,'image':'/static/images/characters/人狼型シュラーカー.png',
                 'params':[{'label':'速度','value':2},{'label':'五感','value':2},{'label':'物理補正','value':3}],
-                'skills':[{'id':'E-00'}]}})['entry']
+                'skills':[{'id':'E-00','name':'番兵の一撃'}]}})['entry']
             staff.close()
             context=browser.new_context(base_url=args.base,viewport={'width':1280,'height':800})
             page=context.new_page(); page.on('pageerror',lambda error:errors.append(str(error)))
@@ -60,6 +60,15 @@ def main():
             page.locator('.drill-start').click()
             page.wait_for_function('window.BattleStore?.state?.round===1 && Object.keys(BattleStore.state.slots).length>=2')
             expect(page.locator('.practice-controls')).to_be_visible()
+            # 駒は真ん中の列に置き、2人の真ん中を画面の中央に合わせる。
+            page.wait_for_timeout(600)
+            gap=page.evaluate('''() => {
+              const v=document.querySelector('#map-viewport').getBoundingClientRect();
+              const r=[...document.querySelectorAll('#map-token-layer .map-token')].map(t=>t.getBoundingClientRect());
+              const x=(Math.min(...r.map(b=>b.left))+Math.max(...r.map(b=>b.right)))/2, y=(Math.min(...r.map(b=>b.top))+Math.max(...r.map(b=>b.bottom)))/2;
+              return [Math.abs(x-(v.left+v.width/2)), Math.abs(y-(v.top+v.height/2)), r.length];
+            }''')
+            assert gap[2]==2 and gap[0]<40 and gap[1]<40,gap
             room=page.evaluate('currentRoomName')
             assert room.startswith('__practice__:')
             assert page.locator('#header-attribute').inner_text()=='GM'
@@ -83,10 +92,15 @@ def main():
             expect(page.locator('.battle-odds-seal')).to_be_visible()
             page.wait_for_timeout(450)
             page.screenshot(path=str(OUT/'declare.png'),animations='disabled')
+            foe_panel=page.locator('#select-resolve-declare-panel-right').inner_text()
+            assert '番兵の一撃' in foe_panel and '殴る' not in foe_panel,foe_panel
             page.locator('#declare-commit-btn-header').click()
             expect(page.locator('#sr-resolve-confirm-btn')).to_be_enabled()
             page.locator('#sr-resolve-confirm-btn').click()
             page.locator('.resolve-flow-next-btn').wait_for()
+            # 敵ユニットに付けた名前が、解決の表示でも元の名前（殴る）の代わりに出る。
+            expect(page.locator('#resolve-flow-panel')).to_contain_text('番兵の一撃')
+            assert '殴る' not in page.locator('#resolve-flow-panel').inner_text()
             # Use the normal presentation buttons until the existing completion path starts round 2.
             for _ in range(20):
                 if page.evaluate('BattleStore.state.round>=2'): break

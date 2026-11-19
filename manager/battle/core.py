@@ -109,7 +109,6 @@ from manager.battle.resolve_snapshot_utils import (
 from manager.battle.runtime_actions import (
     calculate_opponent_skill_modifiers,
     extract_cost_from_text,
-    extract_custom_skill_name,
     format_skill_name_for_log,
     format_skill_display_from_command,
     process_on_damage_buffs,

@@ -4,6 +4,7 @@ import { stageMotionAt, renderStageMotion } from './resolve_stage_motion.js';
 import { pickStageLayout } from './resolve_stage_layout.js';
 import { renderResolveStage, fitResolveStage, isOneSidedPresentation, currentStageLayout } from './resolve_stage.js';
 import { store } from '../core/BattleStore.js';
+import { skillNameFromCommands } from '../utils/SkillUtils.js';
 import { eventBus } from '../core/EventBus.js';
 import { socketClient } from '../core/SocketClient.js';
 import { resolveStageTiming, playResolveStageFx, isDiceDamageSource, resolveOutcomePlan } from './resolve_flow_fx.js';
@@ -583,11 +584,17 @@ class ResolveFlowPanel {
         const defenderSkillId = raw.defender_skill_id || this._intentSkillId(state, defenderSlotId) || parsedDef.id || null;
         const attackerSkillData = this._skillById(attackerSkillId);
         const defenderSkillData = this._skillById(defenderSkillId);
-        const attackerSkillName = this._skillNameFromData(payload.skill)
+        // キャラが付けた名前（チャットパレットの【ID 名前】）を、スキルデータの名前より先に使う。
+        const roster = state || store.state || {};
+        const ownName = (actorId, slotId, skillId) => skillNameFromCommands(
+            this._characterById(actorId || this._slotActorId(slotId, roster), roster), skillId);
+        const attackerSkillName = ownName(raw.attacker_actor_id, attackerSlotId, attackerSkillId)
+            || this._skillNameFromData(payload.skill)
             || this._skillNameFromData(attackerSkillData)
             || parsedAtk.name
             || null;
-        const defenderSkillName = this._skillNameFromData(defenderSkillData)
+        const defenderSkillName = ownName(raw.defender_actor_id || raw.target_actor_id, defenderSlotId, defenderSkillId)
+            || this._skillNameFromData(defenderSkillData)
             || parsedDef.name
             || null;
 
