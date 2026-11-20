@@ -11,6 +11,29 @@ class CharacterNotFound(ValueError):
     pass
 
 
+def add_practice_skills(user, character, skills):
+    from manager.encyclopedia import skill_entries
+    from manager.battle.skill_access import _extract_skill_ids_from_commands
+
+    if not isinstance(skills, list) or any(not isinstance(key, str) or not 1 <= len(key) <= 80 for key in skills):
+        raise ValueError('skillsはスキルID（1〜80字）の配列で指定してください。')
+    ids = list(dict.fromkeys(skills))
+    if not ids:
+        return ids
+    readable = {row.entry_id: row.payload for row in skill_entries(user)}
+    for key in ids:
+        if key not in readable:
+            raise ValueError(f'図鑑で読める公開スキルではありません: {key}')
+        if not readable[key].get('チャットパレット', '').strip():
+            raise ValueError(f'チャットパレットがありません: {key}')
+    commands = character.get('commands') or ''
+    held = set(_extract_skill_ids_from_commands(commands))
+    lines = [readable[key]['チャットパレット'].strip() for key in ids if key not in held]
+    if lines:
+        character['commands'] = '\n'.join(([commands.rstrip()] if commands else []) + lines)
+    return ids
+
+
 def build_selection(user,selection,side,*,allow_blank=False):
     if not isinstance(selection,dict) or selection.keys()-{'source','id','name'}:
         raise ValueError('選択元とIDだけを指定してください。')

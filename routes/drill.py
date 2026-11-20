@@ -51,12 +51,15 @@ def character():
 @session_required
 def create_practice():
     from manager import practice_rooms
-    from manager.drill.characters import build_selection, CharacterNotFound
+    from manager.drill.characters import build_selection, add_practice_skills, CharacterNotFound
     from manager.room_manager import get_room_state, build_participant_state
-    if (request.content_length or 0)>8192:
+    if (request.content_length or 0)>1048576:
+        return jsonify(error='要求が大きすぎます。'),422
+    raw = request.stream.read(1048577)
+    if len(raw) > 1048576:
         return jsonify(error='要求が大きすぎます。'),422
     try:
-        body=request.get_json(silent=True)
+        body=json.loads(raw) if request.is_json else None
     except (ValueError,UnicodeError,RecursionError):
         body=None
     if (not isinstance(body,dict) or body.keys()-{'actor','target','mode'}
@@ -64,8 +67,16 @@ def create_practice():
         return jsonify(error='2人の選択を確認してください。'),422
     try:
         selection={key:body.get(key) for key in ('actor','target')}
-        characters=[build_selection(g.authenticated_user,selection[key],side,allow_blank=True)
-                    for key,side in (('actor','ally'),('target','enemy'))]
+        characters=[]
+        for key, side in (('actor','ally'),('target','enemy')):
+            chosen = selection[key]
+            if not isinstance(chosen, dict):
+                raise ValueError('2人の選択を確認してください。')
+            character = build_selection(g.authenticated_user,
+                                        {name: value for name, value in chosen.items() if name != 'skills'},
+                                        side, allow_blank=True)
+            selection[key] = {**chosen, 'skills': add_practice_skills(g.authenticated_user, character, chosen.get('skills', []))}
+            characters.append(character)
         name,_=practice_rooms.create(g.authenticated_user,selection,characters,body.get('mode','manual'))
         return jsonify(room_name=name,state=build_participant_state(get_room_state(name))),201
     except CharacterNotFound as error:

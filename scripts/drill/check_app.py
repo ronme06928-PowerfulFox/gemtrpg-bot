@@ -56,6 +56,21 @@ def main():
             page.locator('[data-side="target"] [data-source]').select_option('unit')
             page.locator('[data-side="target"] [data-record]').select_option(unit['entry_id'])
             expect(page.locator('.drill-start')).to_be_enabled()
+            def add_skill(side, key):
+                field=page.locator(f'[data-side="{side}"]')
+                field.locator('[data-add-search]').fill(key)
+                field.locator('[data-add-picker]').select_option(key)
+                field.locator('[data-add-skill]').click()
+                expect(field.locator('[data-remove-skill="'+key+'"]')).to_be_visible()
+                assert not field.locator('[data-add-picker] option[value="'+key+'"]').count()
+            add_skill('actor','Pb-00')
+            add_skill('actor','Pp-00')
+            # Choosing a different source retains additions, including on a blank character.
+            page.locator('[data-side="actor"] [data-source]').select_option('blank')
+            page.locator('[data-side="actor"] [data-name]').fill('練習の冒険者')
+            expect(page.locator('[data-side="actor"] [data-remove-skill="Pb-00"]')).to_be_visible()
+            add_skill('target','Ps-00')
+            page.screenshot(path=str(OUT/'skills.png'),animations='disabled')
             assert not page.locator('.drill input[type="number"]').count()
             page.locator('.drill-start').click()
             page.wait_for_function('window.BattleStore?.state?.round===1 && Object.keys(BattleStore.state.slots).length>=2')
@@ -70,6 +85,8 @@ def main():
             }''')
             assert gap[2]==2 and gap[0]<40 and gap[1]<40,gap
             room=page.evaluate('currentRoomName')
+            assert page.evaluate('battleState.characters.find(c=>c.id==="practice_0").commands.includes("【Pb-00 ")')
+            assert page.evaluate('battleState.characters.find(c=>c.id==="practice_1").commands.includes("【Ps-00 ")')
             assert room.startswith('__practice__:')
             assert page.locator('#header-attribute').inner_text()=='GM'
             assert api(page,'/list_rooms')['rooms']==[]
@@ -80,7 +97,7 @@ def main():
             page.locator('.app-loading').wait_for(state='hidden')
             assert page.evaluate('currentRoomName')==room
             page.locator('[data-practice="mode"][data-mode="auto"]').click()
-            page.wait_for_function('Object.values(BattleStore.state.intents).some(row=>row.skill_id==="E-00" && row.committed)')
+            page.wait_for_function('Object.values(BattleStore.state.intents).some(row=>row.skill_id && row.committed)')
             def select_source():
                 page.evaluate('''() => {
                   const slots=Object.values(BattleStore.state.slots);
@@ -88,18 +105,20 @@ def main():
                   BattleStore.setDeclare({sourceSlotId:a.slot_id,targetSlotId:b.slot_id,skillId:null,mode:'editing'});
                 }''')
             select_source()
-            page.locator('.skill-picker-card[data-skill-id="Ps-00"]').click()
+            page.locator('.skill-picker-card[data-skill-id="Pb-00"]').click()
             expect(page.locator('.battle-odds-seal')).to_be_visible()
             page.wait_for_timeout(450)
-            page.screenshot(path=str(OUT/'declare.png'),animations='disabled')
+            page.screenshot(path=str(OUT/'added_declare.png'),animations='disabled')
+            # 自動の宣言は足したスキルも選ぶので、E-00 を選んだときだけ付けた名前を確かめる。
+            foe_named=page.evaluate('Object.values(BattleStore.state.intents).some(row=>row.skill_id==="E-00" && row.committed)')
             foe_panel=page.locator('#select-resolve-declare-panel-right').inner_text()
-            assert '番兵の一撃' in foe_panel and '殴る' not in foe_panel,foe_panel
+            assert '殴る' not in foe_panel and (not foe_named or '番兵の一撃' in foe_panel),foe_panel
             page.locator('#declare-commit-btn-header').click()
             expect(page.locator('#sr-resolve-confirm-btn')).to_be_enabled()
             page.locator('#sr-resolve-confirm-btn').click()
             page.locator('.resolve-flow-next-btn').wait_for()
             # 敵ユニットに付けた名前が、解決の表示でも元の名前（殴る）の代わりに出る。
-            expect(page.locator('#resolve-flow-panel')).to_contain_text('番兵の一撃')
+            if foe_named: expect(page.locator('#resolve-flow-panel')).to_contain_text('番兵の一撃')
             assert '殴る' not in page.locator('#resolve-flow-panel').inner_text()
             # Use the normal presentation buttons until the existing completion path starts round 2.
             for _ in range(20):
@@ -108,18 +127,19 @@ def main():
                 if next_button.count() and next_button.is_visible() and next_button.is_enabled(): next_button.click()
                 page.wait_for_timeout(700)
             page.wait_for_function('BattleStore.state.round===2 && BattleStore.state.phase==="select"',timeout=20000)
-            assert page.evaluate('battleState.characters.find(c=>c.id==="practice_1").hp')<80
+            assert page.evaluate('battleState.characters.some(c=>c.hp<c.maxHp)')
             page.locator('[data-practice="reset"]').click()
             page.wait_for_function('BattleStore.state.round===1 && battleState.characters.find(c=>c.id==="practice_1").hp===80')
             select_source()
-            page.locator('.skill-picker-card[data-skill-id="Ps-00"]').click()
+            page.locator('.skill-picker-card[data-skill-id="Pb-00"]').click()
             expect(page.locator('.battle-odds-seal')).to_be_visible()
             page.locator('[data-practice="detail"]').click()
             expect(page.locator('.practice-detail .drill-verdict')).to_be_visible()
             assert not page.locator('.practice-detail [data-source]').count()
             assert not page.locator('.practice-detail input[type="number"]').count()
-            page.set_viewport_size({'width':1280,'height':1200})
-            page.screenshot(path=str(OUT/'detail.png'),animations='disabled')
+            page.locator('.practice-detail [data-side="actor"] [data-skill]').select_option('Pb-00')
+            expect(page.locator('.practice-detail .drill-verdict')).to_be_visible()
+            assert page.locator('.practice-detail [data-side="target"] [data-skill] option[value="Ps-00"]').count()==1
             page.locator('.practice-detail-close').click()
             page.set_viewport_size({'width':1280,'height':800})
             assert not page.locator('.practice-detail').count()
@@ -127,8 +147,11 @@ def main():
             page.wait_for_function('battleState.battle_mode==="pvp"')
             page.locator('[data-practice="choose"]').click()
             page.wait_for_url('**/#drill')
-            assert page.locator('[data-side="actor"] [data-record]').input_value()==hero['id']
+            assert page.locator('[data-side="actor"] [data-source]').input_value()=='blank'
             assert page.locator('[data-side="target"] [data-record]').input_value()==unit['entry_id']
+            for side,keys in [('actor',['Pb-00','Pp-00']),('target',['Ps-00'])]:
+                for key in keys:
+                    expect(page.locator(f'[data-side="{side}"] [data-remove-skill="{key}"]')).to_be_visible()
             expect(page.locator('.drill-start')).to_be_enabled()
             page.locator('.drill-start').click()
             expect(page.locator('.practice-controls')).to_be_visible()
@@ -140,7 +163,7 @@ def main():
                 assert connection.execute('SELECT count(*) FROM rooms').fetchone()[0]==0
                 assert connection.execute('SELECT count(*) FROM catalog_encounters WHERE user_id=?',(user['user_id'],)).fetchone()[0]==0
             assert not errors,errors
-            print('Verified player-owned vs known unit, private GM controls, real match/odds, next round, reset, detail, manual/auto, reselect, menu, no Room/Encounter rows.')
+            print('Verified player additions: blank actor with two skills, known unit with one, real declaration/odds/match, next round, reset/detail/reselection retain additions, no Room/Encounter rows.')
             print('Screenshots:',OUT)
         finally:
             browser.close()

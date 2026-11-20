@@ -1451,4 +1451,6 @@ CatalogEncounterの種類にitemを追加する。敵の登場時、そのキャ
 
 POST /api/drill/practiceはログイン必須で、actor/targetに選択元(source・id、素の値ではname)を受ける。本人の持ちキャラと図鑑で読める敵ユニットだけからサーバーで組み直す。返すのはroom_nameと参加者用state。Socketのpractice_control（room・action・mode）は所有者かつ在室の人だけがreset・mode（manual/auto）を行う。クライアントのキャラ辞書は受け付けない。
 
+PR63-5ではactor/targetに任意のskills（スキルIDの配列）を受ける。件数の上限は設けず、要求全体は1MiB、IDは1〜80字に制限する。省略は空配列。重複を除き、manager/encyclopedia.pyのskill_entriesで本人の図鑑の閲覧条件を検査する。存在しない・廃止・閲覧不可のIDは422でそのIDを返し、既存の練習ルームは置き換えない。元キャラの作成後、その写しのcommandsにマスターのパレットを加え、作成時の選択とリセット用の初期状態に含める。操作はE02「演習場と詳しい分布」を参照。
+
 予約名__practice__:はメモリの登録簿だけで認可し、作った人をGMとして扱う。管理者を含む他人は入れない。Room・RoomMember・ログアーカイブ・CatalogEncounterに行を作らず、ロビーにも出さない。通常の保存経路、即時フラッシュ、DB保存の入口でも予約名を除く。退室と作り直しでは即時破棄、切断と未入室では60秒後に破棄し、再接続で猶予を解除する。タブには再接続用のルーム名だけをsessionStorageに保ち、状態の保存先にはしない。プロセスが止まると消える。
