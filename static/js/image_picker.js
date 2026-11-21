@@ -161,6 +161,56 @@ function openImagePicker(onSelect, pickType = 'character') {
     };
 }
 
+function encodePickerWebp(source, maxEdge, crop) {
+    const canvas = document.createElement('canvas');
+    if (crop) {
+        canvas.width = canvas.height = maxEdge;
+    } else {
+        const scale = Math.min(1, maxEdge / Math.max(source.naturalWidth, source.naturalHeight));
+        canvas.width = Math.max(1, Math.round(source.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(source.naturalHeight * scale));
+    }
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('画像を描画できません');
+    ctx.drawImage(source, ...(crop || []), 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(blob => {
+            if (blob?.type === 'image/webp') resolve(blob);
+            else reject(new Error('画像を WebP に変換できません'));
+        }, 'image/webp', 0.8);
+    });
+}
+
+async function preparePickerUpload(file, type) {
+    if (file.type === 'image/gif') return file;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        throw new Error('PNG・JPEG・GIF・WebP の画像を選択してください');
+    }
+    const url = URL.createObjectURL(file);
+    try {
+        const image = new Image();
+        image.src = url;
+        await image.decode();
+        return await encodePickerWebp(image, type === 'background' ? 1920 : 1024);
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+}
+
+async function uploadPickerImage(file, {name, type, visibility}) {
+    const formData = new FormData();
+    formData.append('file', file, file.name || 'image.webp');
+    formData.append('name', name);
+    formData.append('type', type);
+    if (visibility === 'gm') formData.append('visibility', visibility);
+    const response = await fetch('/api/upload_image', {
+        method: 'POST', body: formData, credentials: 'include'
+    });
+    const data = await response.json();
+    if (!response.ok || !data.url) throw new Error(data.error || '画像を送信できません');
+    return data;
+}
+
 async function maybeCropImageSelection(imageData, pickType) {
     if (pickType !== 'character') {
         return {
@@ -221,6 +271,8 @@ function openImageCropperModal(imageData) {
         const cancelBtn = modal.querySelector('#crop-cancel-btn');
         const originalBtn = modal.querySelector('#crop-original-btn');
         const applyBtn = modal.querySelector('#crop-apply-btn');
+        applyBtn.disabled = true;
+        let uploading = false;
 
         const sourceImg = new Image();
         let baseScale = 1;
@@ -315,14 +367,23 @@ function openImageCropperModal(imageData) {
             renderCropPreview();
         });
 
-        cancelBtn.onclick = () => closeWith(null);
-        originalBtn.onclick = () => closeWith({
+        const original = {
             ...imageData,
             originalUrl: imageData.url,
             croppedUrl: imageData.url
-        });
+        };
+        cancelBtn.onclick = () => {
+            if (!uploading) closeWith(null);
+        };
+        originalBtn.onclick = () => {
+            if (!uploading) closeWith(original);
+        };
 
-        applyBtn.onclick = () => {
+        applyBtn.onclick = async () => {
+            if (applyBtn.disabled || resolved) return;
+            uploading = true;
+            applyBtn.disabled = cancelBtn.disabled = originalBtn.disabled = true;
+            applyBtn.textContent = '送信中…';
             try {
                 const scale = baseScale * zoom;
                 const w = sourceImg.naturalWidth * scale;
@@ -338,40 +399,27 @@ function openImageCropperModal(imageData) {
                 const sx = Math.max(0, Math.min(sourceImg.naturalWidth - sw, sxRaw));
                 const sy = Math.max(0, Math.min(sourceImg.naturalHeight - sh, syRaw));
 
-                const canvas = document.createElement('canvas');
-                canvas.width = 512;
-                canvas.height = 512;
-                const ctx = canvas.getContext('2d');
-                if (!ctx) {
-                    closeWith({
-                        ...imageData,
-                        originalUrl: imageData.url,
-                        croppedUrl: imageData.url
-                    });
-                    return;
-                }
-                ctx.drawImage(sourceImg, sx, sy, sw, sh, 0, 0, 512, 512);
-                const croppedUrl = canvas.toDataURL('image/png');
+                const file = await encodePickerWebp(sourceImg, 512, [sx, sy, sw, sh]);
+                const uploaded = await uploadPickerImage(file, {
+                    type: 'crop',
+                    name: imageData.name || '切り抜き',
+                    visibility: imageData.visibility
+                });
                 closeWith({
                     ...imageData,
+                    ...uploaded,
                     originalUrl: imageData.url,
-                    croppedUrl: croppedUrl,
-                    url: croppedUrl,
-                    name: `${imageData.name || 'image'} (cropped)`
+                    croppedUrl: uploaded.url
                 });
             } catch (err) {
                 console.error('[ImagePicker] Crop error:', err);
                 window.showAppNotice('画像の切り抜きに失敗しました。元画像を使用します。', {kind: 'error'});
-                closeWith({
-                    ...imageData,
-                    originalUrl: imageData.url,
-                    croppedUrl: imageData.url
-                });
+                closeWith(original);
             }
         };
 
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeWith(null);
+            if (e.target === modal && !uploading) closeWith(null);
         });
 
         sourceImg.onload = () => {
@@ -382,15 +430,13 @@ function openImageCropperModal(imageData) {
             offsetY = 0;
             imgEl.src = imageData.url;
             renderCropPreview();
+            applyBtn.disabled = false;
         };
         sourceImg.onerror = () => {
             window.showAppNotice('画像の読み込みに失敗しました。元画像を使用します。', {kind: 'error'});
-            closeWith({
-                ...imageData,
-                originalUrl: imageData.url,
-                croppedUrl: imageData.url
-            });
+            closeWith(original);
         };
+        sourceImg.crossOrigin = 'anonymous';
         sourceImg.src = imageData.url;
     });
 }
@@ -424,7 +470,7 @@ async function loadGalleryImages(modal, onSelect, query = '', pickType = 'charac
         container.innerHTML = '';
         images.forEach(img => {
             const card = createImageCard(img, async () => {
-                const selected = await maybeCropImageSelection({ url: img.url, id: img.id, name: img.name }, pickType);
+                const selected = await maybeCropImageSelection(img, pickType);
                 if (!selected) return;
                 onSelect(selected);
                 modal.remove();
@@ -641,6 +687,7 @@ function setupUploadTab(modal, onSelect, pickType = 'character') {
 
     // Handle Upload Execution
     uploadBtn.onclick = async () => {
+        if (uploadBtn.disabled) return;
         const file = fileInput.files[0];
         if (!file) {
             window.showAppNotice("ファイルが選択されていません", {kind: 'error'});
@@ -656,52 +703,26 @@ function setupUploadTab(modal, onSelect, pickType = 'character') {
         statusText.textContent = 'アップロード中...';
         statusText.style.color = 'var(--ui-sub)';
 
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', nameInput.value || file.name);
-        formData.append('name', nameInput.value || file.name);
-        formData.append('type', typeSelect.value); // ★ タイプ送信
-        if (gmOnlyCheck && gmOnlyCheck.checked) {
-            formData.append('visibility', 'gm');
-        }
-
+        const type = typeSelect.value || pickType;
+        const name = nameInput.value || file.name;
+        const visibility = gmOnlyCheck?.checked ? 'gm' : 'public';
         try {
-            const response = await fetch('/api/upload_image', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include'
-            });
-
-            const data = await response.json();
-
-            if (data.url) {
-                statusText.textContent = '✓ アップロード完了！';
-                statusText.style.color = '#28a745';
-                uploadBtn.style.display = 'none'; // Hide button on success
-
-                // 成功したら自動的に選択して閉じる
-                setTimeout(async () => {
-                    const selected = await maybeCropImageSelection({ url: data.url, id: data.id, name: data.name }, typeSelect.value || pickType);
-                    if (!selected) return;
-                    onSelect(selected);
-                    modal.remove();
-                }, 500);
-            } else {
-                statusText.textContent = '✗ アップロード失敗: ' + (data.error || '不明なエラー');
-                statusText.style.color = '#dc3545';
-
-                // Re-enable button
-                uploadBtn.disabled = false;
-                uploadBtn.textContent = 'アップロード開始';
-                uploadBtn.style.opacity = '1';
-                uploadBtn.style.cursor = 'pointer';
+            const prepared = await preparePickerUpload(file, type);
+            const data = await uploadPickerImage(prepared, {name, type, visibility});
+            statusText.textContent = '✓ アップロード完了！';
+            statusText.style.color = '#28a745';
+            uploadBtn.style.display = 'none';
+            if (!modal.isConnected) return;
+            const selected = await maybeCropImageSelection(data, type);
+            if (selected && modal.isConnected) {
+                onSelect(selected);
+                modal.remove();
             }
         } catch (err) {
             console.error('[ImagePicker] Upload error:', err);
-            statusText.textContent = '✗ 通信エラー';
+            statusText.textContent = `✗ アップロード失敗: ${err.message}`;
             statusText.style.color = '#dc3545';
-
-            // Re-enable button
+        } finally {
             uploadBtn.disabled = false;
             uploadBtn.textContent = 'アップロード開始';
             uploadBtn.style.opacity = '1';

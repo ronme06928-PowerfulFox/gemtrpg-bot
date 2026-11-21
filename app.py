@@ -553,16 +553,8 @@ def upload_image():
         cloudinary_folder = "gemtrpg/backgrounds"
 
     try:
-        # Cloudinaryへアップロード
-        # ユーザー要望により圧縮制限を緩和 (10MB制限内なら画質維持)
-        # width制限を撤廃し、画質のみauto設定
-        result = cloudinary.uploader.upload(
-            file,
-            folder=cloudinary_folder,
-            transformation=[
-                {'quality': "auto", 'fetch_format': "auto"}  # 自動最適化のみ
-            ]
-        )
+        # 静止画はブラウザーで WebP に整形済み。GIF はアニメーションを保って預ける。
+        result = cloudinary.uploader.upload(file, folder=cloudinary_folder)
 
         # アップロード成功: セキュアURL（https）を返す
         secure_url = result['secure_url']
@@ -574,12 +566,7 @@ def upload_image():
         from manager.image_manager import register_image
         user_id = session.get('username', 'unknown')
 
-        # db_type: DB上の分類。frontendのエロフィルタなどと競合しないか確認が必要だが
-        # ここでは 'user' (キャラ) or 'background' としてみる
-        # 既存の 'user' はキャラ扱い。
-        db_image_type = 'user'
-        if upload_type == 'background':
-            db_image_type = 'background'
+        db_image_type = upload_type if upload_type in ('background', 'crop') else 'user'
 
         requested_visibility = str(request.form.get('visibility') or 'public').strip().lower()
         image_visibility = 'gm' if requested_visibility == 'gm' and session.get('attribute') == 'GM' else 'public'
@@ -598,7 +585,8 @@ def upload_image():
         return jsonify({
             'url': secure_url,
             'id': registered_image['id'],
-            'name': registered_image['name']
+            'name': registered_image['name'],
+            'visibility': registered_image['visibility']
         })
 
     except Exception as e:
@@ -613,7 +601,7 @@ def get_images_api():
     画像一覧を取得するAPI
     クエリパラメータ:
         q: 検索クエリ（画像名で検索）
-        type: 'user' または 'default'
+        type: 'user', 'background', 'default'
     """
     from manager.image_manager import get_images
 

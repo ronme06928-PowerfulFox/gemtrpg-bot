@@ -17,7 +17,7 @@ def register_image(url: str, public_id: str, name: str, uploader: str, image_typ
         public_id: Cloudinary上のpublic_id
         name: 画像の名前（ユーザー指定）
         uploader: アップロードしたユーザーID
-        image_type: 'user' または 'default'
+        image_type: 'user', 'default', 'background', 'crop' のいずれか
 
     Returns:
         登録された画像オブジェクト
@@ -40,18 +40,17 @@ def register_image(url: str, public_id: str, name: str, uploader: str, image_typ
 
 def get_images(user_id: Optional[str] = None, query: Optional[str] = None, image_type: Optional[str] = None, is_gm: bool = False) -> List[Dict]:
     """
-    画像一覧を取得（フィルタリング対応）
+    ギャラリーに並べる画像一覧を取得する。
 
     Args:
         user_id: 指定した場合、そのユーザーがアップロードした画像のみ取得
         query: 名前による検索クエリ
-        image_type: 'user', 'default', または None（すべて）
+        image_type: 'user', 'default', 'background', または None（全種別）
 
     Returns:
         画像オブジェクトのリスト
     """
-    # ベースクエリ
-    images_query = ImageRegistry.query
+    images_query = ImageRegistry.query.filter(ImageRegistry.type != 'crop')
 
     # フィルタリング
     if user_id:
