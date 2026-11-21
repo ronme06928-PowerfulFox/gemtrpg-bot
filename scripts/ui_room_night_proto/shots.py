@@ -7,7 +7,7 @@ from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 ART = "/static/images/"
-CAVE = ART + "backgrounds/暗い遺跡洞窟.png"
+CAVE = ART + "backgrounds/暗い遺跡洞窟.webp"
 HEIGHT = 800
 WIDTHS = (1280, 1024)
 

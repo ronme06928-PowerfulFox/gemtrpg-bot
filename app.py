@@ -46,6 +46,7 @@ if os.path.exists(load_dotenv_path):
     load_dotenv(load_dotenv_path)
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
+STATIC_CACHE_MAX_AGE = 24 * 60 * 60
 # 計画36: キャラ作成ツール（単体HTML）。static/ 配下ではなくリポジトリ直下にあるため専用に配信する。
 CHARA_CREATOR_DIR = os.path.join(os.path.dirname(__file__), 'CharaCreator')
 # Discordで案内する、常に最新版を返すルールブックのURL（/manuals/<名前>）。
@@ -162,7 +163,9 @@ def configure_app(flask_app, config=None):
 
 def init_extensions(flask_app, cors_origins=None):
     cors_origins = cors_origins or _get_cors_origins()
-    flask_app.wsgi_app = WhiteNoise(flask_app.wsgi_app, root=STATIC_DIR, prefix='static/')
+    flask_app.wsgi_app = WhiteNoise(
+        flask_app.wsgi_app, root=STATIC_DIR, prefix='static/', max_age=STATIC_CACHE_MAX_AGE
+    )
     cloudinary.config(
         cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME'),
         api_key=os.environ.get('CLOUDINARY_API_KEY'),
@@ -298,18 +301,14 @@ MASTER_DATA_CACHE_PATHS = frozenset({
 
 
 def add_header(response):
-    """
-    静的ファイル(画像, CSS, JS)に強力なキャッシュヘッダーを付与する
-    (WhiteNoiseが処理しきれない場合や、動的生成コンテンツへのキャッシュ適用のため)
-    """
-    if (
-        request.path.startswith('/static/')
-        or request.path.startswith('/images/')
-        or request.path.startswith('/dist/')
-    ):
-        # Cache for 1 year. /dist のバンドルは ?v=<contenthash> でバスティングされるため
-        # 内容変更時はURLが変わる → 1年immutableキャッシュにして再検証を不要にする。
+    """Flask が返す素材とマスターデータのキャッシュを設定する。"""
+    # /static/ の実ファイルは前段の WhiteNoise が配信する。
+    if request.path.startswith('/dist/'):
+        # バンドルは内容ハッシュ付きの URL で更新を区別できる。
         response.headers['Cache-Control'] = 'public, max-age=31536000'
+    elif request.path.startswith('/images/') and response.status_code in (200, 206, 304):
+        # 保存済みの画像 URL は Flask で配信し、/static/ と同じ期間キャッシュする。
+        response.headers['Cache-Control'] = f'public, max-age={STATIC_CACHE_MAX_AGE}'
     elif (
         request.method == 'GET'
         and response.status_code == 200
@@ -702,11 +701,10 @@ def get_local_images():
         images = []
         for filename in os.listdir(img_dir):
             if filename.lower().endswith(valid_extensions):
-                # URLは images/subdir/ファイル名
                 images.append({
                     'id': f'local_{subdir}_{filename}',
                     'name': filename,
-                    'url': f'images/{subdir}/{filename}',
+                    'url': f'/static/images/{subdir}/{filename}',
                     'type': 'default'
                 })
 

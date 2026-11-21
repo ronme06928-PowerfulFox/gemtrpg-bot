@@ -1394,7 +1394,7 @@ window.generateMapTokenBadgesHTML = function (char) {
             if (config) {
                 iconsHtml += `
                     <div class="status-badge" style="${badgeStyle} border-color: ${config.borderColor};" title="${titleText}">
-                        <img src="images/${config.icon}" loading="lazy" style="width:100%; height:100%; border-radius:50%;">
+                        <img src="/static/images/${config.icon}" loading="lazy" style="width:100%; height:100%; border-radius:50%;">
                         <div style="${countStyle}">${safeValue}</div>
                     </div>`;
             } else {
@@ -1709,7 +1709,7 @@ window.generateStatusIconsHTML = function (char) {
         if (config) {
             iconsHtml += `
                 <div class="duel-status-icon">
-                    <img src="images/${config.icon}" alt="${normalizedName}">
+                    <img src="/static/images/${config.icon}" alt="${normalizedName}">
                     <div class="duel-status-badge" style="background-color: ${config.color};">${safeValue}</div>
                 </div>`;
         }

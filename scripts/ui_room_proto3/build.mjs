@@ -12,7 +12,7 @@ copyFileSync(join(here, 'page.html'), join(out, 'index.html'));
 for (const name of ['marble.css', 'setting.css']) copyFileSync(join(here, name), join(out, name));
 copyFileSync(join(root, 'static', 'css', 'modules', 'common_ui.css'), join(out, 'common_ui.css'));
 const images = {
-  'bg.png': 'backgrounds/暗い遺跡洞窟.png',
+  'bg.webp': 'backgrounds/暗い遺跡洞窟.webp',
   'ally1.png': 'characters/男冒険者.png',
   'ally2.png': 'characters/女冒険者.png',
   'enemy1.png': 'characters/人狼型シュラーカー.png',

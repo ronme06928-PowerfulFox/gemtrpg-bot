@@ -102,7 +102,7 @@ def create(user,selection,characters,mode='manual'):
         state={'characters':characters,'character_owners':{char['id']:user.name for char in characters},
                'owner_id':user.id,'timeline':[],'round':0,'logs':[],'mode':'battle','play_mode':'normal',
                'battle_mode':'pve' if mode=='auto' else 'pvp',
-               'battle_map_data':{'background_image':'/static/images/backgrounds/暗い遺跡洞窟.png'},
+               'battle_map_data':{'background_image':'/static/images/backgrounds/暗い遺跡洞窟.webp'},
                'practice':{'instance_id':uuid4().hex,'selection':deepcopy(selection),'opponent_mode':mode}}
         from manager.battle.combat_session import ensure_combat_session_defaults, start_combat_session
         _set_mode(state,mode)
