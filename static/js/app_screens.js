@@ -22,7 +22,7 @@
     ['dungeon', 'ruby', 'ダンジョン', '準備中'],
     ['characters', 'topaz', 'マイキャラクター', '作成・管理'],
     ['encyclopedia', 'emerald', '図鑑', '世界の理・技能と魔物'],
-    ['drill', 'citrine', '演習場', '勝率を試す'],
+    ['drill', 'citrine', '演習場', '模擬戦闘'],
     ['help', 'quartz', '使い方', 'ルールブック・ガイド'],
   ];
   const DATA_CARDS = [

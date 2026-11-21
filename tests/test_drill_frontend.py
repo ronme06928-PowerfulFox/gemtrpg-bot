@@ -46,7 +46,7 @@ calculation.schedule({id:3}); calculation.destroy(); await tick(); assert.equal(
 
 def test_entry_bundle_and_responsive_token_contract():
     screens=(ROOT/'static/js/app_screens.js').read_text(encoding='utf-8')
-    assert "['drill', 'citrine', '演習場', '勝率を試す']" in screens
+    assert "['drill', 'citrine', '演習場', '模擬戦闘']" in screens
     assert 'mountDrill(host, options)' in screens
     build=(ROOT/'scripts/build_frontend.mjs').read_text(encoding='utf-8')
     assert build.index("'js/encyclopedia/data.js'") < build.index("'js/drill/data.js'")
