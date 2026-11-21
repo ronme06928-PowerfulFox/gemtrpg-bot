@@ -1,7 +1,7 @@
 # 計画64：画像の保存と配信
 
 作成日: 2026-11-14
-状態: 第1段階は完了（6ba1278、本番で表示を確認）。第2段階を実装し、第3段階の調査を記録した。論点3・5は未決定。
+状態: 第1段階（6ba1278）・第2段階（ec7db8c）は完了し、本番で確認した。第3段階は見送った（2026-11-22）。論点3・5とサムネイルは未決定。
 
 ## 1. 目的
 
@@ -58,12 +58,15 @@ Cloudinary の無料プランは月25クレジット。1クレジットは保存
 
 第2段階では静止画に画質 80 相当を採用。同梱アイコン7種のファイル合計は 2,794,770 B から 84,013 B に減った。送信と切り抜きの仕様は [F01](../implemented/F01_Operations_Manual.md#画像の送信と切り抜き計画64-第2段階) に記載した。
 
-#### 第3段階：今ある画像を縮め直す（2026-11-22 決定、進め方は調査してから）
+#### 第3段階：今ある画像を縮め直す（2026-11-22 見送り）
 
-- Cloudinary に今ある画像と、キャラのデータに埋め込まれた切り抜きの data URL を、第2段階と同じ大きさ・形式に縮め直す。元に戻せないため、先に元の画像を手元へ控える。
-- 画像の URL はキャラ・ルーム・ユニット・登録の表など複数の場所に保存されている。どこにいくつあるか、URL を変えずに置き換えられるか、変わるなら参照をどう直すかを調べてから、手順を決める。実行はユーザーが件数と控えを確かめてから行う。
+Cloudinary に今ある画像と、キャラのデータに埋め込まれた切り抜きの data URL を縮め直す段階は、行わない。
 
-**保存先の調査（2026-11-22）**
+- 今使われている画像の多くは同梱の既定素材（`static/images/`）で、Cloudinary にはない。新しくアップロードする画像は第2段階で縮めてから預ける。
+- 同じ `public_id` への上書きは、Cloudinary の Strict Transformations が有効だと古い拡張子の URL が 404 になり得る（[Strict Transformations](https://cloudinary.com/documentation/control_access_to_media#strict_transformations)）。安全に行うには本番の設定の確認と、参照の漏れのない書き換えが要り、得られる軽さに比べて手間が大きい。
+- 気になる画像は、利用者がアップロードし直せば縮んだ版になる。
+
+画像の URL が保存される場所（2026-11-22 の調査。保存先の差し替え（論点3）や片付け（論点5）で使う）：
 
 | 保存先 | 棚卸しする項目 |
 | --- | --- |
@@ -72,24 +75,6 @@ Cloudinary の無料プランは月25クレジット。1クレジットは保存
 | `rooms.data` | `characters[*].image`・`imageOriginal`、`exploration.backgroundImage`、`battle_map_data.background_image`、既存の `map_data.backgroundImage`。`active_match` のキャラ写し、戦闘の再開用データ、待機列の入れ子、`stage_avatar_profile.icon` も走査する。稼働中は `active_room_states` が正本。 |
 | `catalog_entries.payload`、`catalog_drafts.payload`、`catalog_history.payload` | ユニットの `image`、ステージの `background`（文字列または辞書の `background_image`、`backgroundImage`、`background_url`、`backgroundUrl`、`image_url`、`image`）と `stage_avatar.icon`。敵・味方の編成は原則 `unit_id` で参照する。 |
 | 履歴・書き出し | `room_log_archives.payload` と JSON 書き出し（持ちキャラ・ユニット・ログ）は別枠で数える。履歴は資料として保持し、再取り込み対象のファイルは移行時に別途照合する。 |
-
-**置き換えの候補**
-
-| 案 | URL と復旧 |
-| --- | --- |
-| A. 同じ `public_id` へ上書き | `overwrite` で置換できる。`invalidate` は CDN 側のキャッシュ対策で、ブラウザー等の対策には新しい版付き URL を使う。`secure_url` の版が変わり、PNG/JPEG を WebP にすると拡張子も変わる。旧拡張子は旧形式の配信指定になるため、同じ ID でも参照の更新を前提とする。復旧には旧版の控えが要る。[上書き](https://cloudinary.com/documentation/upload_parameters#replacing_existing_assets)・[URL の形式と版](https://cloudinary.com/documentation/image_transformations#asset_versions) |
-| B. 新しい `public_id` で登録し参照を切り替える（推奨） | 旧 URL → 新 URL の対応を保存し、確認済みの現行参照だけを切り替える。旧画像を残したまま表示確認と参照の切り戻しができる。移行中は新旧の保存量が重なる。data URL も同じ対応表で置換できる。 |
-
-どちらもローカルで変換済みのファイルを送れる。Cloudinary は画像1件のアップロードを変換1回に計上し、同じ ID の上書きも含む。新たな配信派生を生成すると別途計上されるため、見積もりでは新 URL から保存形式を直接配る。旧拡張子での配信は派生生成の可能性がある。[変換の数え方](https://cloudinary.com/documentation/transformation_counts#transformation_counting_basics)
-
-**ユーザーが読み取りだけで見積もる手順**
-
-1. [F01 の PostgreSQL 手元バックアップ](../operations/postgres_backup_runbook.md) に従って `pg_dump` と SHA-256 を取得し、別のローカル DB に復元する。DB の控えには URL と data URL は入り、Cloudinary に置いた画像ファイルは別途控える。
-2. ローカル DB の対象 JSON を再帰走査し、表・行ID・JSON パスごとに参照数を数える。Cloudinary URL は登録表の `public_id` と照合して同じ資産をまとめる。data URL は base64 を復号し、SHA-256 で重複をまとめて件数・復号前後のバイト数を記録する。履歴・ログ・外部 URL・同梱 URL・未解決の参照は別欄にする。
-3. Cloudinary Admin API の一覧取得（`next_cursor` で全ページ）を使い、現在の `asset_id`、`public_id`、種別、版、形式、幅・高さ、`bytes`、`secure_url` を読む。登録表と突き合わせ、参照のみ、登録のみ、Cloudinary のみに分ける。フォルダーの絞り込みは固定フォルダーモードなら `prefix`、動的モードなら asset folder を使う。[Admin API](https://cloudinary.com/documentation/admin_api#get_resources)
-4. 候補の現行原本を Media Library の原本ダウンロードで控える。これは Cloudinary が現在保存する版を指す。旧アップロード時の加工前のファイルまで必要なら、持ち主の控えや版履歴を照合する。バックアップ済みの旧版は `download_backup` で取得できる。ID・版・旧 URL・形式・バイト数・SHA-256 を控えの一覧に残す。手元で用途別に変換したバイト数を足し、旧→新の差、移行中に重なる保持量、アップロード予定件数を数える。GIF、形式と寸法が適合済みの画像、変換後に大きくなる候補、同じ画像を複数用途で使う候補は別欄で確認する。[原本ダウンロード](https://cloudinary.com/documentation/dam_editing_and_transformations)・[バックアップ済み旧版](https://cloudinary.com/documentation/backups_and_version_management#downloading_a_version_of_an_asset)
-
-切り替えを実行する段階では、保存待ちのルームを確定してから書き込みを止め、メモリ上の旧状態が DB 更新を上書きしない状態で作業する。第3段階は本番の接続・実件数の取得・置換を行わず、方式の判断を残した。
 
 ### 4.3 見張りと片付け
 
@@ -115,7 +100,7 @@ Cloudinary の無料プランは月25クレジット。1クレジットは保存
 ## 6. 論点（未決定）
 
 1. **端末で整える（4.1）か**：**決定（2026-11-22）** 整える。キャラ 1024 px・背景 1920 px、WebP（第2段階）。サムネイルの大きさは未決定。
-2. **今ある画像**：**決定（2026-11-22）** 縮め直す（第3段階）。
+2. **今ある画像**：**決定（2026-11-22）** 縮め直さない（第3段階は見送り）。
 3. **保存先**：Cloudinary のまま見張るか、R2 へ移すか、移す時期の目安（使用量が何割を超えたら、など）。
 4. **切り抜き**：**決定（2026-11-22）** 切り抜いた画像を預ける（第2段階）。
 5. **片付け**：使われていない画像を自動で消すか、一覧にしてアプリ管理者が消すか。
@@ -136,3 +121,4 @@ Cloudinary の無料プランは月25クレジット。1クレジットは保存
 | 2026-11-22 | 論点4 切り抜き | **切り抜いた画像を WebP で預け、キャラには URL だけを持たせる** | ユーザーの決定。512×512 の PNG の data URL がルームの状態と通信に乗っている |
 | 2026-11-22 | Safari | **ブラウザーの中で WebP を作れない環境（Safari など）は対応外とする。PNG で送る代わりの道は作らない** | ユーザーの決定。第2段階の確認で、WebP でない結果を失敗にする作りと分かった |
 | 2026-11-22 | 論点2 今ある画像 | **縮め直す。先に元の画像を手元へ控え、参照の場所を調べてから手順を決める（第3段階）** | ユーザーの決定。元に戻せない操作のため、控えと件数の確認を先にする |
+| 2026-11-22 | 第3段階 | **見送る。今ある画像は縮め直さない** | ユーザーの決定。今の画像の多くは同梱の既定素材で Cloudinary にない。上書きは Strict Transformations が有効だと古い URL が 404 になり得て（Codex の事前確認）、安全に行う手間が見合わない |
