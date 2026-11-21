@@ -1,5 +1,6 @@
 import { resolveOutcomeWindow } from '../../static/js/battle/components/resolve_flow_fx.js';
 import { sceneSamples, effectSamples } from './samples.mjs';
+import { gemSounds } from './sounds.mjs';
 import { extractResolvePanelCss, extractStagePaletteCss, GALLERY_PANEL_SELECTOR } from './panel_css.mjs';
 import { readFile, readdir, mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +16,19 @@ const python = process.env.PYTHON || (process.platform === 'win32' && existsSync
 const icons = spawnSync(python, [path.join(root, 'scripts/fx_gallery/embed_icons.py')], { encoding: 'utf8', maxBuffer: 2 * 1024 * 1024 });
 if (icons.status !== 0) throw new Error(`状態アイコンの埋め込みに失敗（Pillowが必要）: ${icons.stderr || icons.error}`);
 const assets = JSON.parse(icons.stdout);
+const sounds = {};
+const soundDir = process.env.GALLERY_SOUND_DIR || path.join(root, '_local/sound_lab');
+for (const file of new Set(Object.values(gemSounds).flat().map(note => note.file))) {
+  let bytes;
+  try {
+    bytes = await readFile(path.join(soundDir, file));
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+    continue;
+  }
+  if (bytes.length > 60_000) throw new Error(`${file}: 60 KB を超えています`);
+  sounds[file] = `data:audio/ogg;base64,${bytes.toString('base64')}`;
+}
 for (const directory of ['characters']) {
   for (const name of (await readdir(path.join(root, 'static/images', directory))).sort()) {
     const relative = `static/images/${directory}/${name}`;
@@ -27,6 +41,7 @@ const result = await build({
   format: 'iife', write: false, target: 'es2020', charset: 'utf8',
   minifyWhitespace: true, minifySyntax: true, minifyIdentifiers: false,
   define: { __GALLERY_ASSETS__: JSON.stringify(assets),
+    __GALLERY_SOUNDS__: JSON.stringify(sounds),
     __GALLERY_SKILLS__: JSON.stringify(Object.fromEntries(Object.entries(JSON.parse(await read('data/cache/skills_cache.json')))
       .filter(([id]) => sceneSamples.some(scene => [scene.step.attackerSkillId, scene.step.defenderSkillId].includes(id))))) },
 });
@@ -50,7 +65,7 @@ ${script(result.outputFiles[0].text)}
 </body></html>\n`;
 const bytes = Buffer.byteLength(html);
 if (bytes > 2 * 1024 * 1024) throw new Error(`HTMLが2MBを超えています: ${bytes} bytes`);
-const output = path.join(root, '_local/fx_gallery/fx_gallery.html');
+const output = path.join(process.env.GALLERY_OUTPUT_DIR || path.join(root, '_local/fx_gallery'), 'fx_gallery.html');
 await mkdir(path.dirname(output), { recursive: true });
 await writeFile(output, html, 'utf8');
 console.log(`${output}\n${bytes.toLocaleString('en-US')} bytes (${(bytes / 1024 / 1024).toFixed(3)} MiB)`);

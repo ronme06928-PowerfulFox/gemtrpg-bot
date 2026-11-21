@@ -1,4 +1,6 @@
 """計画56: 本番の定義・結果計画をそのまま使う単体HTML。"""
+import json
+import os
 import re
 import subprocess
 from html.parser import HTMLParser
@@ -6,6 +8,19 @@ from html.parser import HTMLParser
 import pytest
 
 from tests.test_motion_fx_frontend import ROOT, _run_node
+
+
+def test_gem_audition_table_uses_file_cues_in_comparison_order():
+    _run_node(r"""
+(async () => {
+  const { gemSounds } = await import('./scripts/fx_gallery/sounds.mjs');
+  assert.deepStrictEqual(gemSounds, JSON.parse(JSON.stringify(gemSounds)));
+  assert.deepStrictEqual(Object.keys(gemSounds), ['C1', 'S1', 'S2', 'S3']);
+  for (const [id, notes] of Object.entries(gemSounds)) {
+    assert.deepStrictEqual(notes, [{t: .06, file: id.toLowerCase() + '.ogg', gain: 1, rate: 1}]);
+  }
+})().catch(error => { console.error(error); process.exitCode = 1; });
+""")
 
 
 def test_gallery_samples_cover_exactly_the_registered_effects_and_variants():
@@ -159,17 +174,22 @@ class ResourceParser(HTMLParser):
 
 
 @pytest.fixture(scope="module")
-def gallery_page():
+def gallery_page(tmp_path_factory):
+    sound_dir = tmp_path_factory.mktemp('gallery-sounds')
+    output_dir = tmp_path_factory.mktemp('gallery-html')
+    for name in ('c1', 's1', 's2', 's3'):
+        (sound_dir / f'{name}.ogg').write_bytes(b'OggS test sound')
     result = subprocess.run(
         ["node", "scripts/fx_gallery/build.mjs"], cwd=ROOT,
         capture_output=True, text=True, encoding="utf-8", timeout=120,
+        env={**os.environ, "GALLERY_SOUND_DIR": str(sound_dir), "GALLERY_OUTPUT_DIR": str(output_dir)},
     )
     assert result.returncode == 0, result.stderr
-    return ROOT / "_local/fx_gallery/fx_gallery.html"
+    return output_dir / 'fx_gallery.html'
 
 
 def test_gallery_build_is_one_self_contained_html_under_2mb(gallery_page):
-    output = ROOT / "_local/fx_gallery"
+    output = gallery_page.parent
     assert sorted(p.name for p in output.iterdir()) == ["fx_gallery.html"]
     page = gallery_page
     assert page.stat().st_size <= 2 * 1024 * 1024
@@ -180,14 +200,15 @@ def test_gallery_build_is_one_self_contained_html_under_2mb(gallery_page):
     assert '<script type="module"' not in html
     assert "fx_player.js" not in html
     assert "localStorage" not in html
+    assert html.count('data:audio/ogg;base64,') == 4
     assert html.count('<script>') == 3
 
 
 def test_built_page_mounts_all_cards_seeks_remounts_and_plays_without_file_reads(gallery_page):
     # ブラウザがfile://を拒否する環境でも、完成したHTMLの3つのscriptをそのまま実行する。
     # レイアウト・フォントの視覚確認の代わりにはしない。
-    _run_node(r"""
-const page = fs.readFileSync('_local/fx_gallery/fx_gallery.html','utf8');
+    _run_node(f'const galleryPath = {json.dumps(str(gallery_page))};\n' + r"""
+const page = fs.readFileSync(galleryPath,'utf8');
 const scripts = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
 const doc = makeDocument();
 const all = [];
@@ -246,8 +267,26 @@ for (const id of ['scenes','effects']) {
 }
 doc.querySelector = selector => query(doc.body,selector);
 doc.getElementById = id => all.find(node => node.id === id);
-let now=0,raf;
-const context={document:doc,console,performance:{now:()=>now},requestAnimationFrame:callback=>{raf=callback;},addEventListener:()=>{}};
+let now=0,raf,audioContexts=0;
+const voices=[], masterLevels=[];
+class AudioContext {
+  constructor() { audioContexts++; }
+  get state() { return 'running'; }
+  get currentTime() { return now/1000; }
+  createGain() {
+    return {connect(){}, disconnect(){}, gain:{
+      setValueAtTime(value){ masterLevels.push(value); }, linearRampToValueAtTime(){}, exponentialRampToValueAtTime(){}
+    }};
+  }
+  decodeAudioData(bytes) { assert.ok(bytes.byteLength > 4); return Promise.resolve({duration: 1.5}); }
+  createBufferSource() {
+    const voice={connect(){},disconnect(){},playbackRate:{},starts:[],stops:[],
+      start(t){ this.starts.push(t); }, stop(t){ this.stops.push(t); }};
+    voices.push(voice);
+    return voice;
+  }
+}
+const context={document:doc,console,AudioContext,atob,performance:{now:()=>now},requestAnimationFrame:callback=>{raf=callback;},addEventListener:()=>{}};
 context.window=context;
 vm.createContext(context);
 for (const script of scripts) vm.runInContext(script,context);
@@ -255,6 +294,9 @@ const cards=all.filter(node=>node.className.split(' ').includes('gallery-card'))
     assert.strictEqual(cards.length,29);
     assert.strictEqual(cards.filter(c=>c.className.includes('scene-card')).length,11);
 for (const card of cards) {
+  assert.strictEqual(Boolean(card.querySelector('.sound-choice')), card.dataset.effect==='gem-blessing');
+  assert.strictEqual(Boolean(card.querySelector('.sound-volume')), card.dataset.effect==='gem-blessing');
+  assert.strictEqual(Boolean(card.querySelector('.sound-repeat')), card.dataset.effect==='gem-blessing');
   const stage=card.querySelector('.stage-host').children[0];
   assert.ok(descendants(stage).some(node=>node.className.split(' ').includes('fx-root')));
   assert.ok(card.querySelector('.filmstrip').children.length>=4);
@@ -304,6 +346,54 @@ for (const card of cards) {
     }
   }
 }
+(async () => {
+const gem=cards.find(card=>card.dataset.effect==='gem-blessing');
+const playSound=gem.querySelector('.play').events.click;
+const pauseSound=gem.querySelector('.pause').events.click;
+const choice=gem.querySelector('.sound-choice'), volume=gem.querySelector('.sound-volume');
+const sample=gem.querySelector('.sample'), seekSound=gem.querySelector('.seek');
+const setSeek=value=>{seekSound.value=String(value);seekSound.events.input();};
+const selectSound=value=>{choice.value=value;choice.events.change();};
+const advance=ms=>{now+=ms;raf(now);};
+const lastVoice=()=>voices.at(-1);
+const close=(a,b)=>assert.ok(Math.abs(a-b)<1e-8, `${a} != ${b}`);
+assert.strictEqual(audioContexts,0);
+assert.strictEqual(Number(volume.value),.55);
+assert.deepStrictEqual(choice.children.map(option=>option.value), ['off','C1','S1','S2','S3']);
+sample.value='gem-full';sample.events.change();
+setSeek(0); await playSound(); pauseSound();
+assert.strictEqual(voices.length,0);
+selectSound('C1');
+setSeek(0); await playSound();
+assert.strictEqual(voices.length,1);
+assert.ok(masterLevels.includes(.55));
+close(lastVoice().starts[0],now/1000+.06);
+pauseSound(); assert.strictEqual(lastVoice().stops.length,1);
+setSeek(.07); await playSound(); assert.strictEqual(voices.length,1);
+setSeek(0); await playSound(); setSeek(.02);
+assert.strictEqual(lastVoice().stops.length,1);
+setSeek(0); await playSound(); selectSound('off');
+assert.strictEqual(lastVoice().stops.length,1);
+const prior=voices.length;
+await playSound(); assert.strictEqual(voices.length,prior);
+selectSound('S3'); sample.value='gem-band';sample.events.change();
+setSeek(0); await playSound(); close(lastVoice().starts[0],now/1000+.045);
+setSeek(.045); await playSound(); close(lastVoice().starts[0],now/1000);
+pauseSound();
+sample.value='gem-full';sample.events.change();
+gem.querySelector('.loop').checked=true;
+const startCount=voices.length;
+await gem.querySelector('.sound-repeat').events.click();
+assert.strictEqual(voices.length,startCount+1);
+for(let i=2;i<=5;i++) {
+  advance(1600); advance(1950);
+  assert.strictEqual(voices.length,startCount+i-1);
+  advance(50);
+  assert.strictEqual(voices.length,startCount+i);
+}
+advance(3601);
+assert.strictEqual(voices.length,startCount+5);
+})().catch(error => { console.error(error); process.exitCode = 1; });
 for(const image of descendants(doc.body).filter(node=>node.tagName==='img')) {
   assert.ok(!image.attributes.src || String(image.src || image.attributes.src).startsWith('data:'),'image must be embedded');
 }

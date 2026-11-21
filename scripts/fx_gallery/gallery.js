@@ -3,6 +3,8 @@ import { resolveStageTiming, resolveOutcomeWindow } from '../../static/js/battle
 import { effectSamples, sceneSamples, characters } from './samples.mjs';
 import { collectSceneEvents } from './scene.mjs';
 import { createRealStage, renderRealStageMotion } from './real_panel.mjs';
+import { createAuditionAudio, defaultAuditionVolume } from './audio.mjs';
+import { gemSounds } from './sounds.mjs';
 
 const assets = __GALLERY_ASSETS__;
 const Fx = window.Fx;
@@ -140,6 +142,39 @@ function createCard(samples, scene = false) {
   level.value = sample.level;
   controls.append(play, pause, loopLabel, level);
   card.append(controls);
+  const audio = !scene && sample.effect === 'gem-blessing' ? createAuditionAudio(__GALLERY_SOUNDS__) : null;
+  let soundChoice;
+  if (audio) {
+    const audition = el('div', 'sound-controls');
+    soundChoice = el('select', 'sound-choice');
+    soundChoice.setAttribute('aria-label', '宝石の加護の音');
+    for (const [value, label] of [['off', '無音'], ['C1', 'C1（手本）'], ['S1', 'S1 C1 に似せる'], ['S2', 'S2 頂点を合わせる'], ['S3', 'S3 さらさら・神聖']]) {
+      const missing = gemSounds[value]?.some(note => !__GALLERY_SOUNDS__[note.file]);
+      const option = el('option', '', missing ? `${label}（音源なし）` : label);
+      option.value = value;
+      option.disabled = Boolean(missing);
+      soundChoice.append(option);
+    }
+    soundChoice.value = 'off';
+    soundChoice.addEventListener('change', () => {
+      stopPlayback();
+      if (soundChoice.value !== 'off') unlockSound();
+    });
+    const volumeLabel = el('label', 'sound-volume-label', '音量');
+    const volume = el('input', 'sound-volume');
+    volume.type = 'range';
+    volume.min = '0';
+    volume.max = '1';
+    volume.step = '0.01';
+    volume.value = String(defaultAuditionVolume);
+    volume.addEventListener('input', () => audio.setVolume(Number(volume.value)));
+    volumeLabel.append(volume);
+    const repeat = el('button', 'sound-repeat', '5回続けて');
+    repeat.type = 'button';
+    repeat.addEventListener('click', () => startPlayback(0, 5));
+    audition.append(soundChoice, volumeLabel, repeat);
+    card.append(audition);
+  }
   if (samples.length > 1) {
     const select = el('select', 'sample');
     select.setAttribute('aria-label', `${sample.effect}の見本`);
@@ -188,6 +223,7 @@ function createCard(samples, scene = false) {
   document.querySelector(scene ? '#scenes .cards' : '#effects .cards').append(card);
 
   let stage, events = [], duration = 0, time = 0, playing = false, startedAt = 0;
+  let playbackRequest = 0, remainingPlays = 0, nextRepeatAt = null, playbackEnd = 0;
   const setTime = value => {
     time = Math.max(0, Math.min(duration, value));
     seek.value = String(time);
@@ -196,7 +232,7 @@ function createCard(samples, scene = false) {
     if (scene) renderRealStageMotion(stage, sample, time, level.value);
   };
   function rebuild() {
-    playing = false;
+    stopPlayback();
     for (const event of events) event.fx.render(Infinity);
     stageHost.replaceChildren();
     stageHost.style.overflowX = sample.previewSize ? 'auto' : '';
@@ -243,24 +279,69 @@ function createCard(samples, scene = false) {
       if (scene) renderRealStageMotion(frameStage, sample, t, level.value);
       canvas.style.transform = `scale(${120 / stage.offsetWidth})`;
       view.style.height = `${stage.getBoundingClientRect().height * 120 / stage.offsetWidth}px`;
-      frame.addEventListener('click', () => { playing = false; setTime(t); });
+      frame.addEventListener('click', () => { stopPlayback(); setTime(t); });
     }
-    setTime(Math.min(scene ? 0.6 : duration * 0.45, duration));
+    setTime(Math.min(scene ? 0.6 : audio ? 0 : duration * 0.45, duration));
   }
-  play.addEventListener('click', () => {
-    if (time >= duration) setTime(0);
-    startedAt = performance.now() - time * 1000;
+  function unlockSound() {
+    const report = error => console.warn('試聴の音声を開始できません', error);
+    try {
+      return audio.unlock(gemSounds[soundChoice.value])?.catch(report);
+    } catch (error) {
+      report(error);
+    }
+  }
+  function stopPlayback() {
+    playbackRequest++;
+    playing = false;
+    remainingPlays = 0;
+    nextRepeatAt = null;
+    audio?.stop();
+  }
+  function playAt(now, elapsed) {
+    startedAt = now - elapsed * 1000;
     playing = true;
-  });
-  pause.addEventListener('click', () => { playing = false; });
-  seek.addEventListener('input', () => { playing = false; setTime(Number(seek.value)); });
+    const notes = gemSounds[soundChoice?.value];
+    const audioEnd = notes ? audio.schedule(notes, elapsed, sample.params.mode === 'band' ? duration / 1.6 : 1) : 0;
+    playbackEnd = Math.max(duration, audioEnd);
+  }
+  function startPlayback(elapsed, count = 0) {
+    stopPlayback();
+    setTime(elapsed);
+    const request = playbackRequest;
+    const start = () => {
+      if (request !== playbackRequest) return;
+      remainingPlays = count;
+      playAt(performance.now(), elapsed);
+    };
+    const pending = audio && soundChoice.value !== 'off' ? unlockSound() : null;
+    if (pending) return pending.then(start);
+    else start();
+  }
+  play.addEventListener('click', () => startPlayback(time >= duration ? 0 : time));
+  pause.addEventListener('click', stopPlayback);
+  seek.addEventListener('input', () => { stopPlayback(); setTime(Number(seek.value)); });
   level.addEventListener('change', rebuild);
   controllers.push({ rebuild, tick(now) {
+    if (nextRepeatAt !== null && now >= nextRepeatAt) {
+      nextRepeatAt = null;
+      playAt(now, 0);
+    }
     if (!playing) return;
     let next = (now - startedAt) / 1000;
-    if (next >= duration) {
-      if (loop.checked) { next %= duration; startedAt = now - next * 1000; }
-      else { next = duration; playing = false; }
+    if (next >= playbackEnd) {
+      if (remainingPlays > 0) {
+        if (--remainingPlays > 0) nextRepeatAt = now + 2000;
+        next = duration;
+        playing = false;
+      } else if (loop.checked) {
+        next %= playbackEnd;
+        audio?.stop();
+        playAt(now, next);
+      } else {
+        next = duration;
+        playing = false;
+      }
     }
     setTime(next);
   } });

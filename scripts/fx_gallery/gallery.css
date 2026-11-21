@@ -57,6 +57,9 @@ h3 { font-size: 16px; font-weight: 500; margin: 0; overflow-wrap: anywhere; }
 .stage .stage-caption { position: absolute; bottom: 2px; left: 12px; color: #979d9e; font-size: 9px; }
 .stage > .fx-root { z-index: 4; }
 .controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 14px 14px 8px; }
+.sound-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 0 14px 8px; }
+.sound-volume-label { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.sound-volume { width: 100px; }
 button, select { font: inherit; font-size: 12px; color: #eee5d1; background: #252e38; border: 1px solid #53606a; border-radius: 5px; padding: 7px 10px; }
 button { cursor: pointer; }
 button:hover { background: #35414c; }
