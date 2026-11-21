@@ -1009,6 +1009,7 @@
   }
   Fx.define('gem-blessing', {
     duration: 1.6,
+    sounds: [{ t: 0.06, name: 'gem-blessing', mode: 'full' }],
     mount(root, params) {
       this.colors = colors(root);
       this.mode = params.mode || 'full';

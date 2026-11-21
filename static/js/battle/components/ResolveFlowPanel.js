@@ -32,6 +32,7 @@ class ResolveFlowPanel {
         this._stepStartedAt = 0;
         this._lastStageKey = null;
         this._unsubscribeStage = null;
+        this._liveGemPreludeTimestamp = null;
         this._introDurationMs = 1600;
         this._renderedStepKey = null;
         this._introShownRounds = new Set();
@@ -63,6 +64,15 @@ class ResolveFlowPanel {
                 playResolveStageFx(this, payload, store.state || {});
             }
         });
+        this._unsubscribeLiveGemPrelude = eventBus.on('battle:phase:will-change', (payload) => {
+            if (payload.from === 'select' && payload.to === 'resolve_mass') {
+                this._liveGemPreludeTimestamp = payload.gem_prelude_timestamp ?? null;
+            }
+        });
+        this._unsubscribeDisconnect = eventBus.on('battle:connection:lost', () => {
+            this._liveGemPreludeTimestamp = null;
+            window.Fx?.cancelSounds?.();
+        });
         this._unsubscribeAdvanceEvent = eventBus.on('battle:resolve:flow:advance', (payload) => {
             this._onSyncedAdvanceSignal(payload || {});
         });
@@ -83,6 +93,9 @@ class ResolveFlowPanel {
         if (typeof window !== 'undefined') window.removeEventListener('resize', this._onResize);
         if (this._unsubscribeStage) this._unsubscribeStage();
         this._unsubscribeStage = null;
+        this._unsubscribeLiveGemPrelude?.();
+        this._unsubscribeDisconnect?.();
+        this._liveGemPreludeTimestamp = null;
         if (this._unsubscribe) {
             this._unsubscribe();
             this._unsubscribe = null;
@@ -500,7 +513,16 @@ class ResolveFlowPanel {
         const key = `${stepKey}:${stage}`;
         if (this._lastStageKey === key) return;
         this._lastStageKey = key;
-        eventBus.emit('battle:resolve:flow:stage', { stepKey, stage, kind: step.kind, outcome: step.outcome });
+        // 前置きのtraceは同期にも含まれる。直前の解決開始の合図と一致したときだけ鳴らす。
+        const liveGemPrelude = step.kind === 'gem_blessing_prelude'
+            && this._liveGemPreludeTimestamp !== null
+            && this._liveGemPreludeTimestamp === step.timestamp;
+        const payload = { stepKey, stage, kind: step.kind, outcome: step.outcome };
+        if (liveGemPrelude) {
+            this._liveGemPreludeTimestamp = null;
+            payload.liveGemPrelude = true;
+        }
+        eventBus.emit('battle:resolve:flow:stage', payload);
     }
 
     _revealLabel(stage) {

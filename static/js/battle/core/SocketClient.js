@@ -92,6 +92,8 @@ class SocketClient {
     _setupCoreListeners() {
         if (!this.socket) return;
 
+        this._bindCore('disconnect', () => eventBus.emit('battle:connection:lost'));
+
         // state_updated: サーバーからの状態更新
         // 注意: このハンドラは既存のものと「追加で」動作する
         this._bindCore('state_updated', (data) => {

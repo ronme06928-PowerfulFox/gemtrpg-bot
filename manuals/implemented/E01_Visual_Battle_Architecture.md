@@ -269,12 +269,15 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 
 ### 演出の土台の決まり
 
+- 音は定義の `sounds: [{ t, name, mode }]` に置く。時刻は演出の始まりからの秒、`mode` は必要なときだけ指定する。素材のパスは `SoundFx.effectSources` で引く。説明動画も同じ値を読める。
+- `fx_player.js` は `delaySeconds`・`elapsedSeconds`・再生速度を使い、まだ過ぎていない音だけを予約する。片付け・タブの非表示・切断で予約を取り消す。加護は現在の解決開始の合図を受け取った前置きで鳴らす。♪と `sound_fx_volume` に従い、音の終了は進行の時計と独立させる。
+
 - 演出は `window.Fx` の1か所から呼ぶ。ゲーム側は `Fx.play(名前, params, 置き場所)` で名前と値だけを渡し、何を描くかは定義の対応表で決める。各定義は `Fx.define(名前, { duration, mount(root, params), render(t) })`。
 - `Fx.play` は再生のたびに定義から実体（`Object.create(定義)`）を作り、要素は `this` に持たせる。同じ演出を同時にいくつ出しても干渉しない。`params` には呼ぶ側の値に段階 `level` を足して渡し、定義の中で `localStorage` や設定を読まない。
 - 同じ t なら必ず同じ見た目にする。t は戻っても飛んでもよく、`render` は前回の描画結果や「終わった」状態に頼らない。`render(0)` は始まる前、`render(Infinity)` は最後の見た目。飛ばすとき・切ったときは `render(Infinity)` を描いてすぐ片付ける。
 - 進み具合と補間は `Fx.prog` / `Fx.lerp` / `Fx.ease`（Egatariの `DECK.prog` / `DECK.lerp` / `DECK.ease` と同じ2次の曲線、t = Infinity で1）。動きは `render` の中でインラインのスタイルとして計算し、定義の中で `@keyframes`・`transition`・Web Animations API（`animate(`）・`setTimeout`・`setInterval`・`Math.random`・`localStorage` を使わない（動画の側で時刻を指定して描けなくなるため）。不規則さは番号を種にした疑似乱数で作る。寸法を測るのは `mount` だけで、`render` の中では測らない。
 - 時計は `fx_player.js` の `requestAnimationFrame` 1本。終わり（片付けと完了の知らせ）は `setTimeout` で長さどおりに決め、rAFは描画にだけ使う。rAFはタブが裏にある間止まるため、終わりをrAFで決めるとバナーの終了待ちが止まって盤面の更新が止まったままになる。裏にある間に終わった演出は描かずに片付ける。
-- 演出は今の表示の上に重ねるだけで、演出の終わりを待って進行しない（例外はラウンドバナーの `battle:round:banner:finished`。E02 Part 14）。再接続・状態の同期では戦闘の演出を再生せず、その場で起きたことにだけ出す。効果音（`SoundFx`）を鳴らす箇所から演出も出す。
+- 演出は今の表示の上に重ねるだけで、演出の終わりを待って進行しない（例外はラウンドバナーの `battle:round:banner:finished`。E02 Part 14）。同期から途中の表示に合流するときは、経過した時刻から描く。ダイスは従来どおり、効果音（`SoundFx`）を鳴らす箇所から演出も出す。
 - ファイルは3つ。`fx_core.js`（`Fx.define`・計算関数・共有定数・対応表）と `fx_effects.js`（各演出の定義）はアプリに依存せず、`fx_player.js`（`Fx.play`・時計・上限・段階の設定と `localStorage`・切り替えメニュー）だけがアプリ専用。説明動画（計画54）はcoreとeffectsを写し、`render(t / 倍率)` で時間を引き伸ばして使う。Fxに動画用の値は足さない。
 - 色はFx専用のCSS変数 `--fx-*` で決め、既定値はアプリのCSSに置く（Egatariの変数名はアプリへ持ち込まない）。大きさは `--fx-scale` とem単位で外から変えられるようにし、読ませる数字や文字には `data-readable` を付ける。画像の素材を使うときは、Cloudinary のURLのほかに手元のファイルからも読めるようにする。
 - 外部ライブラリと手描きの連番画像は使わない（手描きの素材は2026-11-03に凍結。アニメーションだけで表現が足りているため。必要になったら決め直す）。

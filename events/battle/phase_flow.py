@@ -128,6 +128,8 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event, *, ctx):
         'from': 'select',
         'to': 'resolve_mass'
     }
+    if prelude:
+        payload['gem_prelude_timestamp'] = prelude['timestamp']
     ctx['logger'].info("[FLOW] %s_start room=%s battle=%s", source_event, room_id, battle_id)
     ctx['log_battle_emit']('battle_phase_changed', room_id, battle_id, payload)
     ctx['socketio'].emit('battle_phase_changed', payload, to=room_id)

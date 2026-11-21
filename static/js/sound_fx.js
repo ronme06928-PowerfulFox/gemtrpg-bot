@@ -13,6 +13,10 @@
     const DEFAULT_DICE_SOURCES = [
         '/static/audio/dice-roll.mp3'
     ];
+    const EFFECT_SOURCES = Object.freeze({
+        'gem-blessing': '/static/audio/gem-blessing.mp3'
+    });
+    const effectSources = new Set(Object.values(EFFECT_SOURCES));
     const LEGACY_DEFAULT_DICE_SOURCES = new Set([
         '/audio/dice-roll.mp3',
         '/audio/dice-roll.ogg',
@@ -64,6 +68,7 @@
     function loadNumber(key, fallback) {
         try {
             const raw = localStorage.getItem(key);
+            if (raw === null) return fallback;
             const n = Number(raw);
             return Number.isFinite(n) ? n : fallback;
         } catch (_e) {
@@ -114,11 +119,6 @@
     function attachUnlockListeners() {
         if (unlockListenerAttached) return;
         unlockListenerAttached = true;
-        const unlock = () => {
-            unlocked = true;
-            warmupSources();
-            void ensureAudioContextReady(true);
-        };
         const opts = { capture: true, passive: true, once: true };
         window.addEventListener('pointerdown', unlock, opts);
         window.addEventListener('keydown', unlock, opts);
@@ -226,11 +226,11 @@
     }
 
     function updateAllPoolVolumes() {
-        sourceAudioPool.forEach((pool) => {
+        sourceAudioPool.forEach((pool, src) => {
             if (!Array.isArray(pool)) return;
             pool.forEach((audio) => {
                 if (!audio) return;
-                audio.volume = effectiveVolume();
+                audio.volume = effectSources.has(src) ? volume : effectiveVolume();
             });
         });
     }
@@ -250,14 +250,15 @@
         });
     }
 
-    async function playHtmlAudio(src) {
+    async function playHtmlAudio(src, named = false) {
         const pool = ensureSourcePool(src);
         let audio = pool.find((a) => !!a && (a.paused || a.ended));
         if (!audio) {
+            if (named) return false;
             audio = createPooledAudio(src);
             pool.push(audio);
         }
-        audio.volume = effectiveVolume();
+        audio.volume = named ? volume : effectiveVolume();
         try {
             if (!audio.paused) audio.pause();
             audio.currentTime = 0;
@@ -266,6 +267,23 @@
         }
         await audio.play();
         return true;
+    }
+
+    function canPlayEffect() {
+        return enabled && unlocked && !document.hidden;
+    }
+
+    async function playNamed(name) {
+        if (!canPlayEffect() || !Object.hasOwn(EFFECT_SOURCES, name)) return false;
+        try {
+            return await playHtmlAudio(EFFECT_SOURCES[name], true);
+        } catch (_error) {
+            return false;
+        }
+    }
+
+    function stopNamedSounds() {
+        effectSources.forEach(src => sourceAudioPool.get(src)?.forEach(audio => audio.pause()));
     }
 
     async function playFromSources() {
@@ -399,6 +417,7 @@
 
     function setEnabled(value) {
         enabled = Boolean(value);
+        if (!enabled) stopNamedSounds();
         persist(STORAGE_KEYS.enabled, enabled ? '1' : '0');
         return enabled;
     }
@@ -446,6 +465,7 @@
     function unlock() {
         unlocked = true;
         warmupSources();
+        effectSources.forEach(src => ensureSourcePool(src));
         void ensureAudioContextReady(true);
         return unlocked;
     }
@@ -458,8 +478,14 @@
 
     attachUnlockListeners();
     warmupSources();
+    document.addEventListener?.('visibilitychange', () => {
+        if (document.hidden) stopNamedSounds();
+    });
 
     window.SoundFx = {
+        effectSources: EFFECT_SOURCES,
+        canPlayEffect,
+        playNamed,
         configure,
         getSettings,
         setEnabled,

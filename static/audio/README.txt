@@ -1,15 +1,11 @@
-Sound effects folder
-====================
+アプリの効果音
+==============
 
-Place your dice roll SE file here.
+dice-roll.mp3
+  Springin’ Sound Stock のサイコロ・ダイス「モノラル大きいダブルダイス3」。
+  https://www.springin.org/sound-stock/subcategory/dice/
 
-Recommended file name (default):
-- dice-roll.mp3
-
-Fallback names also supported:
-- dice-roll.ogg
-- dice-roll.wav
-
-Runtime override from browser console:
-- window.SoundFx.configure({ diceSrc: '/audio/your-file.mp3', volume: 0.5 })
-- window.SoundFx.playDiceRoll({ force: true })
+gem-blessing.mp3
+  scripts/sound_lab/presets.json の S3 から合成。48 kHz、ステレオ。
+  リポジトリのルートで、NumPy・SciPy の入った Python と PATH 上の ffmpeg を使う。
+  python scripts/sound_lab/chime.py --app-mp3

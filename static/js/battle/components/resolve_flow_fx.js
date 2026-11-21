@@ -120,7 +120,8 @@ export function playResolveStageFx(flow, payload, state) {
       fx.play('gem-blessing', { mode: 'full', width, height, actorName: actor.name || row.actor_id,
         skillName: row.skill_name, image: visual.image, team: actor.type || 'ally' },
       { host, elapsedSeconds: Math.max(0, Date.now() - flow._stepStartedAt) / 1000,
-        delaySeconds: (GEM_BLESSING_MS.lead + index * GEM_BLESSING_MS.full) / 1000 });
+        delaySeconds: (GEM_BLESSING_MS.lead + index * GEM_BLESSING_MS.full) / 1000,
+        silent: !payload.liveGemPrelude });
     }
     return;
   }

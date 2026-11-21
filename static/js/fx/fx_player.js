@@ -42,7 +42,19 @@
     requestAnimationFrame(tick);
   }
 
-  // options: host, left/top, elapsedSeconds（段階の経過時間）, delaySeconds, rate（再生の速さ。既定1）, onDone
+  function cancelItemSounds(item) {
+    item.soundTimers.splice(0).forEach(timer => clearTimeout(timer));
+  }
+
+  Fx.cancelSounds = function () {
+    active.forEach(cancelItemSounds);
+  };
+
+  document.addEventListener?.('visibilitychange', () => {
+    if (document.hidden) Fx.cancelSounds();
+  });
+
+  // options: host, left/top, elapsedSeconds（段階の経過時間）, delaySeconds, rate（既定1）, silent, onDone
   Fx.play = function (name, params, options) {
     const opts = options || {};
     const definition = Fx.get(name);
@@ -76,18 +88,31 @@
       return null;
     }
     fx.render(elapsed);
-    const item = { fx, root, host: opts.host, level, rate, start: now - elapsed / rate * 1000 };
+    const item = { fx, root, host: opts.host, level, rate, start: now - elapsed / rate * 1000, soundTimers: [] };
     item.finish = () => {
       const index = active.indexOf(item);
       if (index < 0) return;
       active.splice(index, 1);
       clearTimeout(item.timer);
+      cancelItemSounds(item);
       fx.render(Infinity);
       if (root.parentNode) root.parentNode.removeChild(root);
       if (opts.onDone) opts.onDone();
     };
     active.push(item);
     requestFrame();
+
+    const sound = window.SoundFx;
+    const mode = params?.mode ?? fx.mode;
+    if (definition.sounds && !opts.silent && sound?.canPlayEffect?.()) {
+      for (const cue of definition.sounds) {
+        if (cue.t < elapsed || cue.t > duration || (cue.mode && cue.mode !== mode)) continue;
+        const wait = item.start + cue.t / rate * 1000 - performance.now();
+        item.soundTimers.push(setTimeout(() => {
+          if (sound.canPlayEffect()) void sound.playNamed(cue.name);
+        }, Math.max(0, wait)));
+      }
+    }
 
     // 終わりは描画の時計ではなくタイマーで決める（裏のタブでは描画が止まるため）。
     item.timer = setTimeout(item.finish, (duration - elapsed) / rate * 1000);

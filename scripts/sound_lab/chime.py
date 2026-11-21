@@ -104,8 +104,17 @@ def main():
     parser.add_argument('--settings', type=Path, default=Path(__file__).with_name('presets.json'))
     parser.add_argument('--output-dir', type=Path, default=ROOT / '_local/sound_lab')
     parser.add_argument('--reference', type=Path, default=ROOT / '_local/sound_sources/c1_preview.mp3')
+    parser.add_argument('--app-mp3', action='store_true', help='Render S3 for the app instead of the gallery')
     args = parser.parse_args()
     settings = json.loads(args.settings.read_text(encoding='utf-8'))
+    if args.app_mp3:
+        destination = ROOT / 'static/audio/gem-blessing.mp3'
+        subprocess.run([
+            'ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(RATE), '-ac', '2', '-i', '-',
+            '-map_metadata', '-1', '-c:a', 'libmp3lame', '-b:a', '192k', str(destination),
+        ], input=render(settings, 's3').astype('<f4').tobytes(), check=True)
+        print(f'{destination.name}: {destination.stat().st_size:,} bytes')
+        return
     args.output_dir.mkdir(parents=True, exist_ok=True)
     for name in settings['variants']:
         write_ogg(render(settings, name), args.output_dir / f'{name}.ogg')
