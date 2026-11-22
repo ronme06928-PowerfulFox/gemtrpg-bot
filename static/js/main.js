@@ -254,6 +254,7 @@ async function fetchWithSession(url, options = {}) {
 // --- 3. エントリー/ポータル機能 ---
 // 通常ログイン(login_name+password)を主導線とし、新規登録・復旧を補助導線へ分ける。
 function showEntryPortal() {
+    forgetReconnectRoom();
     window.resetRoomEncyclopedia?.();
     hideMenuScreens();
     clearScreenHash();
@@ -1016,12 +1017,20 @@ function initializeSocketIO() {
         window.CatalogWorkspace?.onUpdated(data);
     });
 
+    let reconnecting = false;  // 切断のあと、つながり直すのを待っている間（E02 Part 18 §1）
+    // つながり直した瞬間、切断中に溜まった送信が再入室より前に送られて断られるので、捨てる。
+    socket.io.on('reconnect', () => { socket.sendBuffer.length = 0; });
     socket.on('connect', () => {
         socketInitInFlight = false;
+        if (reconnecting) { location.reload(); return; }  // 画面を作り直し、覚えたルームへ入り直す
         if (window.SocketClient && typeof window.SocketClient.initialize === 'function') {
             window.SocketClient.initialize();
         }
-        if (!window.PracticeRoom?.resume()) showStartScreen();
+        if (!window.PracticeRoom?.resume() && !resumeRoomAfterReconnect()) showStartScreen();
+    });
+    // ログインが切れていて接続を断られたときは、自動では再接続されない。読み込み直してログインの画面へ。
+    socket.on('connect_error', () => {
+        if (!socket.active) location.reload();
     });
     socket.on('disconnect', () => {
         socketInitInFlight = false;
@@ -1029,8 +1038,10 @@ function initializeSocketIO() {
         // ログアウトで切ったときは知らせずに読み込み直す。
         if (entryPortal.style.display === 'block') { location.reload(); return; }
         if (window.PracticeRoom?.active) { window.PracticeRoom.disconnected(); return; }
-        showAppAlert('サーバーとの接続が切れました。ページを読み込み直します。', { title: '接続切れ' })
-            .then(() => location.reload());
+        reconnecting = true;
+        const inRoom = mainAppContainer.style.display === 'block' && currentRoomName;
+        if (inRoom) rememberReconnectRoom(currentRoomName, currentUserAttribute);
+        window.AppLoading.begin({title: inRoom ? currentRoomName : 'ジェムリアTRPG', step: '再接続しています…'});
     });
     // match_error is handled in tab_visual_battle.js
     registerAppSocketHandler('state_updated', (newState) => {

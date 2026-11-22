@@ -12,7 +12,7 @@ const items=fs.readFileSync('static/js/item_modal.js','utf8');
 vm.runInContext(items.slice(0,items.indexOf('// アイテムモーダルを開く')),context);
 const main=fs.readFileSync('static/js/main.js','utf8');
 vm.runInContext(main.slice(main.indexOf('let buffCatalogRequestVersion'),main.indexOf('// --- 4. SocketIO初期化 ---')),context);
-const handlers=new Map();window.fakeSocket={connected:true,on:(name,fn)=>handlers.set(name,fn)};
+const handlers=new Map();window.fakeSocket={connected:true,io:{on(){}},on:(name,fn)=>handlers.set(name,fn)};
 vm.runInContext(`let socket=null;let socketInitInFlight=false;const API_BASE_URL='';const io=()=>window.fakeSocket;`
  +main.slice(main.indexOf('function initializeSocketIO()'),main.indexOf('async function attemptLocalTokenRecovery()'))+'initializeSocketIO();',context);
 const updated=handlers.get('catalog_updated');const tick=()=>new Promise(r=>setTimeout(r,0));

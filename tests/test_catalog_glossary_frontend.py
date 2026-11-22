@@ -45,7 +45,7 @@ assert.equal(window.glossaryData['W-08'].display_name,'最新版');
 assert.equal(pending.length,0);
 // 実際のmain.jsによるSocket購読も検査し、再初期化で二重登録しないことを確かめる。
 const handlers = new Map();
-window.fakeSocket = {connected:true,on:(name,callback)=>{
+window.fakeSocket = {connected:true,io:{on(){}},on:(name,callback)=>{
   if (!handlers.has(name)) handlers.set(name,[]);
   handlers.get(name).push(callback);
 }};

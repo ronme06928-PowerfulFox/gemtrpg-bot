@@ -283,8 +283,46 @@
   });
   addEventListener('hashchange', onHashChange);
 
+  // --- 切断と再接続（E02 Part 18 §1、OPS-RECONNECT 案A） ---
+  // ルームの中で切れたら、ルーム名と役割をこのタブに覚え、読み込み直した後に同じルームへ入り直す。
+  const RECONNECT_KEY = 'gemRoomReconnect';
+
+  function rememberReconnectRoom(room, role) {
+    try { sessionStorage.setItem(RECONNECT_KEY, JSON.stringify({room, role})); } catch (_e) { /* 覚えられなければメニューへ */ }
+  }
+
+  function forgetReconnectRoom() {
+    try { sessionStorage.removeItem(RECONNECT_KEY); } catch (_e) { /* 何もしない */ }
+  }
+
+  function takeReconnectRoom() {
+    let saved = null;
+    try { saved = JSON.parse(sessionStorage.getItem(RECONNECT_KEY) || 'null'); } catch (_e) { saved = null; }
+    forgetReconnectRoom();
+    return saved && typeof saved.room === 'string' && saved.room
+      ? {room: saved.room, role: saved.role === 'GM' ? 'GM' : 'Player'} : null;
+  }
+
+  // 覚えたルームがあれば入り直して true を返す。入り直せなければメインメニューを開いて知らせる。
+  function resumeRoomAfterReconnect() {
+    const saved = takeReconnectRoom();
+    if (!saved) return false;
+    (async () => {
+      try {
+        const response = await fetchWithSession('/load_room?name=' + encodeURIComponent(saved.room));
+        if (!response.ok) throw new Error('room unavailable');
+        await joinRoom(saved.room, await response.json(), {role: saved.role, gmPin: ''});
+      } catch (_e) {
+        showStartScreen();
+        window.showAppNotice?.(`ルーム「${saved.room}」に戻れませんでした。ルーム一覧から入り直してください。`, {kind: 'error'});
+      }
+    })();
+    return true;
+  }
+
   Object.assign(window, {
     AppScreens: {screenFromHash, menuHtml, helpHtml},
     showStartScreen, goScreen, hideMenuScreens, clearScreenHash, enterRoomHistory, leaveRoomTo, exitRoomTo,
+    rememberReconnectRoom, forgetReconnectRoom, takeReconnectRoom, resumeRoomAfterReconnect,
   });
 })();

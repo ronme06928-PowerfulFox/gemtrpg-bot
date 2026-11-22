@@ -16,7 +16,7 @@ const context = vm.createContext({window, console,
 });
 vm.runInContext(main.slice(main.indexOf('let buffCatalogRequestVersion'),main.indexOf('// --- 4. SocketIO初期化 ---')),context);
 const handlers = new Map();
-window.fakeSocket = {connected:true,on:(name,callback)=>handlers.set(name,callback)};
+window.fakeSocket = {connected:true,io:{on(){}},on:(name,callback)=>handlers.set(name,callback)};
 vm.runInContext(`let socket=null;let socketInitInFlight=false;const API_BASE_URL='';const io=()=>window.fakeSocket;`
   + main.slice(main.indexOf('function initializeSocketIO()'),main.indexOf('async function attemptLocalTokenRecovery()'))
   + 'initializeSocketIO();',context);
