@@ -296,7 +296,7 @@ Renderでは、以下を環境変数として設定する。
 
 **最終更新日**: 2026-05-30
 
-**対象**: 画像ピッカー、`/api/upload_image`、Cloudinary連携、画像レジストリ
+**対象**: 画像ピッカー、`/api/upload_image`、Cloudinary連携、画像レジストリ、使用量の見張り
 
 ## 1. 基本方針
 
@@ -369,6 +369,16 @@ Renderでは、画像アップロード機能の利用にCloudinaryの環境変�
 これらが未設定の場合、画像検証を通過してもCloudinary送信で失敗する。公開環境で画像アップロードを使う場合は、デプロイ前にRenderのEnvironmentで3項目を確認する。
 
 ルールブックの配布URL（2026-10-23）：`/manuals/rulebook.pdf`（基本ルールブック）と `/manuals/guide.pdf`（セッション操作ガイド）は、各冊子の `typst_manual/<冊子>/main.pdf` をそのまま返す。ログインは不要。Discordには、この2つのURLを一度だけ案内する。URLは版が変わっても同じなので、`Cache-Control: no-cache` を付けて、ブラウザが毎回新しい版を確かめるようにする（`/static/` の1年キャッシュは使わない）。保存するときのファイル名は「ジェムリアTRPG_<書名>.pdf」。本の版を上げて push すると、Renderのデプロイで中身が新しい版に変わる。UptimeRobotが5分ごとにアクセスしているため、無料プランの停止（15分アクセスがないと止まる）は起きない。
+
+---
+
+## 6. 画像の使用量
+
+アプリ管理者用の `GET /api/admin/image_usage` は [Cloudinary Admin API の usage](https://cloudinary.com/documentation/admin_api#get_product_environment_usage_details) を日付指定なしで1回呼ぶ。ユーザー管理を開いたときだけ取得し、保存や定期取得は行わない。無料枠では転送・変換の集計は直近30日間、保存量は現時点の値。 [Cloudinary の集計期間](https://cloudinary.com/documentation/developer_onboarding_faq_credits#how_the_30_day_window_works)
+
+- 成功時は `available: true`、`credits`（`usage`・`limit`・`percent`）、`breakdown`（`storage`・`bandwidth`・`transformations` ごとの `usage` と `credits`）、`last_updated`、`over_half` を返す。保存・転送の単位はバイト、変換は回数。更新情報の日付・時刻の精度は Cloudinary の返却値に従う。
+- 使用率は API が返す消費量と上限から計算する。使用量 ÷ 上限が 0.5 を超えたときだけ `over_half` が真になる。
+- 未ログインは 401、アプリ管理者以外は 403。鍵の未設定・取得失敗・時間切れは HTTP 200 で `available: false` と短い `reason` を返す。通信にはタイムアウトを指定し、本番では取得全体を3秒で打ち切る。鍵や外部 API の例外本文は返答・ログに出さない。ユーザー一覧は独立して取得する。
 
 ---
 

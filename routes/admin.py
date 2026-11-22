@@ -1,11 +1,14 @@
-"""アプリ管理者向けユーザー管理系の HTTP ハンドラ。
+"""アプリ管理者向けユーザー管理と画像使用量の HTTP ハンドラ。"""
 
-admin_get_users / admin_get_user_details / admin_delete_user /
-admin_transfer_user / admin_set_user_management_admin を担う。
-"""
+from contextlib import nullcontext
+from datetime import datetime
+from math import isfinite
 
-from flask import Blueprint, jsonify, request, session
+import cloudinary.api
+from flask import Blueprint, current_app, jsonify, request, session
+from urllib3.exceptions import MaxRetryError, NewConnectionError, TimeoutError as HTTPTimeoutError
 
+from extensions import socketio
 from manager.auth import verify_master_key
 from manager.user_manager import (
     get_all_users,
@@ -20,6 +23,7 @@ from manager.utils import session_required
 from routes.common import require_app_admin
 
 admin_bp = Blueprint('admin', __name__)
+IMAGE_USAGE_TIMEOUT = 3
 
 
 def _can_manage_users_with_payload(payload=None):
@@ -54,6 +58,71 @@ def admin_get_users():
         "users": get_all_users(),
         "can_manage_users": True,
     })
+
+
+def _image_usage_deadline():
+    if getattr(socketio, 'async_mode', None) == 'eventlet':
+        from eventlet import Timeout
+
+        # 通信単位のタイムアウトに加え、SDK 内の再試行を含む全体を制限する。
+        return Timeout(IMAGE_USAGE_TIMEOUT, TimeoutError())
+    return nullcontext()
+
+
+def _image_usage_timed_out(exc):
+    # SDK は urllib3 の例外を GeneralError に包む。
+    while exc is not None:
+        if isinstance(exc, NewConnectionError):
+            return False
+        if isinstance(exc, (TimeoutError, HTTPTimeoutError)):
+            return True
+        exc = exc.reason if isinstance(exc, MaxRetryError) else exc.__cause__ or exc.__context__
+    return False
+
+
+def _usage_number(value):
+    if type(value) not in (int, float) or not isfinite(value) or value < 0:
+        raise ValueError('Invalid Cloudinary usage metric')
+    return value
+
+
+@admin_bp.route('/api/admin/image_usage', methods=['GET'])
+@session_required
+def admin_image_usage():
+    denied = require_app_admin()
+    if denied:
+        return denied
+
+    config = cloudinary.config()
+    if not all((config.cloud_name, config.api_key, config.api_secret)):
+        return jsonify(available=False, reason='Cloudinary の鍵が未設定です')
+
+    try:
+        with _image_usage_deadline():
+            usage = cloudinary.api.usage(timeout=IMAGE_USAGE_TIMEOUT)
+    except Exception as exc:
+        reason = ('Cloudinary の応答が時間切れです' if _image_usage_timed_out(exc)
+                  else 'Cloudinary との通信に失敗しました')
+        current_app.logger.warning('画像の使用量: %s', reason)
+        return jsonify(available=False, reason=reason)
+
+    try:
+        used = _usage_number(usage['credits']['usage'])
+        limit = _usage_number(usage['credits']['limit'])
+        ratio = used / limit
+        breakdown = {
+            key: {'usage': _usage_number(usage[key]['usage']),
+                  'credits': _usage_number(usage[key]['credits_usage'])}
+            for key in ('storage', 'bandwidth', 'transformations')
+        }
+        last_updated = usage['last_updated']
+        datetime.fromisoformat(last_updated.replace('Z', '+00:00'))
+    except (KeyError, TypeError, ValueError, ArithmeticError, AttributeError):
+        current_app.logger.warning('画像の使用量: Cloudinary の応答形式が不正です')
+        return jsonify(available=False, reason='Cloudinary の応答形式が不正です')
+
+    return jsonify(available=True, credits={'usage': used, 'limit': limit, 'percent': ratio * 100},
+                   breakdown=breakdown, last_updated=last_updated, over_half=ratio > 0.5)
 
 
 @admin_bp.route('/api/admin/delete_user', methods=['POST'])

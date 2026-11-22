@@ -11,12 +11,55 @@ function escapeUserManagementText(value) {
 }
 
 let currentUserCanManageUsers = false;
+let imageUsageRequest;
 
 async function showUserManagement() {
     document.getElementById('room-portal').style.display = 'none';
     document.getElementById('user-management-portal').style.display = 'block';
 
+    loadImageUsage();
     await loadUserList();
+}
+
+async function loadImageUsage() {
+  imageUsageRequest?.abort();
+  imageUsageRequest = new AbortController();
+  const { signal } = imageUsageRequest;
+  const card = document.getElementById('image-usage-card');
+  const status = document.getElementById('image-usage-status');
+  card.classList.remove('is-over-half');
+  status.textContent = '取得中…';
+
+  try {
+    const response = await fetchWithSession('/api/admin/image_usage', { signal, cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    const usage = await response.json();
+    if (signal.aborted) return;
+    if (!usage.available) {
+      status.textContent = `使用量を取得できませんでした（${usage.reason}）`;
+      return;
+    }
+
+    const format = new Intl.NumberFormat('ja-JP', { maximumSignificantDigits: 4 });
+    const { credits, breakdown, last_updated, over_half } = usage;
+    const items = [
+      ['保存', breakdown.storage, 1e9, ' GB'],
+      ['転送', breakdown.bandwidth, 1e9, ' GB'],
+      ['変換', breakdown.transformations, 1, '回'],
+    ];
+    const details = items.map(([label, item, divisor, unit]) =>
+      `<li>${label} ${format.format(item.usage / divisor)}${unit}（${format.format(item.credits)} クレジット）</li>`
+    ).join('');
+    card.classList.toggle('is-over-half', over_half);
+    status.innerHTML = `
+      <p><strong>${format.format(credits.usage)} / ${format.format(credits.limit)} クレジット（${format.format(credits.percent)}%）</strong></p>
+      <ul>${details}</ul>
+      <p class="image-usage-updated">最終更新 ${escapeUserManagementText(last_updated)}</p>
+      ${over_half ? '<p><strong>無料枠の半分を超えました。保存先の移行を検討してください</strong></p>' : ''}
+    `;
+  } catch {
+    if (!signal.aborted) status.textContent = '使用量を取得できませんでした（通信エラー）';
+  }
 }
 
 async function loadUserList() {
