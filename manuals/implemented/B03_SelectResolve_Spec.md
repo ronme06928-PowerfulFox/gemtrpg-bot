@@ -104,6 +104,7 @@ RoundStart は次の順序で処理する。
 
 ## 6. redirect（自動、init(A)>init(B)でB.target=A、競合は条件を満たす最後の宣言が最終勝者、同速不可、マッチできなくなった側はone-sided）
 - 宣言の確定・取り消しごとに全体の redirect を再計算する。A が単体で B（相手スロット）を target にする宣言によって、`initiative(A) > initiative(B)` 等の条件を満たせば `B.target = A` に自動変更する。
+- redirect を再計算する前に、行動できない actor（HP 0・逃走・行動枠なし・未配置・混乱など、必須枠の判定と同じ条件）の slot の intent を外す。外した intent から redirect を作らない（PERF-REDIRECT-CLEANUP、2026-11-23。以前は再計算の後に必須枠の判定で外していたため、外した intent 由来の redirect が残りえた）。
 - 同一 B への redirect 競合は、各候補が `init(A)>init(B)` 等の引き寄せ条件を満たす場合、最後に宣言したスキルがマッチを取る。候補同士の最大 initiative では決めない（2026-10-20ユーザー裁定、計画46 D16）。
 - 後の宣言がBへの引き寄せ条件を満たせば再上書き可能。先の候補Aより速い必要はない。
 - 同速（`initiative(A) == initiative(B)`）では redirect 不可。
@@ -655,9 +656,11 @@ ready判定前後の状態通知、全員確定時のready通知、保存、revi
 
 必須枠が1つ以上あり、readyがfalseからtrueへ変わった場合だけ、状態配信の後に `battle_resolve_ready` を1回送る。既にreadyの場合は状態更新のみ。必須0枠はready=falseとして配信し、ready通知は送らない。readyは解決開始ではなく、GM等による既存の解決開始要求と認可は維持する。
 
-この処理は `_publish_intent_commit_state` に集約する。更新前のready情報を含む最初の状態通知は廃止する。preview・uncommit・解決開始前後の配信は対象外。revision・コスト・保存・DB rollback処理は変更しない。ready計算が失敗した場合は例外を伝播し、この処理から状態・readyの成功通知を出さない。intent更新を巻き戻す機構は追加しない。
+この処理は `_publish_intent_commit_state` に集約する。更新前のready情報を含む最初の状態通知は廃止する。preview・uncommit・解決開始前後の配信は対象外。revision・コスト・保存・DB rollback処理は変更しない。ready計算や配信が例外で失敗した場合は、readyの成功通知を出さず、要求した接続へ `battle_error`（「宣言の確定を反映できませんでした。もう一度確定してください。」）を送り、最新の戦闘状態を1回送り直して画面を合わせる（送り直しも失敗したらログだけ残す）。intent更新は巻き戻さない。確定はコストを消費しないので、同じ確定をもう一度送っても処理は重ならない（OPS-COMMIT-ERROR-NOTIFY、2026-11-23）。
 
 確定処理中に別の処理等でselect以外へ変わった場合は、ready計算を行わず最新状態を1回返す。旧経路の最初の状態通知で行っていた同期を保ち、ready通知や解決開始を追加しない。これはスレッド・eventletでのすべての並行動作を保証するものではない。
+
+ready計算（`_refresh_resolve_ready`）は、必須枠を数え終えた時点でフェーズを確かめ直す。数えている間（ルーム状態の取得など）に解決開始などでselect以外へ変わっていたら、`resolve_ready`・`resolve_ready_info` を書き込まず、readyでない結果を返す。確定処理はこの場合ready通知を送らず、最新状態を1回返す。preview・uncommit・スキルや対象の変更から呼ぶ場合も同じ（OPS-READY-PHASE-RACE、2026-11-23）。
 
 ## 敵行動パターンの配置
 

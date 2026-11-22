@@ -7,6 +7,8 @@ import pytest
 
 from events.battle import common_routes as routes
 
+REAL_RECALCULATE_REDIRECT = routes._recalculate_redirect_state  # 下の fixture が置き換える前の本物
+
 
 @pytest.fixture
 def commit_runtime(monkeypatch):
@@ -97,9 +99,12 @@ def test_ready_check_exception_does_not_publish_success(commit_runtime, monkeypa
         raise RuntimeError("synthetic ready check failure")
 
     monkeypatch.setattr(routes, "_refresh_resolve_ready", fail)
-    with pytest.raises(RuntimeError, match="synthetic ready check failure"):
-        routes.on_battle_intent_commit(data)
-    assert events == []
+    errors = []
+    monkeypatch.setattr(routes, "emit", lambda name, payload, **kwargs: errors.append((name, payload, kwargs.get("to"))))
+    routes.on_battle_intent_commit(data)  # 例外を投げずに、要求者へ知らせて状態を送り直す
+    assert [(name, to) for name, _payload, to in errors] == [("battle_error", "synthetic")]
+    assert "もう一度確定" in errors[0][1]["message"]
+    assert [row[0] for row in events] == ["battle_state_updated"]  # ready の成功通知は無い
     assert battle["intents"]["A"]["committed"] is True
 
 
@@ -158,3 +163,50 @@ def test_phase_changed_during_commit_still_publishes_latest_state(commit_runtime
     routes.on_battle_intent_commit(data)
     assert [row[0] for row in events] == ["battle_state_updated"]
     assert events[0][1]["phase"] == "resolve_mass"
+
+
+def test_resolve_start_during_ready_count_does_not_write_stale_ready(commit_runtime, monkeypatch):
+    """OPS-READY-PHASE-RACE: 必須枠を数えている間に解決が始まったら、古い ready を書かず知らせない。"""
+    _, battle, events, data = commit_runtime
+    battle["intents"]["B"]["committed"] = True
+    original = routes._required_slots
+
+    def required_then_resolve_starts(room_id, state):
+        slots = original(room_id, state)
+        state["phase"] = "resolve_mass"  # 数えている間に、ほかの処理が解決を始めた
+        return slots
+
+    monkeypatch.setattr(routes, "_required_slots", required_then_resolve_starts)
+    routes.on_battle_intent_commit(data)
+    assert [row[0] for row in events] == ["battle_state_updated"]
+    assert battle["resolve_ready"] is False
+    assert battle["resolve_ready_info"]["committed_count"] == 0  # 書き込んでいない（元のまま）
+    assert battle["phase"] == "resolve_mass"
+
+
+def test_ready_refresh_skips_writing_outside_select(commit_runtime):
+    _, battle, _, _ = commit_runtime
+    battle["phase"] = "resolve_mass"
+    battle["intents"]["B"]["committed"] = True
+    battle["intents"]["A"]["committed"] = True
+    ready, *_rest = routes._refresh_resolve_ready("room", battle)
+    assert ready is False and battle["resolve_ready"] is False
+    assert battle["resolve_ready_info"]["committed_count"] == 0
+
+
+def test_redirect_recalculation_drops_inactive_actor_intents(commit_runtime, monkeypatch):
+    """PERF-REDIRECT-CLEANUP: 行動できない actor の intent は redirect の再計算より前に外す。"""
+    room, battle, _, _ = commit_runtime
+    room["characters"][1]["hp"] = 0
+    battle["intents"]["B"]["committed"] = True
+    seen = {}
+    monkeypatch.setattr(routes._redirect_flow, "recalculate_redirect_state",
+                        lambda _room, _battle, state, **_k: seen.update(intents=set(state["intents"])))
+    monkeypatch.setitem(routes.active_room_states, "room", room)
+    REAL_RECALCULATE_REDIRECT("room", "battle", battle)
+    assert seen["intents"] == {"A"}
+    # ルーム状態がメモリに無ければ判断できないので、何も外さない。
+    battle["intents"]["B"] = {"skill_id": "probe", "committed": True, "tags": {"instant": False}}
+    monkeypatch.delitem(routes.active_room_states, "room")
+    REAL_RECALCULATE_REDIRECT("room", "battle", battle)
+    assert seen["intents"] == {"A", "B"}

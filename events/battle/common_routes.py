@@ -5,7 +5,7 @@ from events.battle.intent_performance import measure_intent, measure_stage, tag_
 
 from flask import request
 from flask_socketio import emit, rooms
-from extensions import socketio, all_skill_data
+from extensions import socketio, all_skill_data, active_room_states
 from manager.logs import setup_logger
 from manager.room_access import is_sid_in_room, is_user_in_room
 from manager.room_manager import (
@@ -897,6 +897,14 @@ def _try_apply_redirect(room_id, battle_id, state, slot_a):
 
 @measure_stage("redirect_ms")
 def _recalculate_redirect_state(room_id, battle_id, state):
+    # 行動できない actor の intent は、redirect を作る前に外す（B03、必須枠の判定と同じ条件）。
+    # メモリのルーム状態だけを見る。無ければ判断できないので外さない（全員を行動不能と誤らない）。
+    room_state = active_room_states.get(room_id)
+    intents = state.get('intents') if isinstance(state, dict) else None
+    if room_state and isinstance(intents, dict):
+        for slot_id, slot in (state.get('slots') or {}).items():
+            if slot_id in intents and not _is_actor_actionable(room_state, (slot or {}).get('actor_id')):
+                intents.pop(slot_id, None)
     return _redirect_flow.recalculate_redirect_state(
         room_id, battle_id, state,
         ensure_intent_for_slot_fn=_ensure_intent_for_slot,
@@ -1122,7 +1130,16 @@ def on_battle_intent_commit(data):
         room_id, battle_id, slot_id, intent.get('committed'), intent.get('skill_id'), intent.get('target')
     )
 
-    _publish_intent_commit_state(room_id, battle_id, state)
+    try:
+        _publish_intent_commit_state(room_id, battle_id, state)
+    except Exception:
+        # 成功を知らせず、要求者へ失敗を伝えて最新の状態で画面を合わせる（B03）。
+        logger.exception("[FLOW] commit_publish_failed room=%s battle=%s slot=%s", room_id, battle_id, slot_id)
+        emit('battle_error', {'message': '宣言の確定を反映できませんでした。もう一度確定してください。'}, to=request.sid)
+        try:
+            _emit_battle_state_updated(room_id, battle_id)
+        except Exception:
+            logger.exception("[FLOW] commit_resync_failed room=%s battle=%s", room_id, battle_id)
 
 
 @socketio.on('battle_resolve_confirm')

@@ -149,6 +149,9 @@ def _refresh_resolve_ready(room_id, state, *, required_slots_fn):
         state,
         required_slots_fn=required_slots_fn,
     )
+    # 数えている間に解決開始などで select 以外へ変わっていたら、古い ready を書き込まない（B03）。
+    if state.get('phase') != 'select':
+        return False, required, committed_count, waiting_slots
     ready = committed_count == len(required)
     state['resolve_ready'] = ready
     state['resolve_ready_info'] = {
