@@ -76,7 +76,7 @@ global.document={getElementById:id=>hosts[id]||null};
 const calls=[];global.window={Fx:{play:(name,params,opts)=>calls.push({name,params,opts})}};
 const {playResolveStageFx}=await import('./static/js/battle/components/resolve_flow_fx.js');
 const flow={_activeStep:{kind:'gem_blessing_prelude',gemBlessings:[{actor_id:'a'},{actor_id:'b'}]},
- _characterById:()=>({}),_actorVisualMeta:()=>({}),_stepStartedAt:Date.now()};
+ _characterById:()=>({}),_readyGemPortrait:()=>null,_stepStartedAt:Date.now()};
 playResolveStageFx(flow,{},{});
 assert.deepEqual(calls.map(c=>[c.opts.host.id,c.params.width,c.params.height,c.opts.delaySeconds]),
  [['map-viewport',900,600,0.4],['map-viewport',900,600,2.0]]);

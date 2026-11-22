@@ -49,6 +49,8 @@
     let audioContext = null;
     let lastFailure = null;
     const sourceAudioPool = new Map();
+    const effectBuffers = new Map();
+    const namedVoices = new Set();
 
     let enabled = loadBool(STORAGE_KEYS.enabled, true);
     let volume = clamp(loadNumber(STORAGE_KEYS.volume, 0.55), 0, 1);
@@ -250,22 +252,29 @@
         });
     }
 
-    async function playHtmlAudio(src, named = false) {
-        const pool = ensureSourcePool(src);
-        let audio = pool.find((a) => !!a && (a.paused || a.ended));
-        if (!audio) {
-            if (named) return false;
-            audio = createPooledAudio(src);
-            pool.push(audio);
-        }
-        audio.volume = named ? volume : effectiveVolume();
+    function availableAudio(pool) {
+        return pool.find(audio => audio.paused || audio.ended);
+    }
+
+    function restartHtmlAudio(audio, playbackVolume) {
+        audio.volume = playbackVolume;
         try {
             if (!audio.paused) audio.pause();
             audio.currentTime = 0;
         } catch (_e) {
             // Ignore seek/reset errors.
         }
-        await audio.play();
+        return audio.play();
+    }
+
+    async function playHtmlAudio(src) {
+        const pool = ensureSourcePool(src);
+        let audio = availableAudio(pool);
+        if (!audio) {
+            audio = createPooledAudio(src);
+            pool.push(audio);
+        }
+        await restartHtmlAudio(audio, effectiveVolume());
         return true;
     }
 
@@ -273,17 +282,99 @@
         return enabled && unlocked && !document.hidden;
     }
 
-    async function playNamed(name) {
-        if (!canPlayEffect() || !Object.hasOwn(EFFECT_SOURCES, name)) return false;
+    async function prepareNamedBuffer(src) {
+        if (!audioContext?.decodeAudioData || effectBuffers.has(src)) return;
+        effectBuffers.set(src, null);
         try {
-            return await playHtmlAudio(EFFECT_SOURCES[name], true);
+            const response = await fetch(src);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            effectBuffers.set(src, await audioContext.decodeAudioData(await response.arrayBuffer()));
         } catch (_error) {
-            return false;
+            effectBuffers.delete(src);
         }
     }
 
+    function scheduleNamedBuffer(src, buffer, at) {
+        const stamp = audioContext.getOutputTimestamp?.();
+        const now = audioContext.currentTime;
+        const when = Math.max(now, stamp?.performanceTime > 0
+            ? stamp.contextTime + (at - stamp.performanceTime) / 1000
+            : now + (at - performance.now()) / 1000);
+        const end = when + buffer.duration;
+        const overlaps = [...namedVoices].filter(v => v.src === src && v.when < end && v.end > when);
+        if (overlaps.length >= POOL_SIZE_PER_SOURCE) return null;
+
+        const source = audioContext.createBufferSource();
+        const gain = audioContext.createGain();
+        source.buffer = buffer;
+        gain.gain.value = volume;
+        const release = () => {
+            if (!namedVoices.delete(voice)) return;
+            source.disconnect();
+            gain.disconnect();
+        };
+        const voice = { src, when, end, gain, cancel() {
+            if (!namedVoices.has(voice)) return;
+            source.stop();
+            release();
+        } };
+        namedVoices.add(voice);
+        source.onended = release;
+        try {
+            source.connect(gain);
+            gain.connect(audioContext.destination);
+            source.start(when);
+        } catch (error) {
+            release();
+            throw error;
+        }
+        return voice.cancel;
+    }
+
+    function scheduleNamedHtml(src, at) {
+        const pool = ensureSourcePool(src);
+        let audio;
+        const release = () => {
+            if (!namedVoices.delete(voice)) return;
+            clearTimeout(timer);
+            audio?.removeEventListener('ended', release);
+        };
+        const voice = { cancel() {
+            if (!namedVoices.has(voice)) return;
+            release();
+            audio?.pause();
+        } };
+        const timer = setTimeout(async () => {
+            if (!canPlayEffect()) return release();
+            try {
+                audio = availableAudio(pool);
+                if (!audio) return release();
+                audio.addEventListener('ended', release, { once: true });
+                await restartHtmlAudio(audio, volume);
+            } catch (_error) {
+                release();
+            }
+        }, Math.max(0, at - performance.now()));
+        namedVoices.add(voice);
+        return voice.cancel;
+    }
+
+    function playNamed(name, at) {
+        if (!canPlayEffect() || !Object.prototype.hasOwnProperty.call(EFFECT_SOURCES, name)) return null;
+        const src = EFFECT_SOURCES[name];
+        const buffer = effectBuffers.get(src);
+        if (buffer && audioContext.state === 'running') {
+            try {
+                return scheduleNamedBuffer(src, buffer, at);
+            } catch (_error) {
+                // A browser can reject Web Audio even after decoding.
+            }
+        }
+        return scheduleNamedHtml(src, at);
+    }
+
     function stopNamedSounds() {
-        effectSources.forEach(src => sourceAudioPool.get(src)?.forEach(audio => audio.pause()));
+        namedVoices.forEach(voice => voice.cancel());
     }
 
     async function playFromSources() {
@@ -428,6 +519,9 @@
             volume = clamp(parsed, 0, 1);
             persist(STORAGE_KEYS.volume, String(volume));
             updateAllPoolVolumes();
+            namedVoices.forEach(voice => {
+                if (voice.gain) voice.gain.gain.value = volume;
+            });
         }
         return volume;
     }
@@ -465,8 +559,8 @@
     function unlock() {
         unlocked = true;
         warmupSources();
-        effectSources.forEach(src => ensureSourcePool(src));
         void ensureAudioContextReady(true);
+        effectSources.forEach(src => void prepareNamedBuffer(src));
         return unlocked;
     }
 

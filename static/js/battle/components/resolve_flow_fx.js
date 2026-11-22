@@ -116,9 +116,8 @@ export function playResolveStageFx(flow, payload, state) {
     const width = host.clientWidth, height = host.clientHeight;
     for (const [index, row] of (step.gemBlessings || []).entries()) {
       const actor = flow._characterById(row.actor_id, state) || {};
-      const visual = flow._actorVisualMeta(row.actor_id, state);
       fx.play('gem-blessing', { mode: 'full', width, height, actorName: actor.name || row.actor_id,
-        skillName: row.skill_name, image: visual.image, team: actor.type || 'ally' },
+        skillName: row.skill_name, portrait: flow._readyGemPortrait(row.actor_id, state), team: actor.type || 'ally' },
       { host, elapsedSeconds: Math.max(0, Date.now() - flow._stepStartedAt) / 1000,
         delaySeconds: (GEM_BLESSING_MS.lead + index * GEM_BLESSING_MS.full) / 1000,
         silent: !payload.liveGemPrelude });

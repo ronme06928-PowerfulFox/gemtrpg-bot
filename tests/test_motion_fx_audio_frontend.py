@@ -34,7 +34,13 @@ const context = {
   setTimeout: (fn, ms) => { timers.set(++id, {fn, ms}); return id; },
   clearTimeout: id => timers.delete(id), requestAnimationFrame: () => {},
   localStorage: { getItem: () => 'light' },
-  SoundFx: { canPlayEffect: () => enabled && !document.hidden, playNamed: name => played.push(name) },
+  SoundFx: {
+    canPlayEffect: () => enabled && !document.hidden,
+    playNamed(name, at) {
+      const id = context.setTimeout(() => { if (this.canPlayEffect()) played.push(name); }, at);
+      return () => context.clearTimeout(id);
+    },
+  },
 };
 context.window = context;
 const Fx = loadShared(context);
@@ -81,38 +87,133 @@ Fx.finishAll(host);
 """)
 
 
-def test_named_sound_uses_existing_settings_and_does_not_wait_for_media():
+def test_named_sound_uses_the_audio_clock_and_falls_back_while_decoding():
     _run_node(r"""
 (async () => {
-  const played = [], unlock = new Map();
+  const played = [], queued = new Map(), unlock = new Map(), visibility = new Map();
+  const sources = [], gains = [];
+  let decoded, loads = 0, nextTimer = 0;
+  class AudioContext {
+    state = 'running';
+    currentTime = 4.2;
+    destination = {};
+    getOutputTimestamp() { return { contextTime: 4.19, performanceTime: 1000 }; }
+    decodeAudioData() { return new Promise(resolve => { decoded = resolve; }); }
+    createGain() {
+      const node = { gain: { value: null }, connect() {}, disconnect() {} };
+      gains.push(node);
+      return node;
+    }
+    createBufferSource() {
+      const node = { connect() {}, disconnect() {}, start(when) { this.when = when; },
+        stop() { this.stopped = true; } };
+      sources.push(node);
+      return node;
+    }
+  }
   class Audio {
     constructor(src) { this.src = src; this.paused = true; }
     load() {}
     pause() { this.paused = true; }
+    addEventListener() {}
+    removeEventListener() {}
     async play() { this.paused = false; played.push([this.src, this.volume]); }
   }
-  const context = {Audio, console, document: makeDocument(), localStorage: {
-    getItem: () => null, setItem() {},
-  }};
+  const context = {
+    Audio, AudioContext, console, document: makeDocument(),
+    performance: {now: () => 1000},
+    fetch: async () => { loads++; return {ok: true, arrayBuffer: async () => new ArrayBuffer(1)}; },
+    setTimeout: (callback, ms) => { queued.set(++nextTimer, {callback, ms}); return nextTimer; },
+    clearTimeout: id => queued.delete(id),
+    localStorage: {getItem: () => null, setItem() {}},
+  };
   context.window = context;
   context.addEventListener = (name, fn) => unlock.set(name, fn);
+  context.document.addEventListener = (name, fn) => visibility.set(name, fn);
   vm.runInNewContext(fs.readFileSync('static/js/sound_fx.js', 'utf8'), context);
   const sound = context.SoundFx;
   assert.equal(sound.getSettings().volume, 0.55);
-  assert.equal(await sound.playNamed('gem-blessing'), false);
+  assert.equal(sound.playNamed('gem-blessing'), null);
   unlock.get('pointerdown')();
+  unlock.get('keydown')();
+  await new Promise(setImmediate);
+  assert.equal(loads, 1);
   sound.setVolume(0.31);
-  assert.equal(await sound.playNamed('gem-blessing'), true);
+  const cancelFallback = sound.playNamed('gem-blessing', 1450);
+  assert.equal(queued.get(1).ms, 450);
+  assert.equal(sources.length, 0);
+  queued.get(1).callback();
   assert.deepStrictEqual(played, [['/static/audio/gem-blessing.mp3', 0.31]]);
-  sound.setEnabled(false);
-  assert.equal(await sound.playNamed('gem-blessing'), false);
-  sound.setEnabled(true);
+  cancelFallback();
+  assert.equal(queued.size, 0);
+  decoded({duration: 1.54});
+  await new Promise(setImmediate);
+  const stop = sound.playNamed('gem-blessing', 1450);
+  assert(Math.abs(sources[0].when - 4.64) < 1e-9);
+  assert.equal(sources[0].stopped, undefined);
+  assert.equal(gains[0].gain.value, 0.31);
+  stop();
+  stop();
+  assert.equal(sources[0].stopped, true);
+  sound.playNamed('gem-blessing', 1450);
+  sound.playNamed('gem-blessing', 3050);
+  sound.playNamed('gem-blessing', 4650);
+  assert.equal(sources.length, 4);
   sound.setVolume(0);
-  assert.equal(await sound.playNamed('gem-blessing'), true);
-  assert.deepStrictEqual(played.at(-1), ['/static/audio/gem-blessing.mp3', 0]);
+  assert.equal(gains[1].gain.value, 0);
+  sound.setEnabled(false);
+  assert(sources.slice(1).every(source => source.stopped));
+  assert.equal(sound.playNamed('gem-blessing'), null);
+  sound.setEnabled(true);
+  sound.playNamed('gem-blessing', 1450);
   context.document.hidden = true;
-  assert.equal(await sound.playNamed('gem-blessing'), false);
-  assert.equal(await sound.playNamed('toString'), false);
+  visibility.get('visibilitychange')();
+  assert.equal(sources.at(-1).stopped, true);
+  assert.equal(sound.playNamed('gem-blessing'), null);
+  assert.equal(sound.playNamed('toString'), null);
+})().catch(e => {console.error(e);process.exit(1)});
+""")
+
+
+def test_gem_uses_a_decoded_portrait_or_keeps_the_missing_layout():
+    _run_node(r"""
+(async () => {
+  const doc = makeDocument(), context = {};
+  const Fx = loadShared(context);
+  const host = doc.createElement('div'), resolveDecode = new Map();
+  global.Image = function () {
+    const image = doc.createElement('img');
+    image.decode = () => new Promise((resolve, reject) => resolveDecode.set(image.src, {resolve, reject}));
+    return image;
+  };
+  global.window = {Fx: {play(name, params) {
+    const root = doc.createElement('div'), effect = Object.create(Fx.get(name));
+    effect.mount(root, {...params, level: 'light'});
+    effect.render(.64);
+    mounted.push({root, effect});
+  }}};
+  global.document = {getElementById: () => host};
+  const {ResolveFlowPanel} = await import('./static/js/battle/components/ResolveFlowPanel.js');
+  const {playResolveStageFx} = await import('./static/js/battle/components/resolve_flow_fx.js');
+  const flow = new ResolveFlowPanel(), mounted = [];
+  const state = {characters: [{id:'a', image:'late.jpg'}, {id:'b', image:'ready.jpg'}],
+    battle_state: {pending_gem_blessings: [{actor_id: 'a'}, {actor_id: 'b'}]}};
+  flow._preparePendingGemPortraits(state);
+  assert.equal(resolveDecode.size, 2);
+  resolveDecode.get('ready.jpg').resolve();
+  await Promise.resolve();
+  flow._activeStep = {kind: 'gem_blessing_prelude', gemBlessings: state.battle_state.pending_gem_blessings};
+  flow._stepStartedAt = Date.now();
+  playResolveStageFx(flow, {liveGemPrelude: true}, state);
+  const [missing, ready] = mounted;
+  assert(!missing.effect.figure);
+  assert.equal(ready.effect.figure.src, 'ready.jpg');
+  assert.equal(ready.effect.figure.className, 'fx-gem-b-figure');
+  resolveDecode.get('late.jpg').resolve();
+  await Promise.resolve();
+  missing.effect.render(1);
+  assert(!missing.effect.figure);
+  assert(!missing.root.children.some(child => child.tagName === 'img'));
 })().catch(e => {console.error(e);process.exit(1)});
 """)
 

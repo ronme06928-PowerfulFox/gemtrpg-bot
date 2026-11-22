@@ -1024,10 +1024,19 @@
         this.dim = el(root, 'div', 'fx-gem-dim');
         // 使った人の名前は立ち絵の有無にかかわらず陣営の色の光で大きく出す（E02 Part 14 PR5）。
         // 立ち絵ありは立ち絵の下寄り、立ち絵なしは人の姿の代わりに胸の高さへ、より大きく出す。
-        if (params.image) { this.figure = el(root, 'img', 'fx-gem-b-figure'); this.figure.src = params.image; this.figure.alt = ''; }
+        if (params.portrait) {
+          this.figure = params.portrait;
+          this.figure.className = 'fx-gem-b-figure';
+          root.appendChild(this.figure);
+        } else if (params.image) {
+          this.figure = el(root, 'img', 'fx-gem-b-figure');
+          this.figure.src = params.image;
+        }
+        if (this.figure) this.figure.alt = '';
         this.name = el(root, 'div', `fx-gem-namecard ${params.team || 'ally'}`, params.actorName || '');
-        this.name.style.fontSize = `${this.h * (params.image ? 0.09 : 0.13)}px`;
-        this.nameFit = Math.max(MIN_FIT, Math.min(1, this.w * 0.7 / Math.max(1, (this.name.scrollWidth || this.name.textContent.length * this.h * (params.image ? .09 : .13)))));
+        const nameSize = this.h * (this.figure ? 0.09 : 0.13);
+        this.name.style.fontSize = `${nameSize}px`;
+        this.nameFit = Math.max(MIN_FIT, Math.min(1, this.w * 0.7 / Math.max(1, this.name.scrollWidth || this.name.textContent.length * nameSize)));
       }
       if (this.level !== 'light') { this.cv = canvasOn(root, this.w, this.h); this.cv.colors = this.colors; }
       this.text = el(root, 'div', 'fx-gem-b-text');

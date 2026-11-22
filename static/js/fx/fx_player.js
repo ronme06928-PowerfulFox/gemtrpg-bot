@@ -43,7 +43,7 @@
   }
 
   function cancelItemSounds(item) {
-    item.soundTimers.splice(0).forEach(timer => clearTimeout(timer));
+    item.soundCancels.splice(0).forEach(cancel => cancel());
   }
 
   Fx.cancelSounds = function () {
@@ -88,7 +88,7 @@
       return null;
     }
     fx.render(elapsed);
-    const item = { fx, root, host: opts.host, level, rate, start: now - elapsed / rate * 1000, soundTimers: [] };
+    const item = { fx, root, host: opts.host, level, rate, start: now - elapsed / rate * 1000, soundCancels: [] };
     item.finish = () => {
       const index = active.indexOf(item);
       if (index < 0) return;
@@ -107,10 +107,8 @@
     if (definition.sounds && !opts.silent && sound?.canPlayEffect?.()) {
       for (const cue of definition.sounds) {
         if (cue.t < elapsed || cue.t > duration || (cue.mode && cue.mode !== mode)) continue;
-        const wait = item.start + cue.t / rate * 1000 - performance.now();
-        item.soundTimers.push(setTimeout(() => {
-          if (sound.canPlayEffect()) void sound.playNamed(cue.name);
-        }, Math.max(0, wait)));
+        const cancel = sound.playNamed(cue.name, item.start + cue.t / rate * 1000);
+        if (cancel) item.soundCancels.push(cancel);
       }
     }
 

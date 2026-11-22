@@ -33,6 +33,7 @@ class ResolveFlowPanel {
         this._lastStageKey = null;
         this._unsubscribeStage = null;
         this._liveGemPreludeTimestamp = null;
+        this._gemPortraits = new Map();
         this._introDurationMs = 1600;
         this._renderedStepKey = null;
         this._introShownRounds = new Set();
@@ -96,6 +97,7 @@ class ResolveFlowPanel {
         this._unsubscribeLiveGemPrelude?.();
         this._unsubscribeDisconnect?.();
         this._liveGemPreludeTimestamp = null;
+        this._gemPortraits.clear();
         if (this._unsubscribe) {
             this._unsubscribe();
             this._unsubscribe = null;
@@ -188,6 +190,28 @@ class ResolveFlowPanel {
             name,
             image: image ? String(image) : null
         };
+    }
+
+    _preparePendingGemPortraits(state) {
+        for (const row of state.battle_state?.pending_gem_blessings || []) {
+            this._readyGemPortrait(row.actor_id, state);
+        }
+    }
+
+    _readyGemPortrait(actorId, state) {
+        const { image: url } = this._actorVisualMeta(actorId, state);
+        if (!url) return null;
+        const previous = this._gemPortraits.get(actorId);
+        if (previous?.url === url) {
+            return previous.ready && !previous.image.isConnected ? previous.image : null;
+        }
+        const image = new Image();
+        const record = { url, image, ready: false };
+        this._gemPortraits.set(actorId, record);
+        image.decoding = 'async';
+        image.src = url;
+        image.decode?.().then(() => { record.ready = true; }, () => {});
+        return null;
     }
 
     _slotActorId(slotId, state) {
@@ -761,6 +785,7 @@ class ResolveFlowPanel {
         const traceLen = Array.isArray(state?.resolveTrace) ? state.resolveTrace.length : 0;
         const roundKey = this._roundStateKey(state);
         const hasRoundChanged = this._roundKey !== roundKey;
+        if (hasRoundChanged || !isBattle) this._gemPortraits.clear();
 
         if (hasRoundChanged) {
             this._roundKey = roundKey;
@@ -819,6 +844,7 @@ class ResolveFlowPanel {
         }
 
         const inResolve = this._isResolvePhase(phase);
+        if (phase === 'select') this._preparePendingGemPortraits(state);
         if (inResolve) {
             this._resolveStartPending = false;
         }

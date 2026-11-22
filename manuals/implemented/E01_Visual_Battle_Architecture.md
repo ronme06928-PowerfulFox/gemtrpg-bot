@@ -270,7 +270,7 @@ Manual14 由来の UI 改善のうち、画面構造として恒常化した内�
 ### 演出の土台の決まり
 
 - 音は定義の `sounds: [{ t, name, mode }]` に置く。時刻は演出の始まりからの秒、`mode` は必要なときだけ指定する。素材のパスは `SoundFx.effectSources` で引く。説明動画も同じ値を読める。
-- `fx_player.js` は `delaySeconds`・`elapsedSeconds`・再生速度を使い、まだ過ぎていない音だけを予約する。片付け・タブの非表示・切断で予約を取り消す。加護は現在の解決開始の合図を受け取った前置きで鳴らす。♪と `sound_fx_volume` に従い、音の終了は進行の時計と独立させる。
+- `fx_player.js` は `delaySeconds`・`elapsedSeconds`・再生速度を使い、まだ過ぎていない音の時刻を `SoundFx` に渡す。名前付きの音は最初の操作で `AudioBuffer` へのデコードを始め、準備済みなら `AudioContext` の時計で予約する。未準備や利用できない環境では HTMLAudio で鳴らす。片付け・♪のオフ・タブの非表示・切断で予約と再生を止める。加護は現在の解決開始の合図を受け取った前置きで鳴らし、`sound_fx_volume` に従う。音の準備や終了は進行の時計と独立させる。
 
 - 演出は `window.Fx` の1か所から呼ぶ。ゲーム側は `Fx.play(名前, params, 置き場所)` で名前と値だけを渡し、何を描くかは定義の対応表で決める。各定義は `Fx.define(名前, { duration, mount(root, params), render(t) })`。
 - `Fx.play` は再生のたびに定義から実体（`Object.create(定義)`）を作り、要素は `this` に持たせる。同じ演出を同時にいくつ出しても干渉しない。`params` には呼ぶ側の値に段階 `level` を足して渡し、定義の中で `localStorage` や設定を読まない。
