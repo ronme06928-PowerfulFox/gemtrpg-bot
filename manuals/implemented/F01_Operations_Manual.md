@@ -1475,6 +1475,32 @@ PR63-5ではactor/targetに任意のskills（スキルIDの配列）を受ける
 
 画像ピッカーは静止画を縦横比を保って縮め、キャラは長辺 1024 px、背景は 1920 px を上限として画質 80 相当の WebP にする。小さい画像の寸法と、GIF のファイルはそのまま。ブラウザーの中で WebP を作れない環境（Safari など）では静止画の送信と切り抜きが失敗する。これらは対応外とする（2026-11-22 ユーザー決定）。`/api/upload_image` は受信ファイルを Part 1-C の規則で検証し、Cloudinary へ追加の変換指定を付けずに送る。
 
-キャラの切り抜きは 512×512 の WebP として同じ API に送る。`image_registry.type` の `crop` で区別し、`GET /api/images` の検索・種別指定からも除外する。選択結果の `url` と `croppedUrl` は切り抜きの URL、`originalUrl` は元画像の URL。切り抜きの読み込み・変換・送信が失敗した場合は通知し、元画像の URL を選ぶ。キャラの削除に伴う切り抜き画像の扱いは計画64 §6 の論点5で検討する。
+キャラの切り抜きは 512×512 の WebP として同じ API に送る。`image_registry.type` の `crop` で区別し、`GET /api/images` の検索・種別指定からも除外する。選択結果の `url` と `croppedUrl` は切り抜きの URL、`originalUrl` は元画像の URL。切り抜きの読み込み・変換・送信が失敗した場合は通知し、元画像の URL を選ぶ。キャラを消しても切り抜き画像は消さない（ルームなどの写しが同じ URL を使っている）。
 
 同梱の状態アイコン7種は透過 PNG のまま長辺 96 px で配信する。
+
+## 画像の保存先の方針（計画64、2026-11-22 決定）
+
+- **保存先**：Cloudinary のまま使い、ユーザー管理の使用量の札（Part 1-C §6）で見張る。月の使用量が無料枠（25 クレジット）の半分を超えたら、R2 などへの移行を考える。保存・削除・URL 作りを1つの部品に集めて保存先を設定で選べるようにする作りは、移すと決めたときに行う。新しい画像は預ける前に縮まり、配るときの加工にも頼らないので、後から移しやすい。
+- **今ある画像は縮め直さない**：今使われている画像の多くは同梱の既定素材で、Cloudinary にない。同じ `public_id` への上書きは Strict Transformations が有効だと古い拡張子の URL が 404 になり得る。気になる画像は、アップロードし直せば縮んだ版になる。
+- **片付けは作らない**：使われていない画像の一覧・削除は、保存量が問題になったら考える。URL が多くの所に写しで入っており、消すと見落としで画像が切れ得る。
+- **サムネイルは作らない**：新しい画像はもう小さいので、ギャラリーは今のまま。
+- **見積もり（2026-11-14）**：5人で1回遊ぶと約0.1クレジット。月8回で転送1クレジット弱、保存は300枚 × 0.5MB で0.15クレジットほど。大きく増えるのは、大きな画像をそのまま預けたとき、ギャラリーの画像が増えたとき、キャッシュが効かないとき。
+
+移行先の候補（2026-11-14 調査）：
+
+| 保存先 | 無料枠 | 加工 | 向き不向き |
+|---|---|---|---|
+| Cloudinary（今） | 月25クレジット（1クレジットは保存1GB・転送1GB・変換1000回のどれか） | 配るときに自由に加工 | 今のまま使える。溢れると有料 |
+| Cloudflare R2 | 保存10GB、書き込み100万回、読み出し1000万回／月、転送は無料（[公式](https://developers.cloudflare.com/r2/platform/pricing/)） | 無し | 転送が増えても無料。公開には Cloudflare に置いた自分のドメインが要る（`r2.dev` は回数の制限があり本番向けでない） |
+| 自前のディスク（VPS・ミニPC） | 機械の容量しだい | 無し | 前に Cloudflare の CDN を置けば速い。バックアップは自分で取る |
+
+画像の URL が保存される場所（2026-11-22 調査。移行や片付けのときに棚卸しする）：
+
+| 保存先 | 棚卸しする項目 |
+| --- | --- |
+| `image_registry` | `url`、`public_id`、`type`、`visibility`。ここに載らない直貼り URL や旧切り抜きもある。 |
+| `owned_characters.data` | `image`、`imageOriginal`。過去に保存した `image` に切り抜きの data URL が入り得る。 |
+| `rooms.data` | `characters[*].image`・`imageOriginal`、`exploration.backgroundImage`、`battle_map_data.background_image`、既存の `map_data.backgroundImage`。`active_match` のキャラ写し、戦闘の再開用データ、待機列の入れ子、`stage_avatar_profile.icon` も走査する。稼働中は `active_room_states` が正本。 |
+| `catalog_entries.payload`、`catalog_drafts.payload`、`catalog_history.payload` | ユニットの `image`、ステージの `background`（文字列または辞書の `background_image`、`backgroundImage`、`background_url`、`backgroundUrl`、`image_url`、`image`）と `stage_avatar.icon`。敵・味方の編成は原則 `unit_id` で参照する。 |
+| 履歴・書き出し | `room_log_archives.payload` と JSON 書き出し（持ちキャラ・ユニット・ログ）は別枠で数える。履歴は資料として保持し、再取り込み対象のファイルは移行時に別途照合する。 |
