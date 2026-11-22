@@ -48,5 +48,21 @@ export class MatchOdds {
       }
     },this.delay);
   }
-  destroy() { clearTimeout(this.timer); ++this.generation; this.scope=null; this.key=null; this.rows={}; }
+  clear() {
+    const hadRows = Object.keys(this.rows).length > 0;
+    this._reset();
+    if (hadRows) this.changed();
+  }
+
+  destroy() {
+    this._reset();
+  }
+
+  _reset() {
+    clearTimeout(this.timer);
+    ++this.generation;
+    this.scope = null;
+    this.key = null;
+    this.rows = {};
+  }
 }

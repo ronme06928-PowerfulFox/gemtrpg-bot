@@ -46,6 +46,32 @@ odds.update(null); assert.deepEqual(odds.rows,{}); odds.destroy();
 """)
 
 
+def test_clear_discards_rows_and_pending_reply_when_opponent_has_no_intent():
+    run(r"""
+odds.update(context); await tick();
+pending[0].resolve({odds:{one:{advantage:'有利'}}}); await tick();
+assert.equal(odds.rows.one.advantage,'有利');
+
+const recheck={...context,characters:[{hp:4}]};
+odds.update(recheck); await tick();
+const repaintCount=changed.length;
+odds.clear();
+assert.deepEqual(odds.rows,{});
+assert.equal(odds.scope,null);
+assert.equal(odds.key,null);
+assert.equal(changed.length,repaintCount+1);
+odds.clear();
+pending[1].resolve({odds:{one:{advantage:'不利'}}}); await tick();
+assert.deepEqual(odds.rows,{});
+assert.equal(changed.length,repaintCount+1);
+
+odds.update(recheck); await tick();
+assert.equal(pending.length,3);
+pending[2].resolve({odds:{one:{advantage:'拮抗'}}}); await tick();
+assert.equal(odds.rows.one.advantage,'拮抗');
+""")
+
+
 def test_selected_skill_first_then_small_batches_and_no_refetch_on_reselect():
     run(r"""
 const skills=Array.from({length:60},(_,i)=>'s'+i);

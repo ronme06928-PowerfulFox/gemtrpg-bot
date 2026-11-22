@@ -213,19 +213,23 @@ class DeclarePanel {
             return;
         }
         const targetOptions = this._buildTargetOptions(state, sourceSlotId, effectiveTargetSlotId, effectiveTargetType, skillId);
-        const forecastSkills = this._extractActorSkillCandidates(sourceChar, window.allSkillData || {}).map(row => row.id);
-        if (skillId && !forecastSkills.includes(skillId)) forecastSkills.push(skillId);
         const opponentIntent = state.intents?.[effectiveTargetSlotId];
-        // 自分の宣言は候補ごとに差し替えて計算するので、その変化（選ぶ・確定する）では計算し直さない。
-        const otherIntents = Object.fromEntries(Object.entries(state.intents || {})
-            .filter(([slot]) => String(slot) !== String(sourceSlotId)));
-        this._odds.update(!isMassTarget && effectiveTargetSlotId && effectiveTargetSlotId !== sourceSlotId && opponentIntent?.skill_id
-            ? { room: state.room_id || state.room_name || window.currentRoomName, battle: state.battle_id,
+        if (!isMassTarget && effectiveTargetSlotId && effectiveTargetSlotId !== sourceSlotId && opponentIntent?.skill_id) {
+            const forecastSkills = this._extractActorSkillCandidates(sourceChar, window.allSkillData || {}).map(row => row.id);
+            if (skillId && !forecastSkills.includes(skillId)) forecastSkills.push(skillId);
+            // 自分の宣言は候補ごとに差し替えて計算するので、その変化（選ぶ・確定する）では計算し直さない。
+            const otherIntents = Object.fromEntries(Object.entries(state.intents || {})
+                .filter(([slot]) => String(slot) !== String(sourceSlotId)));
+            this._odds.update({
+                room: state.room_id || state.room_name || window.currentRoomName, battle: state.battle_id,
                 source: sourceSlotId, target: effectiveTargetSlotId,
                 opponent: [opponentIntent.skill_id, opponentIntent.target], priority: skillId || null,
                 skills: forecastSkills, characters: state.characters, intents: otherIntents,
-                slots: state.slots, timeline: state.timeline }
-            : null);
+                slots: state.slots, timeline: state.timeline
+            });
+        } else {
+            this._odds.clear();
+        }
         this._oddsPanel = { panel: interactivePanel, skill: skillId, minimized: interactiveMinimized };
         const sourceLabel = this._formatSlotLabel(state, sourceSlotId);
         // スキル未選択 かつ 編集可能なときピッカーを自動展開
