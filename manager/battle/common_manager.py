@@ -595,6 +595,7 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
     if mode == 'logs':
         state['logs'] = []
+        room_manager.broadcast_logs_cleared(room)
         broadcast_state_update(room)
         save_specific_room_state(room)
         return

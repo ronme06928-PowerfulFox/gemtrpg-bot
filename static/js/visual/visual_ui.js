@@ -308,6 +308,7 @@ window.renderVisualLogHistory = function (logs) {
 window.appendVisualLogBatch = function (logs, live = false) {
     const logArea = document.getElementById('visual-log-area');
     if (!logArea || !Array.isArray(logs) || logs.length === 0) return;
+    logArea.querySelector('.visual-log-empty')?.remove();  // 空の表示は、最初のログが届いたら外す
 
     const filter = window.currentVisualLogFilter || 'all';
     const existingLogs = Array.isArray(window.battleState?.logs) ? window.battleState.logs : [];

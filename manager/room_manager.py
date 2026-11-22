@@ -616,15 +616,20 @@ PRIVATE_ROOM_FIELDS = ("encounter_queue", "preset_deployment_operations")
 
 
 def broadcast_participant_state(room_name, state):
-    _safe_emit('state_updated', build_participant_state(state), to=room_name)
+    # ログ履歴は入室のときだけ送り、以後は new_log で1件ずつ届ける（E01 §4.2、PERF-PAYLOAD）。
+    _safe_emit('state_updated', build_participant_state(state, include_logs=False), to=room_name)
 
 
-def build_participant_state(state):
-    """通常のルーム状態配信からGM専用の準備メタデータを除外する。"""
-    public_state = copy.deepcopy(state if isinstance(state, dict) else {})
-    for field in PRIVATE_ROOM_FIELDS:
-        public_state.pop(field, None)
-    return public_state
+def broadcast_logs_cleared(room_name):
+    """ログ履歴を空にしたことを全員へ知らせる（全体の配信にはログが入らないため）。"""
+    _safe_emit('logs_cleared', {}, to=room_name)
+
+
+def build_participant_state(state, include_logs=True):
+    """参加者へ送る状態の写し。GM専用の準備メタデータを除き、include_logs=False ならログ履歴も除く。"""
+    source = state if isinstance(state, dict) else {}
+    omit = set(PRIVATE_ROOM_FIELDS) | (set() if include_logs else {'logs'})
+    return copy.deepcopy({key: value for key, value in source.items() if key not in omit})
 
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """Append and broadcast a log entry for the room."""

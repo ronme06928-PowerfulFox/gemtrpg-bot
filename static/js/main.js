@@ -1046,6 +1046,8 @@ function initializeSocketIO() {
     // match_error is handled in tab_visual_battle.js
     registerAppSocketHandler('state_updated', (newState) => {
         const previousState = battleState;
+        // ログ履歴は入室のときだけ届く。以後の配信には入らないので、手元の履歴を引き継ぐ（E01 §4.2）。
+        if (newState && !Array.isArray(newState.logs)) newState.logs = Array.isArray(previousState?.logs) ? previousState.logs : [];
         battleState = newState;
         window.PracticeRoom?.sync(newState);
         refreshOpenCharacterSkills(previousState, newState);
@@ -1081,6 +1083,11 @@ function initializeSocketIO() {
         if (typeof updateActionDock === 'function') {
             updateActionDock();
         }
+    });
+    registerAppSocketHandler('logs_cleared', () => {
+        if (battleState) battleState.logs = [];
+        window._lastLogCount = 0;
+        if (typeof renderVisualLogHistory === 'function') renderVisualLogHistory([]);
     });
     registerAppSocketHandler('new_log', (logData) => {
         // Play SE before log-id dedupe. state_updated/new_log ordering can differ.
