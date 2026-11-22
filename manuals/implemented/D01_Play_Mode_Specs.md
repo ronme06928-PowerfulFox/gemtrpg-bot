@@ -14,6 +14,7 @@
 3. ステージ効果仕様（旧18）
 4. ユニット管理（計画61）
 5. 待機列と登場（計画61）
+8. 戦闘専用ルームの廃止（計画65）
 
 ---
 
@@ -507,3 +508,24 @@ Resolveの表示位置はルーム全体で同期する。
 ## ルームの図鑑の権限（計画66 PR66-5）
 
 GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGMを判定する。本人がそのルームのGMならcan_view_allを真にし、自分の出会いで見る切り替えも許可する。ルーム外や通常の参加者には本人の出会い・公開範囲を適用する。
+
+---
+
+# Part 8: 戦闘専用ルームの廃止（計画65、2026-11-16 決定）
+
+ルームは通常ルームだけ。戦闘専用ルーム（`play_mode == "battle_only"`）は使われていなかったので、画面・サーバー・資料・刊行物から消した（PR65-1、PR65-2 は 2026-11-22）。戦闘だけ遊びたい人は、通常ルームを作って自分が GM になる。
+
+- **保存済みのルーム**：起動時の移行と読み込みで `play_mode` を `"normal"` にし、`battle_only` の項目（下書き・戦績）を捨てる。通常ルームとして開ける。
+- **残した部品**：全滅による勝敗の判定は `manager/battle/battle_result.py` の `estimate_battle_result(state)`（シミュレーターとホロウが使う）。味方・敵の自動配置は `manager/sim/positions.py`（シミュレーターだけ）。待機列の権限の確認は `events/preset_deployment_access.py`。
+- **GM なしで進めるための特別扱い**は一緒に消した。ホロウダンジョン（計画35 §5.4）で「ホスト」の権限として作り直す。消す前の挙動を下に残す。コードは計画65 PR65-1 の直前のコミットから参照できる。
+
+| # | 場所 | 戦闘専用での挙動 | 通常ルーム |
+|---|---|---|---|
+| 1 | `events/battle/common_routes.py` `on_request_end_round` | PL もラウンド終了できる。解決表示の再生中は終了させない | GM のみ |
+| 2 | 同 `on_request_reset_battle` | PL もリセットできる | GM のみ |
+| 3 | 同 解決開始（1266行付近） | PL も解決を開始できる | GM のみ |
+| 4 | 同 `_get_battle_only_intent_control_policy` と宣言の権限（656行付近） | 宣言できる人を「全員が全キャラ分（`all`）」と「開始した人と GM（`starter_only`）」で切り替える | 所有者・GM |
+| 5 | 同 `_start_resolve_presentation_for_request` と `events/battle/resolve_presentation_routes.py` | 解決表示の進行役は戦闘を始めた人。進行役が部屋にいなければ PL も引き継げる | Resolve を始めた GM。引き継ぎは GM のみ |
+| 6 | `manager/battle/common_manager.py` `move_token_logic`、`events/socket_char.py` の移動・削除・駒の大きさ | 誰でも他人の駒を動かせる・消せる・大きさを変えられる | 所有者・GM |
+| 7 | `manager/battle/resolve_auto_runtime.py` `_maybe_finalize_battle_only_result`・`_auto_reset_battle_only_field` | 全滅で勝敗を自動で決め、解決表示の後に盤面を自動でリセットする | GM が戦闘終結で結果を選ぶ |
+| 8 | `manager/battle/resolve_auto_single_phase.py` `_try_auto_advance_battle_only_round`、`common_routes._complete_round_after_resolve` | 解決表示の後、ラウンド終了と次のラウンド開始を自動で行う | GM が R開始を押す |
