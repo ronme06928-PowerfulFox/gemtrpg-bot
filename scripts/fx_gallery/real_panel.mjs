@@ -11,7 +11,7 @@ import { store } from '../../static/js/battle/core/BattleStore.js';
 let sequence = 0;
 const stackPlans = new WeakMap();
 
-// 場面カードを、本番の解決パネルの描画（_renderStep）でそのまま作る（計画56 §4.1a）。
+// 場面カードを、本番の解決パネルの描画（_renderStep）でそのまま作る（E01「演出の一覧」）。
 // initialize は呼ばず、Socket・タイマー・効果音は動かさない。時計と店の状態は描く間だけ差し替えて戻す。
 // HTMLを解釈できない環境（テストの偽のDOM）では null を返す。呼び出し側は host を空にして仮の台に戻る。
 // width を渡すと、その幅で描く（コマの帯で、本体と同じ幅にそろえるため）。

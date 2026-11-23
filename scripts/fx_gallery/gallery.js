@@ -238,7 +238,7 @@ function createCard(samples, scene = false) {
     stageHost.style.overflowX = sample.previewSize ? 'auto' : '';
     strip.replaceChildren();
     eventList.replaceChildren();
-    // 場面カードは本物の解決パネルで描く。HTMLを解釈できない環境では仮の台に戻る（計画56 §4.1a）。
+    // 場面カードは本物の解決パネルで描く。HTMLを解釈できない環境では仮の台に戻る（E01「演出の一覧」）。
     stage = scene ? createRealStage(stageHost, embedded(sample)) : null;
     if (!stage) { stageHost.replaceChildren(); stage = createStage(stageHost, sample); }
     const real = stage.hasAttribute?.('data-gallery-resolve-panel');

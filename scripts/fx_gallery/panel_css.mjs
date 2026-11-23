@@ -1,4 +1,4 @@
-// 本番の解決パネルのCSSを一覧へ取り込む。本番のファイルは書き換えない（計画56 §4.1a）。
+// 本番の解決パネルのCSSを一覧へ取り込む。本番のファイルは書き換えない（E01「演出の一覧」）。
 export const GALLERY_PANEL_SELECTOR = '[data-gallery-resolve-panel]';
 const PANEL_ID = '#resolve-flow-panel';
 
