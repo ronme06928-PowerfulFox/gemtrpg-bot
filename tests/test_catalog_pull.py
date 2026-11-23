@@ -263,3 +263,45 @@ def test_failed_restore_keeps_original_backup(local, remote, monkeypatch):
     backups = list(files["buff"].parent.glob("*.backup"))
     assert len(backups) == 1 and backups[0].read_text(encoding="utf-8") == '{"old": true}'
     assert CatalogHistory.query.count() == 2
+
+
+def test_redacted_response_is_filled_from_local_cache(local, remote, monkeypatch):
+    """伏せた項目を含む公開応答でも止めず、伏せた分だけ手元のキャッシュの版で補う（F01）。"""
+    from manager.battle.hidden_passives import redact_hidden_passives, redact_skill_reveal_targets
+    _, files = local
+    data, _ = remote
+    secret = {"id": "Pa-90", "name": "伏せた中身", "description": "x", "effect": {}, "cost": 0}
+    reveal = {"スキルID": "E-90", "デフォルト名称": "形態変化", "tags": [],
+              "特記処理": json.dumps({"effects": [{"type": "REVEAL_PASSIVE", "passive_id": "Pa-90"}]})}
+    changed = {"スキルID": "E-91", "デフォルト名称": "手元の古い版", "tags": [],
+               "特記処理": json.dumps({"effects": [{"type": "REVEAL_PASSIVE", "passive_id": "Pa-90"}]})}
+    summon_id, summon = next(iter(data["summon"].items()))
+    summon = {**copy.deepcopy(summon), "hidden_passives": [{"passive_id": "Pa-90"}]}
+    files["passive"].write_text(json.dumps({**data["passive"], "Pa-90": secret}, ensure_ascii=False), encoding="utf-8")
+    files["skill"].write_text(json.dumps({"E-90": reveal, "E-91": changed}, ensure_ascii=False), encoding="utf-8")
+    files["summon"].write_text(json.dumps({summon_id: summon}, ensure_ascii=False), encoding="utf-8")
+
+    data["skill"]["E-90"] = redact_skill_reveal_targets(reveal)
+    data["skill"]["E-91"] = redact_skill_reveal_targets({**changed, "デフォルト名称": "本番の新しい版"})
+    data["skill"]["E-92"] = redact_skill_reveal_targets({**reveal, "スキルID": "E-92"})
+    data["summon"][summon_id] = redact_hidden_passives(summon)
+    original_get = pull.requests.get
+
+    def get(url, **options):
+        response = original_get(url, **options)
+        if not url.endswith(pull.SOURCES["glossary"]):
+            response.headers["X-Gemtrpg-Redacted"] = "1"
+        return response
+
+    monkeypatch.setattr(pull.requests, "get", get)
+    notes = []
+    pull.pull_catalogs(notes=notes)
+    saved = {kind: json.loads(files[kind].read_text(encoding="utf-8")) for kind in ("passive", "skill", "summon")}
+    assert saved["passive"]["Pa-90"] == secret
+    assert saved["skill"]["E-90"] == reveal
+    assert saved["skill"]["E-91"] == changed
+    assert "E-92" not in saved["skill"]
+    assert saved["summon"][summon_id] == summon
+    assert saved["skill"]["Ps-00"]["デフォルト名称"] == "本番スキル"
+    assert any("E-91" in note for note in notes) and any("E-92" in note for note in notes)
+    assert not any("E-90" in note or summon_id in note for note in notes)

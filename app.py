@@ -743,10 +743,13 @@ def run_cli(argv=None):
         local_app = create_app(run_startup=False, register_sockets=False, register_routes=False)
         with local_app.app_context():
             try:
-                counts = pull_catalogs()
+                notes = []
+                counts = pull_catalogs(notes=notes)
             except CatalogPullError as exc:
                 print(str(exc), file=sys.stderr)
                 return 1
+        for note in notes:
+            print(note)
         print('本番からの取り込みが完了しました: ' + '、'.join(f'{kind} {count}件' for kind, count in counts.items()))
         return 0
 

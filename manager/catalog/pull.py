@@ -65,7 +65,43 @@ def _temporary_file(target, content, suffix):
     return path
 
 
-def pull_catalogs():
+def _local_cache(kind):
+    try:
+        records = json.loads(CACHE_FILES[kind].read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return records if isinstance(records, dict) else {}
+
+
+def _fill_redacted(kind, records, notes):
+    """伏せた項目を省いた公開応答を、伏せた分だけ手元のキャッシュの版で補う（F01）。"""
+    from manager.battle.hidden_passives import redact_hidden_passives, redact_skill_reveal_targets
+
+    local = _local_cache(kind)
+    if kind == "passive":
+        for entry_id, row in local.items():
+            records.setdefault(entry_id, row)
+        return
+    if kind == "skill":
+        hidden, redact = (lambda row: "REVEAL_PASSIVE" in str(row.get("特記処理", "")).upper()), redact_skill_reveal_targets
+    elif kind == "summon":
+        hidden, redact = (lambda row: "hidden_passive_count" in row), redact_hidden_passives
+    else:
+        return
+    for entry_id, row in list(records.items()):
+        if not isinstance(row, dict) or not hidden(row):
+            continue
+        own = local.get(entry_id)
+        if own is None:
+            del records[entry_id]
+            notes.append(f"{kind} {entry_id}: 本番で新しく作った伏せた項目なので取り込みませんでした")
+            continue
+        if redact(own) != row:
+            notes.append(f"{kind} {entry_id}: 本番で直した伏せた項目なので手元の版を残しました")
+        records[entry_id] = own
+
+
+def pull_catalogs(notes=None):
     if "RENDER" in os.environ:
         raise CatalogPullError("--pull はRender上では実行できません")
     base_url = os.environ.get("CATALOG_PULL_BASE_URL", DEFAULT_BASE_URL).strip().rstrip("/")
@@ -77,12 +113,12 @@ def pull_catalogs():
         for kind, endpoint in SOURCES.items():
             response = requests.get(base_url + endpoint, timeout=60, headers={"Cache-Control": "no-cache"})
             response.raise_for_status()
-            if getattr(response, "headers", {}).get("X-Gemtrpg-Redacted") == "1":
-                raise CatalogPullError(f"{kind}: 伏せた項目を含むため公開APIでは完全な写しを取得できません")
             records = response.json()
             if kind == "skill" and isinstance(records, dict):
                 # システムスキル（SYS-）はコードが正本で、起動時に辞書へ足される。写さない。
                 records = {key: value for key, value in records.items() if not key.startswith("SYS-")}
+            if getattr(response, "headers", {}).get("X-Gemtrpg-Redacted") == "1" and isinstance(records, dict):
+                _fill_redacted(kind, records, notes if notes is not None else [])
             snapshots[kind] = records
             _validate_snapshot(kind, records)
     except (requests.RequestException, ValueError) as exc:
