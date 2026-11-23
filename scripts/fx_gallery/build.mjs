@@ -62,7 +62,8 @@ ${await read('scripts/fx_gallery/gallery.css')}</style></head>
 <section id="hidden-passive"><h2>伏せたパッシブ</h2>
 <div class="gallery-passive-case"><div class="gallery-passive-token" aria-hidden="true">◆<span class="new-passive-badge" hidden>New!!</span></div>
 <div class="gallery-passive-card" aria-live="polite"></div>
-<div><button type="button" data-passive-preview>明かす</button> <button type="button" data-passive-end>ラウンド終了</button></div></div>
+<div><label>演出 <select data-passive-level><option value="light">軽め</option><option value="normal" selected>通常</option><option value="rich">派手</option></select></label>
+<button type="button" data-passive-preview>明かす</button> <button type="button" data-passive-end>ラウンド終了</button></div></div>
 </section></main>
 <footer>本番と同じ演出定義を使用 · 場面は本番の解決パネル、単体は仮の台 · Google Fonts 以外の読み込みなし</footer>
 ${script((await read('static/js/fx/fx_core.js')) + (await read('static/js/fx/hidden_passive_fx.js')))}

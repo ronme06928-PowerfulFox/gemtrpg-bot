@@ -373,7 +373,8 @@ if (passiveCard) {
   const passiveBadge = document.querySelector('.gallery-passive-token .new-passive-badge');
   passiveCard.innerHTML = window.HiddenPassiveFx.cover();
   document.querySelector('[data-passive-preview]').addEventListener('click', () => {
-    passiveCard.innerHTML = '<div class="hidden-passive-reveal gallery-passive-name">瑠璃の装甲' + window.HiddenPassiveFx.cover(true) + '</div>';
+    passiveCard.innerHTML = '<div class="gallery-passive-name">瑠璃の装甲' + window.HiddenPassiveFx.cover(true) + '</div>';
+    window.HiddenPassiveFx.observe(passiveCard, document.querySelector('[data-passive-level]').value);
     passiveBadge.hidden = false;
   });
   document.querySelector('[data-passive-end]').addEventListener('click', () => { passiveBadge.hidden = true; });

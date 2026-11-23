@@ -8,6 +8,7 @@
 }
 
 .character-passive-heading {
+  position: relative;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) max-content 1em;
   align-items: center;
@@ -67,51 +68,75 @@
   letter-spacing: .18em;
 }
 
-.hidden-passive-reveal {
-  position: relative;
-}
-
-.hidden-passive-cover.is-breaking {
+.hidden-passive-cover.is-armed,
+.hidden-passive-cover.is-sweeping {
   position: absolute;
   z-index: 1;
   inset: 0;
   display: block;
-  overflow: hidden;
+  min-block-size: 0;
   margin: 0;
   border: 0;
   background: transparent;
   pointer-events: none;
 }
 
-.hidden-passive-cover.is-breaking::before,
-.hidden-passive-cover.is-breaking::after {
-  content: "？？？";
+.hidden-passive-face {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   border: 1px solid #b79557;
   border-radius: 5px;
-  background: #272438;
-  animation: hidden-passive-break .95s ease-in forwards;
+  background: linear-gradient(160deg, #3b304b, #241d30 75%);
 }
 
-.hidden-passive-cover.is-breaking::before {
-  clip-path: polygon(0 0, 51% 0, 48% 30%, 53% 47%, 46% 72%, 50% 100%, 0 100%);
-  --passive-break-shift: -46%;
-  --passive-break-rotate: -5deg;
+@property --hidden-passive-light-position {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
 }
 
-.hidden-passive-cover.is-breaking::after {
-  clip-path: polygon(51% 0, 100% 0, 100% 100%, 50% 100%, 46% 72%, 53% 47%, 48% 30%);
-  --passive-break-shift: 46%;
-  --passive-break-rotate: 5deg;
+.hidden-passive-cover.is-sweeping {
+  --passive-light-width: 32px;
+  --passive-light-edge: #ffd47890;
+  --passive-light-core: #fff8d8;
+  --passive-light-duration: .65s;
+  overflow: hidden;
+  animation: hidden-passive-sweep var(--passive-light-duration) linear both;
 }
 
-@keyframes hidden-passive-break {
-  0%, 20% { opacity: 1; transform: translateX(0); }
-  42% { opacity: 1; }
-  100% { opacity: 0; transform: translateX(var(--passive-break-shift)) rotate(var(--passive-break-rotate)); }
+.hidden-passive-cover.is-sweeping[data-level="light"] {
+  --passive-light-width: 14px;
+  --passive-light-edge: #ffd47866;
+  --passive-light-duration: .34s;
+}
+
+.hidden-passive-cover.is-sweeping[data-level="rich"] {
+  --passive-light-width: 55px;
+  --passive-light-edge: #ffd478cf;
+  --passive-light-core: #fffef5;
+  --passive-light-duration: .8s;
+}
+
+.hidden-passive-cover.is-sweeping .hidden-passive-face {
+  clip-path: inset(0 0 0 clamp(0%, var(--hidden-passive-light-position), 100%));
+}
+
+.hidden-passive-cover.is-sweeping::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: var(--hidden-passive-light-position);
+  inline-size: var(--passive-light-width);
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, var(--passive-light-edge) 43%,
+      var(--passive-light-core) 49% 52%, var(--passive-light-edge) 58%, transparent);
+}
+
+@keyframes hidden-passive-sweep {
+  from { --hidden-passive-light-position: -5%; }
+  to { --hidden-passive-light-position: 105%; }
 }
 
 .new-passive-badge {
@@ -132,5 +157,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hidden-passive-cover.is-breaking { display: none; }
+  .hidden-passive-cover.is-armed,
+  .hidden-passive-cover.is-sweeping { display: none; }
 }

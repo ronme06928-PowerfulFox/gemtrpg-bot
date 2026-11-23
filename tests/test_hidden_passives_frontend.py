@@ -58,12 +58,52 @@ def test_cover_hides_content_and_badge_is_round_scoped():
 vm.runInContext(fs.readFileSync('static/js/fx/hidden_passive_fx.js','utf8'),context);
 const fx = window.HiddenPassiveFx;
 assert.match(fx.cover(), /伏せたパッシブ.*？？？/);
-assert.match(fx.cover(true), /is-breaking/);
+assert.match(fx.cover(true), /is-armed/);
+assert.match(fx.cover(true), /hidden-passive-face.*？？？/);
 const char = {passive_revealed_round:2,passive_revealed_ids:['Pa-97']};
 assert.equal(fx.newThisRound(char,{round:1}), false);
 assert.equal(fx.newThisRound(char,{round:2}), true);
 assert.equal(fx.newThisRound(char,{round:2,is_round_ended:true}), false);
 assert.equal(fx.newThisRound(char,{round:3}), false);
+""")
+
+
+def test_reveal_waits_for_the_card_and_only_plays_once():
+    run_node(r"""
+let intersect;
+window.IntersectionObserver = class {
+  constructor(callback, options) {
+    intersect = callback;
+    assert.equal(options.threshold, .75);
+  }
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};
+let foreground;
+context.document = {
+  visibilityState:'hidden',
+  addEventListener:(_type, callback)=>{ foreground = callback; },
+  removeEventListener:()=>{},
+};
+window.Fx = {getLevel:()=> 'rich'};
+vm.runInContext(fs.readFileSync('static/js/fx/hidden_passive_fx.js','utf8'),context);
+const fx = window.HiddenPassiveFx;
+const classes = new Set(['is-armed']);
+const card = {dataset:{revealKey:encodeURIComponent('room/boss/2/Pa-97')},
+  classList:{add:name=>classes.add(name),remove:name=>classes.delete(name)},addEventListener:()=>{}};
+const root = {querySelectorAll:()=>[card]};
+fx.observe(root);
+intersect([{target:card,intersectionRatio:.2}]);
+assert(!classes.has('is-sweeping'));
+intersect([{target:card,intersectionRatio:.8}]);
+assert(!classes.has('is-sweeping'));
+context.document.visibilityState = 'visible';
+foreground();
+assert(classes.has('is-sweeping'));
+assert.equal(card.dataset.level,'rich');
+assert.equal(fx.cover(true, 'room/boss/2/Pa-97'), '');
+assert.match(fx.cover(true, 'room/boss/3/Pa-97'), /is-armed/);
 """)
 
 

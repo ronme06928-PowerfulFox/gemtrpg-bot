@@ -265,6 +265,7 @@ function openUserListModal() {
 function closeCharacterModal() {
     const modal = document.getElementById('char-modal-backdrop');
     if (modal) {
+        window.HiddenPassiveFx?.stopObserving(modal.querySelector('.character-modal-passives'));
         modal.remove();
     }
 }
@@ -437,21 +438,23 @@ function renderCharacterPassives(char, breakingIds = []) {
         const name = escapeDetailHtml(data?.name || pid);
         const label = passive ? 'パッシブ' : radiance ? '輝化' : '特殊';
         const color = passive ? '#6a1b9a' : radiance ? '#0b7285' : 'var(--ui-sub)';
-        const detail = `<div class="character-passive-row" style="--passive-color:${color}">
+        const room = typeof currentRoomName === 'undefined' ? '' : currentRoomName;
+        const cover = breakingIds.includes(pid)
+            ? effects?.cover(true, JSON.stringify([room, char.id, char.passive_revealed_round, pid])) : '';
+        return `<div class="character-passive-row" style="--passive-color:${color}">
             <details class="character-passive">
                 <summary class="character-passive-heading">
                     <span aria-hidden="true">★</span>
                     <span class="character-passive-name" title="${name}">${name}</span>
                     <span class="character-passive-kind">${label}</span>
                     <span class="character-passive-chevron" aria-hidden="true">▼</span>
+                    ${cover || ''}
                 </summary>
                 <div class="character-passive-body">
                     <div class="buff-desc-row">${markupToHtml(data?.description || '詳細情報なし')}</div>
                     ${data?.flavor ? `<div class="buff-flavor-row">${markupToHtml(data.flavor)}</div>` : ''}
                 </div>
             </details></div>`;
-        return effects && breakingIds.includes(pid)
-            ? `<div class="hidden-passive-reveal">${detail}${effects.cover(true)}</div>` : detail;
     });
     const hidden = Array.isArray(char.hidden_passives)
         ? char.hidden_passives.map(({passive_id: id, reveal_when: condition}) => {
@@ -494,10 +497,11 @@ async function refreshOpenCharacterPassives(previousState, nextState) {
     }
     if (!modal.isConnected || passiveDetailSignature(battleState?.characters?.find(char => char.id === id)) !== signature) return;
     const newIds = window.HiddenPassiveFx?.newThisRound(after, nextState)
-        ? (after.passive_revealed_ids || []).filter(key => !before?.SPassive?.includes(key)) : [];
+        ? (after.passive_revealed_ids || []) : [];
     const region = modal.querySelector('.character-modal-passives');
     region.innerHTML = renderCharacterPassives(after, newIds)
         || (region.dataset.hasOther === 'true' ? '' : '<span class="cat-caption">なし</span>');
+    window.HiddenPassiveFx?.observe(region);
 }
 
 function renderCharacterCard(char) {
@@ -1194,6 +1198,7 @@ function openCharacterModal(charId) {
     applySystemWindow(modalContent);
     modalBackdrop.appendChild(modalContent);
     document.body.appendChild(modalBackdrop);
+    window.HiddenPassiveFx?.observe(modalContent.querySelector('.character-modal-passives'));
     modalBackdrop.addEventListener('click', (e) => {
         if (e.target === modalBackdrop) closeCharacterModal();
     });
