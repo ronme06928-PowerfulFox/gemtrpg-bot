@@ -41,9 +41,16 @@ assert.match(models.radiance.form({...payload,granted_tag_ids:42}),/配列/);
 """)
 
 
-def test_summon_has_only_json_and_preview_names_stats_and_missing_data():
+def test_summon_has_hidden_passive_inputs_and_preview_names_stats_and_missing_data():
     run_node(r"""
-assert.equal(models.summon.form,null);assert.ok(!models.summon.form);
+const passive = {entry_id:'Pa-02',payload:{name:'伏せる効果'}};
+const unset = models.summon.form({}, {}, {passiveEntries:[passive]});
+assert.match(unset, /data-hidden-add/);
+assert.match(unset, /<option value="Pa-02">/);
+const configured = models.summon.form({hidden_passives:[{passive_id:'Pa-02',reveal_when:{hp_percent_lte:50}}]},
+ {}, {passiveEntries:[passive]});
+assert.match(configured, /data-hidden-condition="hp_percent_lte" value="50"/);
+assert.doesNotMatch(configured, /<option value="Pa-02">/);
 const preview=models.summon.preview({name:'<召喚>',hp:1,maxHp:2,mp:0,maxMp:3,
  summon_duration_mode:'duration_rounds',summon_duration:4,initial_skill_ids:['Ps-00','Ps-99'],params:[{label:'敏捷',value:'2'}]},
  {skillEntries:[{entry_id:'Ps-00',payload:{'デフォルト名称':'公開名'}}]});

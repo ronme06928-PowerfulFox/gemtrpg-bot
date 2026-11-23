@@ -311,7 +311,7 @@
     function openPicker(control) {
       const {source, path} = control.dataset;
       state.picker = {source, path, category:''};
-      const title = {skill:'スキルを追加',passive:'パッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',collection:'分類を選択',
+      const title = {skill:'スキルを追加',passive:'パッシブを追加','hidden-passive':'伏せたパッシブを追加',radiance:'輝化スキルを追加',item:'アイテムを追加',collection:'分類を選択',
         'enemy-unit':'敵メンバーを追加','ally-unit':'味方メンバーを追加','enemy-formation':'敵編成を選択','ally-formation':'味方編成を選択','pattern-target':'複製先のユニットを選択'}[source];
       showDialog(title,`<label class="cat-field unit-candidate-search">候補検索<input type="search" data-candidate-search placeholder="ID・名称・説明"></label>
         ${source === 'collection' ? button('未分類','candidate','data-id=""') : ''}
@@ -333,6 +333,7 @@
       else if (source.endsWith('-formation')) setPath(path,id);
       else if (source.endsWith('-unit')) addRow(path,{unit_id:id,count:1,pattern_id:null});
       else if (source === 'skill') addRow(path,{id,name:'',hidden:false});
+      else if (source === 'hidden-passive') addRow(path,{passive_id:id});
       else if (source === 'item') addRow(path,{id,count:1});
       else addRow(path,id);
       const selecting = source === 'collection' || source.endsWith('-formation');
@@ -386,7 +387,9 @@
       }));
       panel.inert = true;
       window.openBehaviorFlowEditorModal({name:unit.name,flags:{behavior_profile:pattern.profile}},{
-        ownedSkills, title:'行動チャート編集', subtitle:unit.name + ' / ' + pattern.name, saveLabel:'適用',
+        ownedSkills, hiddenPassiveChoices:(unit.hidden_passives || []).map(row => ({
+          id:row.passive_id, name:forms.nameOf(masters.passive.find(entry => entry.entry_id === row.passive_id)?.payload),
+        })), title:'行動チャート編集', subtitle:unit.name + ' / ' + pattern.name, saveLabel:'適用',
         onSave:apply, onClose:() => {
           panel.inert = false;
           (opener.isConnected ? opener : get('.unit-section'))?.focus({preventScroll:true});
@@ -660,7 +663,16 @@
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
         const pendingTag = path === 'tags' ? get('[data-unit-tag-input]').value : '';
-        rows.splice(Number(index),1);
+        const [removed] = rows.splice(Number(index),1);
+        if (path === 'hidden_passives') {
+          for (const pattern of payload().patterns || []) {
+            for (const loop of Object.values(pattern.profile?.loops || {})) {
+              if (!loop.reveal_passive_ids) continue;
+              loop.reveal_passive_ids = loop.reveal_passive_ids.filter(id => id !== removed.passive_id);
+              if (!loop.reveal_passive_ids.length) delete loop.reveal_passive_ids;
+            }
+          }
+        }
         update(true);
         if (path === 'tags') {
           const input = get('[data-unit-tag-input]');
@@ -818,7 +830,15 @@
           return;
         }
       }
-      if (path.includes('.condition.')) {
+      if (path.startsWith('hidden_passives.') && path.includes('.reveal_when.')) {
+        const [, index, , key] = path.split('.');
+        const row = payload().hidden_passives[index];
+        const condition = {...row.reveal_when};
+        if (input.value === '') delete condition[key];
+        else condition[key] = value;
+        if (Object.keys(condition).length) row.reveal_when = condition;
+        else delete row.reveal_when;
+      } else if (path.includes('.condition.')) {
         const base = path.split('.condition.')[0] + '.condition';
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});

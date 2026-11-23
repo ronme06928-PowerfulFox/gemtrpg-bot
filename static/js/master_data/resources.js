@@ -62,15 +62,43 @@
     };
   }
   const models = Object.fromEntries(Object.entries(definitions).map(([kind,definition])=>[kind,make(kind,definition)]));
-  const summonFields = [['name','名前'],['hp','HP'],['maxHp','最大HP'],['mp','MP'],['maxMp','最大MP'],['initial_skill_ids','最初から持つスキル'],['hidden_skills','秘匿スキル'],['SPassive','特殊パッシブ'],['radiance_skills','輝化スキル'],['inventory','所持アイテム'],['summon_duration_mode','持続の種類'],['summon_duration','持続ラウンド'],['allow_duplicate_same_team','同陣営の重複'],['params','能力値'],['tag_ids','タグ'],['disabled_tag_ids','無効なタグ'],['special_buffs','バフ'],['flags','設定']];
+  const summonFields = [['name','名前'],['hp','HP'],['maxHp','最大HP'],['mp','MP'],['maxMp','最大MP'],['initial_skill_ids','最初から持つスキル'],['hidden_skills','秘匿スキル'],['SPassive','特殊パッシブ'],['hidden_passives','伏せたパッシブ'],['radiance_skills','輝化スキル'],['inventory','所持アイテム'],['summon_duration_mode','持続の種類'],['summon_duration','持続ラウンド'],['allow_duplicate_same_team','同陣営の重複'],['params','能力値'],['tag_ids','タグ'],['disabled_tag_ids','無効なタグ'],['special_buffs','バフ'],['flags','設定']];
   function summonPreview(payload, options = {}) {
     const skills = Array.isArray(payload.initial_skill_ids) ? payload.initial_skill_ids : [];
     const params = Array.isArray(payload.params) ? payload.params.filter(row=>row && typeof row === 'object') : [];
     const lasting = payload.summon_duration_mode === 'permanent' ? '解除まで' : `${payload.summon_duration ?? 0}ラウンド`;
     return `<section class="bo-workspace__card"><h4>召喚テンプレートのプレビュー</h4><h3>${h(payload.name || '名前未入力')}</h3>${facts([['HP',`${payload.hp ?? 0} / ${payload.maxHp ?? 0}`],['MP',`${payload.mp ?? 0} / ${payload.maxMp ?? 0}`],['召喚の持続',lasting]])}</section><section class="bo-workspace__card"><h4>最初から持つスキル</h4>${skills.length ? `<ul class="cat-effect-list">${skills.map(id=>{const row=options.skillEntries?.find(row=>row.entry_id===id);return `<li><code>${h(id)}</code> ${h(row?.payload.デフォルト名称 || '公開名なし')}</li>`;}).join('')}</ul>` : '<p class="cat-caption">なし</p>'}</section><section class="bo-workspace__card"><h4>能力値</h4>${facts(params.map(row=>[row.label,row.value]))}</section>`;
   }
-  models.summon = {...base,kind:'summon',label:'召喚テンプレート',form:null,fields:summonFields,
-    defaults:()=>({name:'',hp:0,maxHp:0,mp:0,maxMp:0,initial_skill_ids:[],hidden_skills:[],SPassive:[],radiance_skills:[],inventory:{},summon_duration_mode:'permanent',summon_duration:0,allow_duplicate_same_team:true,params:[],tag_ids:[],disabled_tag_ids:[],special_buffs:[],flags:{}}),
+  function summonHiddenPassives(payload, errors, entries) {
+    const rows = payload.hidden_passives || [];
+    if (!Array.isArray(rows)) return '<p class="cat-field-error">JSONの節で伏せたパッシブを配列に直してください。</p>';
+    const named = Object.fromEntries(entries.map(row => [row.entry_id, row.payload.name]));
+    const held = new Set([...(Array.isArray(payload.SPassive) ? payload.SPassive : []), ...rows.map(row => row?.passive_id)]);
+    const choices = entries.filter(row => !row.deprecated && !held.has(row.entry_id));
+    const option = row => `<option value="${h(row.entry_id)}">${h(row.entry_id)} ${h(row.payload.name)}</option>`;
+    const renderRow = (row, index) => {
+      const id = row?.passive_id;
+      const condition = row?.reveal_when || {};
+      const field = (key, label, limits) => `<label class="cat-field">${label}<input type="number"
+        data-hidden-row="${index}" data-hidden-condition="${key}" value="${h(condition[key] ?? '')}" ${limits}></label>`;
+      return `<section class="bo-workspace__card cat-field-wide">
+        <strong>${h(id)} ${h(named[id])}</strong>
+        <div class="cat-field-grid">
+          ${field('hp_percent_lte','HP割合（%）以下','min="0" max="100"')}
+          ${field('round_gte','ラウンド目以降','min="1"')}
+        </div>
+        <button type="button" class="cat-button" data-hidden-remove="${index}" aria-label="${h(named[id] || id)}を外す">外す</button>
+      </section>`;
+    };
+    return `<label class="cat-field cat-field-wide">伏せたパッシブを追加<select data-hidden-add>
+      <option value="">特殊パッシブを選択</option>${choices.map(option).join('')}</select></label>
+      ${rows.map(renderRow).join('')}
+      ${Object.entries(errors).filter(([key]) => key.startsWith('hidden_passives')).map(([,error]) =>
+        `<p class="cat-field-error">${h(error)}</p>`).join('')}`;
+  }
+  models.summon = {...base,kind:'summon',label:'召喚テンプレート',fields:summonFields,
+    form:(payload, errors, options) => summonHiddenPassives(payload, errors, options.passiveEntries || []),
+    defaults:()=>({name:'',hp:0,maxHp:0,mp:0,maxMp:0,initial_skill_ids:[],hidden_skills:[],SPassive:[],hidden_passives:[],radiance_skills:[],inventory:{},summon_duration_mode:'permanent',summon_duration:0,allow_duplicate_same_team:true,params:[],tag_ids:[],disabled_tag_ids:[],special_buffs:[],flags:{}}),
     validatePayload() {},preview:summonPreview,detail:summonPreview,recordMeta:payload=>`HP ${payload.hp ?? 0} / MP ${payload.mp ?? 0}`,
     recordDescription:payload=>`${payload.summon_duration_mode === 'permanent' ? '解除まで' : `${payload.summon_duration ?? 0}ラウンド`} · スキル ${Array.isArray(payload.initial_skill_ids) ? payload.initial_skill_ids.length : 0}件`,jsonHint:'召喚テンプレートのJSONを編集します。baseName（ID）は含めません。',
   };

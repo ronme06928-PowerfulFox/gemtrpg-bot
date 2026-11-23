@@ -42,7 +42,7 @@ def test_bonus_rows_and_sections_preserve_unknown_values():
 for(const name of ['resources','skill_inputs','editor'])vm.runInContext(fs.readFileSync(`static/js/master_data/${name}.js`,'utf8'),context);
 const inputs=window.CatalogSkillInputs,editor=window.CatalogEditor;
 const all={glossary:window.CatalogGlossary,buff:window.CatalogBuff,skill:model,...window.CatalogResources};
-const expected={glossary:['body','description','links'],buff:['body','description','effects'],skill:['body','description','cost','bonus','effects'],item:['body','description','effects'],passive:['body','description','effects'],radiance:['body','description','effects'],summon:[]};
+const expected={glossary:['body','description','links'],buff:['body','description','effects'],skill:['body','description','cost','bonus','effects'],item:['body','description','effects'],passive:['body','description','effects'],radiance:['body','description','effects'],summon:['hidden-passives']};
 for(const [kind,sections] of Object.entries(expected)){
  assert.deepEqual(Array.from(editor.sections(all[kind])).filter(row=>!['json','text','preview'].includes(row[0])).map(row=>row[0]),sections);
 }

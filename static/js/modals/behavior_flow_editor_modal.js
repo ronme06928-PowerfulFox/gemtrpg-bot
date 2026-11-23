@@ -110,7 +110,9 @@ function normalizeBehaviorProfileForEditor(rawProfile) {
         loops[loopId] = {
             repeat: loopData.repeat !== false,
             steps,
-            transitions
+            transitions,
+            ...(Array.isArray(loopData.reveal_passive_ids) && loopData.reveal_passive_ids.length
+                ? { reveal_passive_ids: [...loopData.reveal_passive_ids] } : {})
         };
     });
 
@@ -472,6 +474,7 @@ function openBehaviorFlowEditorModal(char, options = {}) {
     const currentFlags = (workingChar.flags && typeof workingChar.flags === 'object') ? workingChar.flags : {};
     const draft = normalizeBehaviorProfileForEditor(currentFlags.behavior_profile);
     const ownedSkills = cfg.ownedSkills || getCharacterOwnedSkillsForBehaviorEditor(workingChar);
+    const hiddenPassives = cfg.hiddenPassiveChoices || [];
     const opener = document.activeElement;
     let selectedLoopId = String(draft.initial_loop_id || Object.keys(draft.loops)[0] || '');
     const nodeLayout = {};
@@ -1284,6 +1287,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
                 </label>
                 <button id="behavior-loop-delete-btn" style="padding:6px 8px; border:none; background:#c23b3b; color:#fff; border-radius:6px; cursor:pointer;">削除</button>
             </div>
+            ${hiddenPassives.length ? `<fieldset class="cat-array-field" style="margin:0 0 8px;">
+                <legend>入った時に明かす</legend>
+                <div class="cat-mark-options">${hiddenPassives.map(({ id, name }) => `<label>
+                  <input type="checkbox" data-reveal-passive="${escapeBehaviorEditorHtml(id)}" ${loop.reveal_passive_ids?.includes(id) ? 'checked' : ''}>
+                  ${escapeBehaviorEditorHtml(name || id)}</label>`).join('')}</div></fieldset>` : ''}
             <div style="border:1px solid #dbeaf6; border-radius:7px; padding:8px; margin-bottom:8px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
                     <div style="font-weight:bold; color:#2f566f; font-size:0.88em;">ラウンド設定</div>
@@ -1712,6 +1720,11 @@ function openBehaviorFlowEditorModal(char, options = {}) {
             markDirty();
             renderAll();
         });
+        editorEl.querySelectorAll('[data-reveal-passive]').forEach(control => control.addEventListener('change', () => {
+            loop.reveal_passive_ids = [...editorEl.querySelectorAll('[data-reveal-passive]:checked')]
+                .map(input => input.dataset.revealPassive);
+            markDirty();
+        }));
         editorEl.querySelector('#behavior-loop-repeat')?.addEventListener('change', (e) => {
             loop.repeat = !!e.target.checked;
             markDirty();

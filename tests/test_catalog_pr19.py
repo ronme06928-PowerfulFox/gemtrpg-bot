@@ -53,7 +53,7 @@ let lists=0,overviews=0,schemas=0;const originalList=window.CatalogApi.list;
 window.CatalogApi.list=async kind=>{lists++;return originalList(kind);};
 window.CatalogApi.overview=async()=>{overviews++;return {counts:{},pending:[]};};
 window.CatalogApi.effectSchemas=async()=>{schemas++;return {effect_types:{},custom_effects:{},common_fields:{}};};
-await click({kind:'skill'});assert.equal(lists,3); // skill・buff・summon。用語は保持済み。
+await click({kind:'skill'});assert.equal(lists,4); // skill・buff・summon・passive。用語は保持済み。
 let first=lists;await click({kind:'buff'});await click({kind:'skill'});assert.equal(lists,first);assert.equal(schemas,1);
 activeKind='skill';await click({action:'edit'});await click({section:'json'});await input();
 await controller.refresh();await click({section:'json'});assert.match(panel.querySelector('#cat-input-content').innerHTML,/extra/);

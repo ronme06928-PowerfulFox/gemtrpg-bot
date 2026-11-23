@@ -129,12 +129,12 @@
     async function prepareSkill(token) {
       if (state.kind !== 'skill') return;
       const kind = state.kind;
-      const [schemas, buffs, glossary, summons] = await Promise.all([cachedSchemas(), cachedList('buff'), cachedList('glossary'), cachedList('summon')]);
+      const [schemas, buffs, glossary, summons, passives] = await Promise.all([cachedSchemas(), cachedList('buff'), cachedList('glossary'), cachedList('summon'), cachedList('passive')]);
       if (!alive() || state.kind !== kind || token !== state.listRequest) return;
       state.schemas = schemas;
       state.catalogs.glossary = glossary;
       const references = {};
-      for (const [key, data] of [['buff', buffs], ['glossary', glossary], ['skill', state.data], ['summon', summons]]) references[key] = data.entries.filter(row=>!row.deprecated).map(row => ({id:row.entry_id,name:nameOf(row.payload)}));
+      for (const [key, data] of [['buff', buffs], ['glossary', glossary], ['skill', state.data], ['summon', summons], ['passive', passives]]) references[key] = data.entries.filter(row=>!row.deprecated).map(row => ({id:row.entry_id,name:nameOf(row.payload)}));
       references.state = [...['FP','MP','HP'].map(name=>({id:name,name})),...glossary.entries.filter(row=>!row.deprecated && row.payload.category === '状態異常').map(row=>({id:row.payload.display_name,name:row.payload.display_name}))];
       references.tags = glossary.entries.filter(row=>!row.deprecated && row.payload.category === 'スキルタグ').map(row=>({id:row.entry_id,name:row.payload.display_name}));
       state.textReferences = {
@@ -150,12 +150,16 @@
       const token = ++state.listRequest;
       const previous = selected();
       const kind = state.kind;
-      const [data, terms, skills, overview] = await Promise.all([cachedList(kind), !['glossary','skill'].includes(kind) ? cachedList('glossary') : null, kind === 'summon' ? cachedList('skill') : null, cachedOverview()]);
+      const [data, terms, skills, passives, overview] = await Promise.all([cachedList(kind),
+        !['glossary','skill'].includes(kind) ? cachedList('glossary') : null,
+        kind === 'summon' ? cachedList('skill') : null,
+        kind === 'summon' ? cachedList('passive') : null, cachedOverview()]);
       if (!alive() || token !== state.listRequest || kind !== state.kind) return;
       state.overview = overview;
       state.data = data; state.catalogs[kind] = data;
       if (terms) state.catalogs.glossary = terms;
       if (skills) state.catalogs.skill = skills;
+      if (passives) state.catalogs.passive = passives;
       if (kind === 'skill') { await prepareSkill(token); if (!alive() || token !== state.listRequest || kind !== state.kind) return; }
       renderRequestCount();
       panel.querySelector('#cat-pending-action').innerHTML = state.user.is_app_admin ? button(`承認待ち ${overview.pending.length}件`, 'pending') : '';
@@ -316,7 +320,7 @@
         : state.tab === 'text' ? window.CatalogSkillText.renderForm(state.payload,state.textTags,state.textResult,state.textReferences)
         : state.tab === 'json' ? `<h3>JSON</h3><label class="cat-field">${model.label}のJSON<textarea id="cat-json-input" class="cat-source" spellcheck="false">${h(state.jsonText)}</textarea></label><p class="cat-caption">${h(model.jsonHint)}</p>${button('JSONをコピー','copy-json')}${examples}`
         : resource && state.section === 'effects' ? `<h3>効果</h3>${button('JSONで編集','open-json')}${examples}`
-        : `<div class="cat-field-grid">${model.form(state.payload,state.errors,{section:state.section,entries:state.data.entries,linkQuery:state.linkQuery,aliasInput:state.aliasInput,tagInput:state.tagInput,published:state.edit.base_revision != null,effectText:state.effectText,skillTagInput:state.skillTagInput,bonusOperation:state.bonusOperation})}${markFields()}</div>`);
+        : `<div class="cat-field-grid">${model.form(state.payload,state.errors,{section:state.section,entries:state.data.entries,linkQuery:state.linkQuery,aliasInput:state.aliasInput,tagInput:state.tagInput,published:state.edit.base_revision != null,effectText:state.effectText,skillTagInput:state.skillTagInput,bonusOperation:state.bonusOperation,passiveEntries:state.catalogs.passive?.entries})}${markFields()}</div>`);
       for (const [selector,value] of Object.entries(state.rawValues)) { const node = panel.querySelector(selector); if (node) node.value = value; }
       if (state.tab === 'form') renderCandidates();
       mountTextTools();
@@ -412,6 +416,13 @@
         state.errors[`input:${key}`] = error.message;
         panel.querySelector(`#cat-error-${key}`).textContent = error.message;
       }
+    }
+    function setHiddenPassives(rows, refreshInput = false) {
+      state.payload.hidden_passives = rows;
+      state.dirty = true;
+      state.jsonText = pretty(state.payload);
+      if (refreshInput) renderInput();
+      renderPreview();
     }
     function addLink(id) {
       if (!candidates().some(row => row.entry_id === id)) return;
@@ -928,6 +939,12 @@
         panel.querySelector(key === 'links' ? '#cat-link-search' : key === 'granted_tag_ids' ? '#cat-granted-tag-input' : '#cat-synonym-input')?.focus();
         return;
       }
+      if (control.dataset.hiddenRemove !== undefined) {
+        setHiddenPassives(state.payload.hidden_passives.filter((_, index) =>
+          index !== Number(control.dataset.hiddenRemove)), true);
+        panel.querySelector('[data-hidden-add]')?.focus();
+        return;
+      }
       if (control.dataset.tagAdd) { addTag(); return; }
       if (control.hasAttribute('data-alias-add')) { addAlias(); return; }
       if (control.dataset.action) {
@@ -948,6 +965,22 @@
         return;
       }
       if (state.busy || power.input(control)) return;
+      if (control.hasAttribute('data-hidden-add') && control.value) {
+        setHiddenPassives([...(state.payload.hidden_passives || []), {passive_id:control.value}], true);
+        panel.querySelector('[data-hidden-add]')?.focus();
+        return;
+      }
+      if (control.dataset.hiddenCondition) {
+        if (control.validity.badInput) return;
+        const row = state.payload.hidden_passives[Number(control.dataset.hiddenRow)];
+        const condition = {...row.reveal_when};
+        if (control.value === '') delete condition[control.dataset.hiddenCondition];
+        else condition[control.dataset.hiddenCondition] = Number(control.value);
+        if (Object.keys(condition).length) row.reveal_when = condition;
+        else delete row.reveal_when;
+        setHiddenPassives(state.payload.hidden_passives);
+        return;
+      }
       if (control.id === 'cat-effect-keys') { window.CatalogSkillEffects.setShowKeys(control.checked);renderInput();panel.querySelector('#cat-effect-keys')?.focus();return; }
       if (control.dataset.dicePart) {
         const box = control.closest('[data-dice]'), part = key=>box.querySelector(`[data-dice-part="${key}"]`);

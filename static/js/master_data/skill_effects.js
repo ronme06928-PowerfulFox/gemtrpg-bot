@@ -77,7 +77,7 @@
     const type = spec.type || 'string';
     let options = spec.options?.map(value => [String(value), spec.labels?.[value] || String(value)]);
     if (type === 'bool') options = [['true', 'はい'], ['false', 'いいえ']];
-    const refKind = { state_ref: 'state', buff_ref: 'buff', skill_ref: 'skill', glossary_ref: 'glossary', summon_ref: 'summon' }[type];
+    const refKind = { state_ref: 'state', buff_ref: 'buff', skill_ref: 'skill', glossary_ref: 'glossary', summon_ref: 'summon', passive_ref: 'passive' }[type];
     if (refKind && references[refKind]) options = references[refKind].map(row => [row.id, type === 'state_ref' ? row.name : `${row.id} ${row.name}`]);
     let input;
     if (options) {
@@ -93,7 +93,7 @@
       && ['source', 'param', 'operator'].every(key => value[key] === undefined || typeof value[key] === 'string'));
   }
   const groups = ['状態異常','バフ','スタック','威力・ロール','ダメージ・回復','行動・進行','特殊'];
-  const typeOrder = ['APPLY_STATE','APPLY_STATE_PER_N','APPLY_FISSURE_BUFFED','MULTIPLY_STATE','APPLY_BUFF','APPLY_BUFF_PER_N','APPLY_BUFF_FROM_CHARACTER_COUNT','REMOVE_BUFF','CONSUME_BUFF_COUNT_FOR_GAIN','CONSUME_BUFF_COUNT_FOR_POWER','CONVERT_STACK_RESOURCE_VARIANT','MODIFY_BASE_POWER','MODIFY_FINAL_POWER','MODIFY_ROLL','DAMAGE_BONUS','DRAIN_HP','USE_SKILL_AGAIN','FORCE_UNOPPOSED','SCHEDULE_EFFECT','GRANT_SKILL','SUMMON_CHARACTER','CUSTOM_EFFECT'];
+  const typeOrder = ['APPLY_STATE','APPLY_STATE_PER_N','APPLY_FISSURE_BUFFED','MULTIPLY_STATE','APPLY_BUFF','APPLY_BUFF_PER_N','APPLY_BUFF_FROM_CHARACTER_COUNT','REMOVE_BUFF','CONSUME_BUFF_COUNT_FOR_GAIN','CONSUME_BUFF_COUNT_FOR_POWER','CONVERT_STACK_RESOURCE_VARIANT','MODIFY_BASE_POWER','MODIFY_FINAL_POWER','MODIFY_ROLL','DAMAGE_BONUS','DRAIN_HP','USE_SKILL_AGAIN','FORCE_UNOPPOSED','SCHEDULE_EFFECT','GRANT_SKILL','REVEAL_PASSIVE','SUMMON_CHARACTER','CUSTOM_EFFECT'];
   let showKeys = false;
   try { showKeys = window.localStorage?.getItem('catalog-effect-keys') === '1'; } catch (_) {}
   function setShowKeys(value) {

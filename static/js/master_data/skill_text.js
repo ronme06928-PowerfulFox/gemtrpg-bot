@@ -1455,6 +1455,12 @@
         const descriptions = [];
         for (let index=0; index<group.length; index++) {
           const row = group[index];
+          if (row?.type === 'REVEAL_PASSIVE') {
+            const receiver = {self:'自分', ALL_ALLIES:'味方全体', ALL_OTHER_ALLIES:'自分以外の味方全体',
+              ALL_ENEMIES:'敵全体', ALL:'場の全員'}[row.target] || '対象';
+            descriptions.push({row,members:[row],note:!timingNames[row.timing],text:receiver + 'の伏せたパッシブを明かす'});
+            continue;
+          }
           const next = group[index+1];
           const pair = row && paired(row,next);
           const members = pair ? [row,next] : [row];

@@ -225,7 +225,7 @@ SCHEMAS = {
         "description": "対象が伏せている特殊パッシブを公開する。",
         "internal": False,
         "fields": {
-            "passive_id": {"type": "string", "required": True, "label": "特殊パッシブID"},
+            "passive_id": {"type": "passive_ref", "required": True, "label": "特殊パッシブID"},
         },
         "summary": "{target}の伏せたパッシブを明かす",
         "example": {"timing": "PRE_MATCH", "type": "REVEAL_PASSIVE", "target": "self", "passive_id": "Pa-01"},

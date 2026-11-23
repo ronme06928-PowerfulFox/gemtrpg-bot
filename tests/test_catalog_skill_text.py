@@ -135,7 +135,7 @@ const payload={'デフォルト名称':'テスト','分類':'物理','コスト'
 const schemas={effect_types:{APPLY_STATE:{label:'状態',fields:{state_name:{type:'string'},value:{type:'int'}},summary:'{target}に{state_name}を{value}付与'}},custom_effects:{},
  common_fields:{timing:{options:['HIT','END_ROUND']},target:{options:['self','target']},condition:{fields:{}}}};
 window.CatalogApi={overview:async()=>({counts:{},pending:[]}),user:async()=>({user_id:'author',is_catalog_author:true}),effectSchemas:async()=>schemas,
- list:async kind=>({entries:kind==='skill'?[{entry_id:'Ps-00',payload,revision:1}]:fixture.references[kind+'_refs'].map(row=>({entry_id:row.id,payload:{...row}})),drafts:[]}),
+ list:async kind=>({entries:kind==='skill'?[{entry_id:'Ps-00',payload,revision:1}]:(fixture.references[kind+'_refs'] || []).map(row=>({entry_id:row.id,payload:{...row}})),drafts:[]}),
  textReferences:async()=>({summon_refs:fixture.references.summon_refs}),history:async()=>({history:[]}),references:async()=>({references:[]}),
  create:async()=>({id:1,target_id:'Ps-00',id_prefix:'Ps',base_revision:1,payload:structuredClone(payload),status:'draft',created_by:'author'}),
  save:async(id,data)=>{saved=structuredClone(data);return {id,target_id:'Ps-00',payload:data,status:'draft',created_by:'author',problems:[]};}};

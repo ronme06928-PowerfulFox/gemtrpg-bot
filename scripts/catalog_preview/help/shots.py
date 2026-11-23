@@ -60,11 +60,24 @@ def shot(page, name, *, publish, selector=None):
     print("wrote", name)
 
 
+def capture_hidden_passive(page, base, capture):
+    open_workspace(page, base)
+    page.locator('[data-kind="skill"]').click()
+    pick(page, "Ps-04")
+    page.locator('#cat-detail [data-action="edit"]').click()
+    page.locator('[data-section="effects"]').click()
+    effect = page.locator('.cat-effect-card[data-effect-index="0"]')
+    effect.locator('[data-effect-path="type"]').select_option("REVEAL_PASSIVE")
+    effect.locator('[data-effect-path="passive_id"]').select_option("Pa-01")
+    capture(page, "10_hidden_passive", selector='.cat-effect-card[data-effect-index="0"]')
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", default="http://127.0.0.1:5000")
     parser.add_argument("--db", required=True)
     parser.add_argument("--publish", action="store_true")
+    parser.add_argument("--only-hidden-passive", action="store_true")
     args = parser.parse_args()
     if is_local_db(args.db):
         parser.error("手元の instance/gemtrpg.db は指せません。写しを python app.py --db で起動して、その写しを指してください。")
@@ -79,6 +92,10 @@ def main():
         assert status == 201, status
         with sqlite3.connect(args.db) as db:
             db.execute("update users set is_catalog_author=1, is_app_admin=1 where name=?", (login,))
+        if args.only_hidden_passive:
+            capture_hidden_passive(page, args.base, capture)
+            browser.close()
+            return
         # 承認の写真のために、Ps-01 の下書きを作って申請しておく。
         page.evaluate("""async () => {
             const api = (url, method = 'GET', body) => fetch(url, {method, headers: {'Content-Type': 'application/json'}, body: body && JSON.stringify(body)}).then(r => r.json());
@@ -173,6 +190,7 @@ def main():
         page.locator('#cat-detail [data-action="edit"]').click()
         page.locator('[data-mark="known"]').wait_for()
         capture(page, "09_known", selector="#cat-input-content")
+        capture_hidden_passive(page, args.base, capture)
         browser.close()
 
 

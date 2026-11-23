@@ -50,7 +50,7 @@
   function defaults(kind, side) {
     if (kind === 'unit') return {name:'', image:'', allow_ally: true, allow_enemy: true, scenario:false,
       gm_only:false, hp:0, mp:0, params:[], skills:[], other_lines:[], passives:[], radiance:[],
-      items:[], tags:[], marks:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
+      hidden_passives:[], items:[], tags:[], marks:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
     if (kind === 'formation') return {name:'', type:side, recommended_ally_count:0, members:[]};
     return {name:'', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
   }
@@ -157,11 +157,24 @@
             <dl><dt>コスト</dt><dd>${h(cost || '—')}</dd><dt>効果</dt><dd>${h(effect || '—')}</dd></dl>
           </details></div>`;
       }).join('') + '</div>' + field('その他のパレット行','other_lines',textLines(p.other_lines),'area');
-    if (section === 'gear') return [
+    if (section === 'gear') {
+      const hidden = (p.hidden_passives || []).map((row, i) => {
+        const master = masters.passive.find(entry => entry.entry_id === row.passive_id);
+        const path = `hidden_passives.${i}.reveal_when`;
+        return `<div class="unit-item-row"><code class="cat-id">${h(row.passive_id)}</code><strong>${h(nameOf(master?.payload))}</strong>
+          ${num('HP割合（%）以下',path + '.hp_percent_lte',row.reveal_when?.hp_percent_lte ?? '', 'min="0" max="100"')}
+          ${num('ラウンド目以降',path + '.round_gte',row.reveal_when?.round_gte ?? '', 'min="1"')}
+          ${edit ? remove('hidden_passives',i) : ''}</div>`;
+      }).join('') || Array.from({length:p.hidden_passive_count || 0}, () => '<p>？？？</p>').join('');
+      return [
       ['パッシブ','passive','passives'],['輝化スキル','radiance','radiance'],['アイテム','item','items'],
     ].map(([label,source,path]) => `<section class="unit-gear-group">
       <div class="unit-subheading"><h4>${label}</h4>${picker('＋ ' + label + 'を追加',source,path,edit)}</div>
-      ${items(source,path) || '<p class="cat-caption">登録なし</p>'}</section>`).join('');
+      ${items(source,path) || '<p class="cat-caption">登録なし</p>'}</section>`).join('') +
+        `<section class="unit-gear-group"><div class="unit-subheading"><h4>伏せたパッシブ</h4>
+          ${picker('＋ 伏せたパッシブを追加','hidden-passive','hidden_passives',edit)}</div>
+          ${hidden || '<p class="cat-caption">登録なし</p>'}</section>`;
+    }
     if (section === 'behavior') return grid(
       field('対象の自動選択','behavior.auto_target',p.behavior?.auto_target,'checkbox'),
       field('スキルの自動選択','behavior.auto_skill',p.behavior?.auto_skill,'checkbox'),

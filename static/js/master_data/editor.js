@@ -2,12 +2,14 @@
   const h = window.CatalogGlossary.escape;
   const fields = {
     glossary:{body:['display_name','category','synonyms','sort_order'],description:['short','long','flavor'],links:['links']},
+    summon:{'hidden-passives':['hidden_passives']},
     skill:{body:['デフォルト名称','分類','距離','属性','取得コスト','基礎威力','ダイス威力','チャットパレット'],description:['コスト','発動時効果','特記'],cost:['特記処理'],bonus:['特記処理'],effects:['特記処理']},
   };
   const generic = {body:['name','display_name','category','default_duration','cost','duration','round_limit','usable','consumable','granted_tag_ids'],description:['description','flavor'],effects:['effect']};
   function sections(model) {
+    if (model.kind === 'summon') return [['json','JSON'],['hidden-passives','伏せたパッシブ'],['preview','プレビュー']];
     const labels = {body:'本体',description:model.kind === 'skill' ? '文章' : '説明',links:'関連用語',cost:'コスト',bonus:'補正',effects:'効果'};
-    return [...Object.keys(model.kind === 'summon' ? {} : fields[model.kind] || generic).map(key=>[key,labels[key]]),['json','JSON'],...(model.kind === 'skill' ? [['text','文章から効果を作る']] : []),['preview','プレビュー']];
+    return [...Object.keys(fields[model.kind] || generic).map(key=>[key,labels[key]]),['json','JSON'],...(model.kind === 'skill' ? [['text','文章から効果を作る']] : []),['preview','プレビュー']];
   }
   function sectionFor(kind,key) {
     key = key.replace(/^input:/,'');

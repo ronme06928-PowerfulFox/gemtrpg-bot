@@ -19,6 +19,7 @@
   function candidates(source, records, masters) {
     if (source === 'pattern-target') return records.filter(row => row.kind === 'unit' && !row.deprecated && window.UnitPatterns.canCreate(row.payload));
     if (source === 'collection') return records.filter(row => row.kind === 'unit_collection');
+    if (source === 'hidden-passive') return candidates('passive',records,masters);
     if (master.includes(source)) return masters[source].filter(item => !item.deprecated);
     const [side,kind] = source.split('-');
     return records.filter(item => item.kind === kind && !item.deprecated &&
@@ -52,6 +53,10 @@
     if (!visible.length) return '<p class="cat-empty">該当候補なし</p>';
     const action = source === 'collection' || source === 'pattern-target' || source.endsWith('-formation') ? '選択' : '追加';
     const used = new Set((draft[masterPaths[source]] || []).map(entry => entry.id || entry));
+    if (source === 'passive' || source === 'hidden-passive') {
+      for (const id of draft.passives || []) used.add(id);
+      for (const row of draft.hidden_passives || []) used.add(row.passive_id);
+    }
     const slots = new Map();
     for (const {unit_id} of draft.members || []) slots.set(unit_id,(slots.get(unit_id) || 0) + 1);
     return visible.map(row => {

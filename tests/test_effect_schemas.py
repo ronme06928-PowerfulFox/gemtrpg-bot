@@ -15,7 +15,7 @@ from plugins import CUSTOM_EFFECT_SCHEMAS, EFFECT_REGISTRY
 
 FIELD_TYPES = {
     "int", "number", "string", "bool", "json", "state_ref", "buff_ref",
-    "skill_ref", "summon_ref", "glossary_ref",
+    "skill_ref", "summon_ref", "passive_ref", "glossary_ref",
 }
 
 
