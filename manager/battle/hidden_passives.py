@@ -40,6 +40,9 @@ def reveal_passive(room, char, passive_id, round_number):
     if passive_id not in active:
         active.append(passive_id)
     apply_passive_effect_buffs(char)
+    if char.get("passive_revealed_round") != round_number:
+        char["passive_revealed_ids"] = []
+    char.setdefault("passive_revealed_ids", []).append(passive_id)
     char["passive_revealed_round"] = round_number
     record(room, [("passive", passive_id)])
     return True

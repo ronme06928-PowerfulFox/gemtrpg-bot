@@ -649,6 +649,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
         for char in list(state.get('characters', [])):
             char.pop('can_act_from_round', None)
+            char.pop('passive_revealed_round', None)
+            char.pop('passive_revealed_ids', None)
             initial = char.get('initial_state', {})
 
 

@@ -40,6 +40,7 @@ const CLASSIC_SCRIPTS = [
   'js/sound_fx.js',
   'js/fx/fx_core.js',
   'js/fx/fx_effects.js',
+  'js/fx/hidden_passive_fx.js',
   'js/fx/fx_player.js',
   'js/legacy_globals.js',
   'js/action_dock.js',

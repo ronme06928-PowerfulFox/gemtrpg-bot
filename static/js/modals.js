@@ -409,6 +409,96 @@ function renderCharacterSkills(char) {
     return skillsHtml;
 }
 
+function escapeDetailHtml(value) {
+    if (window.Glossary && typeof window.Glossary.escapeHtml === 'function') {
+        return window.Glossary.escapeHtml(value);
+    }
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function markupToHtml(value) {
+    if (typeof window.formatGlossaryMarkupToHTML === 'function') {
+        return window.formatGlossaryMarkupToHTML(value);
+    }
+    return escapeDetailHtml(value).replace(/\n/g, '<br>');
+}
+
+function renderCharacterPassives(char, breakingIds = []) {
+    const effects = window.HiddenPassiveFx;
+    const active = (Array.isArray(char.SPassive) ? char.SPassive : []).map(pid => {
+        const passive = window.allPassiveData?.[pid] || char.special_buffs?.find(buff => buff.passive_id === pid);
+        const radiance = window.radianceSkillData?.[pid];
+        const data = passive || radiance;
+        const label = passive ? 'パッシブ' : radiance ? '輝化' : '特殊';
+        const color = passive ? '#6a1b9a' : radiance ? '#0b7285' : 'var(--ui-sub)';
+        const detail = `
+            <details class="detail-buff-item" style="border:1px solid #e0cffc; border-radius:4px; margin-bottom:5px; overflow:hidden; background:var(--ui-bg);">
+                <summary style="background:#f3e5f5; padding:8px 10px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between;">
+                    <span style="color:${color};">★ ${escapeDetailHtml(data?.name || pid)}
+                        <span style="background:${color}; color:#fff; padding:1px 6px; border-radius:10px; font-size:.7em;">${label}</span>
+                    </span>
+                    <span style="font-size:.8em; color:var(--ui-sub);">▼</span>
+                </summary>
+                <div class="buff-body">
+                    <div class="buff-desc-row">${markupToHtml(data?.description || '詳細情報なし')}</div>
+                    ${data?.flavor ? `<div class="buff-flavor-row">${markupToHtml(data.flavor)}</div>` : ''}
+                </div>
+            </details>`;
+        return effects && breakingIds.includes(pid)
+            ? `<div class="hidden-passive-reveal">${detail}${effects.cover(true)}</div>` : detail;
+    });
+    const hidden = Array.isArray(char.hidden_passives)
+        ? char.hidden_passives.map(({passive_id: id, reveal_when: condition}) => {
+            const conditions = [];
+            if (condition?.hp_percent_lte != null) conditions.push(`HP ${condition.hp_percent_lte}% 以下`);
+            if (condition?.round_gte != null) conditions.push(`${condition.round_gte} ラウンド目以降`);
+            const name = window.allPassiveData?.[id]?.name || id;
+            return `<div class="hidden-passive-cover"><span>伏せ札 · ${escapeDetailHtml(name)}</span>${conditions.length
+                ? `<small>${escapeDetailHtml(conditions.join(' かつ '))}</small>` : ''}</div>`;
+        })
+        : Array.from({length: Number(char.hidden_passive_count) || 0}, () => effects?.cover() || '');
+    return active.concat(hidden).join('');
+}
+
+function passiveDetailSignature(char) {
+    return JSON.stringify([char?.SPassive, char?.hidden_passives, char?.hidden_passive_count]);
+}
+
+async function refreshOpenCharacterPassives(previousState, nextState) {
+    const modal = document.querySelector('#char-modal-backdrop .char-detail-modal-content');
+    if (!modal) {
+        if (nextState?.characters?.some(char => char.passive_revealed_ids?.some(id => !window.allPassiveData?.[id])
+                && window.HiddenPassiveFx?.newThisRound(char, nextState))) {
+            await reloadResourceCatalogData('passive', currentRoomName);
+        }
+        return;
+    }
+    const id = modal.dataset.charId;
+    const before = previousState?.characters?.find(char => char.id === id);
+    const after = nextState?.characters?.find(char => char.id === id);
+    if (!after) return;
+    const hp = modal.querySelector('.hp-box .detail-hp-current');
+    const maxHp = modal.querySelector('.hp-box .detail-stat-max');
+    if (hp) hp.textContent = after.hp;
+    if (maxHp) maxHp.textContent = `/ ${after.maxHp}`;
+    const signature = passiveDetailSignature(after);
+    if (signature === passiveDetailSignature(before)) return;
+    if (after.SPassive?.some(key => key.startsWith('Pa-') && !window.allPassiveData?.[key])) {
+        await reloadResourceCatalogData('passive', currentRoomName);
+    }
+    if (!modal.isConnected || passiveDetailSignature(battleState?.characters?.find(char => char.id === id)) !== signature) return;
+    const newIds = window.HiddenPassiveFx?.newThisRound(after, nextState)
+        ? (after.passive_revealed_ids || []).filter(key => !before?.SPassive?.includes(key)) : [];
+    const region = modal.querySelector('.character-modal-passives');
+    region.innerHTML = renderCharacterPassives(after, newIds)
+        || (region.dataset.hasOther === 'true' ? '' : '<span class="cat-caption">なし</span>');
+}
+
 function renderCharacterCard(char) {
     const ownerName = char.owner || '不明';
     const fpState = char.states.find(s => s.name === 'FP');
@@ -478,23 +568,6 @@ function renderCharacterCard(char) {
        Ill use this block for the HTML generation part first.
     */
 
-    const escapeDetailHtml = (value) => {
-        if (window.Glossary && typeof window.Glossary.escapeHtml === 'function') {
-            return window.Glossary.escapeHtml(value);
-        }
-        return String(value ?? '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    };
-    const markupToHtml = (value) => {
-        if (typeof window.formatGlossaryMarkupToHTML === 'function') {
-            return window.formatGlossaryMarkupToHTML(value);
-        }
-        return escapeDetailHtml(value).replace(/\n/g, '<br>');
-    };
     const applyBuffTemplateText = (text, buff) => {
         if (text === null || text === undefined) return text;
         const source = String(text);
@@ -615,6 +688,7 @@ function renderCharacterCard(char) {
             const duplicatedBySPassive = (
                 (buffSkillId && sPassiveIds.has(buffSkillId))
                 || (buffName && sPassiveNames.has(buffName))
+                || (b.passive_id && sPassiveIds.has(b.passive_id))
             );
             if (duplicatedBySPassive) {
                 return;
@@ -750,39 +824,10 @@ function renderCharacterCard(char) {
 
     if (!fissureRendered) specialBuffsHtml += renderFissureDetail(fissureView);
 
-    // --- Passives (SPassive) ---
-    if (char.SPassive && Array.isArray(char.SPassive) && char.SPassive.length > 0) {
-        char.SPassive.forEach(pid => {
-            const passiveData = (window.allPassiveData && window.allPassiveData[pid]) ? window.allPassiveData[pid] : null;
-            const radianceData = (window.radianceSkillData && window.radianceSkillData[pid]) ? window.radianceSkillData[pid] : null;
-            const pData = passiveData || radianceData || null;
-            const badgeText = passiveData ? 'パッシブ' : (radianceData ? '輝化' : '特殊');
-            const badgeColor = passiveData ? '#6a1b9a' : (radianceData ? '#0b7285' : 'var(--ui-sub)');
-
-            // データがなくてもIDだけは表示する
-            const name = pData ? pData.name : pid;
-            const desc = pData ? pData.description : "詳細情報なし";
-            const flavor = pData ? pData.flavor : "";
-
-            specialBuffsHtml += `
-                <details class="detail-buff-item" style="border: 1px solid #e0cffc; border-radius: 4px; margin-bottom: 5px; overflow: hidden; background: var(--ui-bg);">
-                    <summary style="background: #f3e5f5; padding: 8px 10px; cursor: pointer; font-weight: bold; font-size: 0.95em; display: flex; align-items: center; justify-content: space-between; outline: none;">
-                        <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 5px;">
-                            <span style="color: ${badgeColor};">★ ${name}</span>
-                            <span style="background:${badgeColor}; color:var(--ui-bg); padding:1px 6px; border-radius:10px; font-size:0.7em; margin-left:8px;">${badgeText}</span>
-                        </div>
-                        <span style="font-size: 0.8em; color: var(--ui-sub);">▼</span>
-                    </summary>
-                    <div style="padding: 10px; background: var(--ui-bg); border-top: 1px solid #e0cffc;">
-                        <div class="buff-desc-row" style="font-weight: bold; color: #212529; font-size: 0.9em; margin-bottom: 5px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;">${markupToHtml(desc)}</div>
-                        ${flavor ? `<div class="buff-flavor-row" style="color: #6c757d; font-size: 0.85em; font-style: italic; line-height: 1.4; white-space: pre-wrap; word-wrap: break-word; border-top: 1px dashed var(--ui-line); margin-top: 5px; padding-top: 5px;">${markupToHtml(flavor)}</div>` : ''}
-                    </div>
-                </details>
-            `;
-        });
-    }
-
-    if (!specialBuffsHtml) specialBuffsHtml = '<span style="color:var(--ui-sub); font-size:0.9em;">なし</span>';
+    const state = typeof battleState !== 'undefined' ? battleState : null;
+    const newPassiveIds = window.HiddenPassiveFx?.newThisRound(char, state) ? (char.passive_revealed_ids || []) : [];
+    const passivesHtml = renderCharacterPassives(char, newPassiveIds)
+        || (specialBuffsHtml ? '' : '<span class="cat-caption">なし</span>');
 
     // --- Inline CSS ---
     const inlineStyle = `
@@ -1038,7 +1083,7 @@ function renderCharacterCard(char) {
             <div class="detail-stat-grid" style="display:flex; gap:10px; margin-bottom:20px;">
                 <div class="detail-stat-box hp-box">
                     <span class="detail-stat-label">HP</span>
-                    <span class="detail-stat-val" style="color:var(--ui-add);">${char.hp} <span class="detail-stat-max">/ ${char.maxHp}</span></span>
+                    <span class="detail-stat-val" style="color:var(--ui-add);"><span class="detail-hp-current">${char.hp}</span> <span class="detail-stat-max">/ ${char.maxHp}</span></span>
                 </div>
                 <div class="detail-stat-box mp-box">
                     <span class="detail-stat-label">MP</span>
@@ -1061,7 +1106,9 @@ function renderCharacterCard(char) {
 
             <div class="detail-section" style="margin-bottom:20px;">
                 <h4 class="detail-section-title">特殊効果 / バフ</h4>
-                <div class="detail-buff-accordion-list">${specialBuffsHtml}</div>
+                <div class="detail-buff-accordion-list">${specialBuffsHtml}
+                    <div class="character-modal-passives" data-has-other="${Boolean(specialBuffsHtml)}">${passivesHtml}</div>
+                </div>
             </div>
 
             <div class="detail-section" style="margin-bottom:20px;">

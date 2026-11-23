@@ -13,7 +13,8 @@
   async function load({ room, signal } = {}) {
     const kinds = ['glossary', 'skill', 'buff', 'item', 'radiance', 'passive'];
     const url = '/api/encyclopedia' + (room ? '?room=' + encodeURIComponent(room) : '');
-    const responses = await Promise.all([url, ...kinds.map(kind => `/api/get_${kind}_data`)].map(async path => {
+    const masters = kinds.map(kind => `/api/get_${kind}_data` + (kind === 'passive' && room ? '?room=' + encodeURIComponent(room) : ''));
+    const responses = await Promise.all([url, ...masters].map(async path => {
       const response = await fetchWithSession(path, { signal, cache:'no-cache' });
       if (!response.ok) throw new Error('図鑑を読み込めませんでした。接続とログインを確認してください。');
       return response.json();

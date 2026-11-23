@@ -25,6 +25,7 @@ function boardDigest(state = {}) {
     return JSON.stringify({
         battle_id: state.battle_id,
         round: state.round,
+        is_round_ended: state.is_round_ended,
         phase: state.phase,
         turn_char_id: state.turn_char_id,
         selectedSlotId: state.selectedSlotId,

@@ -121,6 +121,7 @@ def _clear_character_combat_state(char):
         from manager.utils import apply_passive_effect_buffs
         apply_passive_effect_buffs(char)
     char.pop("passive_revealed_round", None)
+    char.pop("passive_revealed_ids", None)
     for row in char.get("states", []):
         if isinstance(row, dict) and row.get("name") in _COMBAT_STATE_NAMES:
             row["value"] = 0

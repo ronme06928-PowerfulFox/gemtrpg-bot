@@ -1,0 +1,62 @@
+{
+  "passive": {
+    "id": "Pa-967",
+    "payload": {
+      "name": "瑠璃の装甲",
+      "cost": 0,
+      "description": "受けるダメージを25%軽減する。",
+      "flavor": "傷口を覆う瑠璃の結晶が、攻撃を受け止める。",
+      "marks": ["enemy"],
+      "effect": {
+        "incoming_damage_multiplier": 0.75
+      }
+    }
+  },
+  "unit": {
+    "name": "瑠璃殻の番人",
+    "image": "/static/images/characters/人狼型シュラーカー.png",
+    "scenario": true,
+    "allow_ally": false,
+    "allow_enemy": true,
+    "marks": ["known"],
+    "hp": 80,
+    "mp": 20,
+    "params": [
+      {"label": "敏捷", "value": 8},
+      {"label": "物理補正", "value": 2},
+      {"label": "行動回数", "value": 1}
+    ],
+    "skills": [{"id": "E-01"}],
+    "hidden_passives": [{"passive_id": "Pa-967"}],
+    "behavior": {"auto_target": true, "auto_skill": true},
+    "default_pattern_id": "BP-1",
+    "patterns": [
+      {
+        "id": "BP-1",
+        "name": "殻をまとう",
+        "profile": {
+          "enabled": true,
+          "initial_loop_id": "first",
+          "slot_generation_mode": "step_actions",
+          "loops": {
+            "first": {
+              "steps": [{"actions": ["E-01"]}],
+              "transitions": [
+                {
+                  "to_loop_id": "second",
+                  "when_all": [
+                    {"source": "self", "param": "HP割合", "operator": "LTE", "value": 50}
+                  ]
+                }
+              ]
+            },
+            "second": {
+              "steps": [{"actions": ["E-01"]}],
+              "reveal_passive_ids": ["Pa-967"]
+            }
+          }
+        }
+      }
+    ]
+  }
+}

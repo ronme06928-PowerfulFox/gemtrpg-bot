@@ -33,6 +33,7 @@ def test_reveal_checks_both_conditions_and_only_applies_once(monkeypatch):
     assert char["SPassive"] == [PASSIVE]
     assert char["hidden_passives"] == []
     assert char["passive_revealed_round"] == 2
+    assert char["passive_revealed_ids"] == [PASSIVE]
     assert not hidden_passives.reveal_passive("room", char, PASSIVE, 2)
     assert rebuilt == [char]
     assert encounters == [("passive", PASSIVE)]
@@ -159,3 +160,43 @@ def test_unit_and_passive_apis_do_not_disclose_hidden_data(app, monkeypatch):
                                     first_seen_at=datetime.now(timezone.utc), room_name="room"))
     db.session.commit()
     assert player.get("/api/get_passive_data").json[PASSIVE]["name"] == secret
+
+
+def test_sample_boss_changes_form_in_simulator(monkeypatch):
+    from pathlib import Path
+    from extensions import all_skill_data
+    from manager.cache_paths import SKILLS_CACHE_FILE, load_json_cache
+    from manager.passives.loader import passive_loader
+    from manager.sim.battle_runner import run_battle
+    from manager.sim.preset_loader import empty_room_state_for_presets
+    from manager.units.characters import build_character
+
+    path = Path(__file__).resolve().parents[1] / "data/examples/pr67_hidden_passive_boss.json"
+    example = json.loads(path.read_text(encoding="utf-8"))
+    passive = example["passive"]
+    monkeypatch.setattr(passive_loader, "load_passives", lambda: {passive["id"]: passive["payload"]})
+    cache = load_json_cache(SKILLS_CACHE_FILE)
+    masters = {key: cache[key] for key in ("Ps-00", "E-01")}
+    for key, entry in masters.items():
+        monkeypatch.setitem(all_skill_data, key, entry)
+    state = empty_room_state_for_presets()
+    boss = build_character(example["unit"], "enemy", 1, masters=masters)
+    hero = build_character({"name": "冒険者", "hp": 80, "mp": 20, "skills": [{"id": "Ps-00"}]},
+                           "ally", 1, masters=masters)
+    boss.update(x=7, y=7)
+    hero.update(x=9, y=7)
+    state["characters"] = [boss, hero]
+
+    def cross_threshold(current_state, battle_state):
+        if current_state["round"] == 1:
+            assert boss["SPassive"] == []
+            boss["hp"] = 40
+        else:
+            assert boss["SPassive"] == [passive["id"]]
+            assert boss["special_buffs"][0]["incoming_damage_multiplier"] == .75
+
+    report = run_battle(state, max_rounds=2, intent_provider=cross_threshold, copy_state=False,
+                        roll_mode="median", auto_ally_intents=True)
+    assert report.rounds == 2
+    assert [row.committed_intents for row in report.rounds_detail] == [2, 2]
+    assert boss["hidden_passives"] == []

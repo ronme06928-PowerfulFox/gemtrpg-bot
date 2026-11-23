@@ -51,15 +51,21 @@ const script = source => `<script>${source.replace(/<\/script/gi, '<\\/script')}
 const html = `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ジェムリア · 演出の一覧</title>${fonts}
-<style>${extractStagePaletteCss(await read('static/css/modules/common_ui.css'))}\n${extractResolvePanelCss(await read('static/css/modules/visual_battle.css'))}\n${(await read('static/css/modules/motion_fx.css')).split('#resolve-flow-panel').join(GALLERY_PANEL_SELECTOR)}\n${await read('scripts/fx_gallery/gallery.css')}</style></head>
+<style>${extractStagePaletteCss(await read('static/css/modules/common_ui.css'))}\n${extractResolvePanelCss(await read('static/css/modules/visual_battle.css'))}\n${(await read('static/css/modules/motion_fx.css')).split('#resolve-flow-panel').join(GALLERY_PANEL_SELECTOR)}\n${await read('static/css/modules/hidden_passive.css')}
+${await read('scripts/fx_gallery/gallery.css')}</style></head>
 <body><header><p class="eyebrow">GEMLIA / MOTION STUDIES</p><h1>演出の一覧</h1>
 <p>光、数字、結晶。時刻を動かして、ひとつずつ確かめる。</p>
-<nav><a href="#scenes">結果の場面 · ${sceneSamples.length}</a><a href="#effects">演出単体 · ${new Set(effectSamples.map(sample => sample.effect)).size}</a></nav>
+<nav><a href="#scenes">結果の場面 · ${sceneSamples.length}</a><a href="#effects">演出単体 · ${new Set(effectSamples.map(sample => sample.effect)).size}</a><a href="#hidden-passive">伏せたパッシブ</a></nav>
 <p class="guide">つまみで停止・コマのクリックで移動。段階と見本を切り替えて比較できます。</p></header>
 <main><section id="scenes"><h2>結果の場面 <small>OUTCOME / ${[...new Set(sceneSamples.map(sample => resolveOutcomeWindow(sample.step)))].sort((a, b) => a - b).map(seconds => seconds.toFixed(1) + 's').join(' / ')}</small></h2><div class="cards"></div></section>
-<section id="effects"><h2>演出単体 <small>EFFECT LIBRARY</small></h2><div class="cards"></div></section></main>
+<section id="effects"><h2>演出単体 <small>EFFECT LIBRARY</small></h2><div class="cards"></div></section>
+<section id="hidden-passive"><h2>伏せたパッシブ</h2>
+<div class="gallery-passive-case"><div class="gallery-passive-token" aria-hidden="true">◆<span class="new-passive-badge" hidden>New!!</span></div>
+<div class="gallery-passive-card" aria-live="polite"></div>
+<div><button type="button" data-passive-preview>明かす</button> <button type="button" data-passive-end>ラウンド終了</button></div></div>
+</section></main>
 <footer>本番と同じ演出定義を使用 · 場面は本番の解決パネル、単体は仮の台 · Google Fonts 以外の読み込みなし</footer>
-${script(await read('static/js/fx/fx_core.js'))}
+${script((await read('static/js/fx/fx_core.js')) + (await read('static/js/fx/hidden_passive_fx.js')))}
 ${script(await read('static/js/fx/fx_effects.js'))}
 ${script(result.outputFiles[0].text)}
 </body></html>\n`;

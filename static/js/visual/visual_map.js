@@ -225,6 +225,17 @@ window.renderVisualMap = function () {
                 if (char.id === currentTurnId) token.classList.add('active-turn');
                 tokenLayer.appendChild(token);
             }
+            const hasNewPassive = window.HiddenPassiveFx?.newThisRound(char, renderState);
+            const badge = token.querySelector('.new-passive-badge');
+            if (hasNewPassive && !badge) {
+                const indicator = document.createElement('span');
+                indicator.className = 'new-passive-badge';
+                indicator.textContent = 'New!!';
+                indicator.setAttribute('aria-label', 'パッシブが公開されました');
+                token.appendChild(indicator);
+            } else if (!hasNewPassive) {
+                badge?.remove();
+            }
         }
     });
 

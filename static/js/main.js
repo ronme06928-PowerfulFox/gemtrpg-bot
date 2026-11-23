@@ -404,6 +404,7 @@ async function showRoomPortal() {
             window.currentUserAttribute = currentUserAttribute;
             window.resetRoomEncyclopedia?.();
             currentRoomName = null;
+            reloadResourceCatalogData('passive');
         }
     } catch (error) {
         console.warn('Failed to clear room context:', error);
@@ -899,6 +900,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         window.BoardPresentationCoordinator?.resetForRoom();
         window.BattleStore?.resetForRoom(initialState);
         currentRoomName = roomName;
+        await reloadResourceCatalogData('passive', roomName);
         socket.emit('join_room', {
             room: currentRoomName,
             username: currentUsername,
@@ -967,13 +969,14 @@ async function reloadSkillCatalogData() {
 
 const resourceCatalogRequestVersions = {};
 const resourceCatalogWindows = {passive: 'allPassiveData', radiance: 'radianceSkillData', summon: 'allSummonTemplateData'};
-async function reloadResourceCatalogData(kind) {
+async function reloadResourceCatalogData(kind, room = null) {
   if (kind === 'item') return loadItemData();
   const memory = resourceCatalogWindows[kind];
   if (!memory) return;
   const version = resourceCatalogRequestVersions[kind] = (resourceCatalogRequestVersions[kind] || 0) + 1;
   try {
-    const response = await fetch(`/api/get_${kind}_data`, {cache: 'no-cache'});
+    const scope = room && kind === 'passive' ? '?room=' + encodeURIComponent(room) : '';
+    const response = await fetch(`/api/get_${kind}_data${scope}`, {cache: 'no-cache'});
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     if (version === resourceCatalogRequestVersions[kind]) window[memory] = data;
@@ -1012,7 +1015,10 @@ function initializeSocketIO() {
     registerAppSocketHandler('catalog_updated', (data) => {
         if (data?.kind === 'buff') reloadBuffCatalogData();
         if (data?.kind === 'skill') reloadSkillCatalogData();
-        if (['item', 'passive', 'radiance', 'summon'].includes(data?.kind)) reloadResourceCatalogData(data.kind);
+        if (['item', 'passive', 'radiance', 'summon'].includes(data?.kind)) {
+            const room = typeof currentRoomName !== 'undefined' ? currentRoomName : null;
+            reloadResourceCatalogData(data.kind, room);
+        }
         window.Glossary.onCatalogUpdated(data);
         window.CatalogWorkspace?.onUpdated(data);
     });
@@ -1051,6 +1057,7 @@ function initializeSocketIO() {
         battleState = newState;
         window.PracticeRoom?.sync(newState);
         refreshOpenCharacterSkills(previousState, newState);
+        refreshOpenCharacterPassives(previousState, newState);
         rememberLogIdsFromState(newState);
 
         // ★ Mode Switching Logic

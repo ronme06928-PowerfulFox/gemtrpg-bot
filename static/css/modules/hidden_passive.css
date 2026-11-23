@@ -1,0 +1,78 @@
+.hidden-passive-cover {
+  display: grid;
+  place-items: center;
+  min-block-size: 2.4rem;
+  margin-block-end: 5px;
+  border: 1px solid #a08452;
+  border-radius: 5px;
+  background: #272438;
+  color: #f8dba3;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+.hidden-passive-reveal {
+  position: relative;
+}
+
+.hidden-passive-cover.is-breaking {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+.hidden-passive-cover.is-breaking::before,
+.hidden-passive-cover.is-breaking::after {
+  content: "？？？";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b79557;
+  border-radius: 5px;
+  background: #272438;
+  animation: hidden-passive-break .95s ease-in forwards;
+}
+
+.hidden-passive-cover.is-breaking::before {
+  clip-path: polygon(0 0, 51% 0, 48% 30%, 53% 47%, 46% 72%, 50% 100%, 0 100%);
+  --passive-break-shift: -46%;
+  --passive-break-rotate: -5deg;
+}
+
+.hidden-passive-cover.is-breaking::after {
+  clip-path: polygon(51% 0, 100% 0, 100% 100%, 50% 100%, 46% 72%, 53% 47%, 48% 30%);
+  --passive-break-shift: 46%;
+  --passive-break-rotate: 5deg;
+}
+
+@keyframes hidden-passive-break {
+  0%, 20% { opacity: 1; transform: translateX(0); }
+  42% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(var(--passive-break-shift)) rotate(var(--passive-break-rotate)); }
+}
+
+.new-passive-badge {
+  position: absolute;
+  z-index: 3;
+  inset: -8px -7px auto auto;
+  padding: 1px 5px;
+  border: 1px solid #edd398;
+  border-radius: 4px;
+  background: #34243d;
+  color: #fff0be;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hidden-passive-cover.is-breaking { display: none; }
+}
