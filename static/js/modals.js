@@ -434,21 +434,22 @@ function renderCharacterPassives(char, breakingIds = []) {
         const passive = window.allPassiveData?.[pid] || char.special_buffs?.find(buff => buff.passive_id === pid);
         const radiance = window.radianceSkillData?.[pid];
         const data = passive || radiance;
+        const name = escapeDetailHtml(data?.name || pid);
         const label = passive ? 'パッシブ' : radiance ? '輝化' : '特殊';
         const color = passive ? '#6a1b9a' : radiance ? '#0b7285' : 'var(--ui-sub)';
-        const detail = `
-            <details class="detail-buff-item" style="border:1px solid #e0cffc; border-radius:4px; margin-bottom:5px; overflow:hidden; background:var(--ui-bg);">
-                <summary style="background:#f3e5f5; padding:8px 10px; cursor:pointer; font-weight:bold; display:flex; justify-content:space-between;">
-                    <span style="color:${color};">★ ${escapeDetailHtml(data?.name || pid)}
-                        <span style="background:${color}; color:#fff; padding:1px 6px; border-radius:10px; font-size:.7em;">${label}</span>
-                    </span>
-                    <span style="font-size:.8em; color:var(--ui-sub);">▼</span>
+        const detail = `<div class="character-passive-row" style="--passive-color:${color}">
+            <details class="character-passive">
+                <summary class="character-passive-heading">
+                    <span aria-hidden="true">★</span>
+                    <span class="character-passive-name" title="${name}">${name}</span>
+                    <span class="character-passive-kind">${label}</span>
+                    <span class="character-passive-chevron" aria-hidden="true">▼</span>
                 </summary>
-                <div class="buff-body">
+                <div class="character-passive-body">
                     <div class="buff-desc-row">${markupToHtml(data?.description || '詳細情報なし')}</div>
                     ${data?.flavor ? `<div class="buff-flavor-row">${markupToHtml(data.flavor)}</div>` : ''}
                 </div>
-            </details>`;
+            </details></div>`;
         return effects && breakingIds.includes(pid)
             ? `<div class="hidden-passive-reveal">${detail}${effects.cover(true)}</div>` : detail;
     });

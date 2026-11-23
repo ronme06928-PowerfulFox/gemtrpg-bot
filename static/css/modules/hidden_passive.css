@@ -1,3 +1,59 @@
+.character-passive {
+  display: block;
+  overflow: hidden;
+  margin-block-end: 5px;
+  border: 1px solid #e0cffc;
+  border-radius: 5px;
+  background: var(--ui-bg);
+}
+
+.character-passive-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) max-content 1em;
+  align-items: center;
+  gap: 8px;
+  min-block-size: 2.4rem;
+  padding: 7px 10px;
+  background: #f3e5f5;
+  color: var(--passive-color);
+  font-weight: bold;
+  cursor: pointer;
+  list-style: none;
+}
+
+.character-passive-heading::-webkit-details-marker { display: none; }
+
+.character-passive-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.character-passive-kind {
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--passive-color);
+  color: white;
+  font-size: .7em;
+  white-space: nowrap;
+}
+
+.character-passive-chevron {
+  color: var(--ui-sub);
+  font-size: .8em;
+  text-align: center;
+}
+
+.character-passive[open] .character-passive-chevron { transform: rotate(180deg); }
+
+.character-passive-body {
+  padding: 8px 12px 10px;
+  border-block-start: 1px solid #e0cffc;
+  overflow-wrap: anywhere;
+}
+
 .hidden-passive-cover {
   display: grid;
   place-items: center;

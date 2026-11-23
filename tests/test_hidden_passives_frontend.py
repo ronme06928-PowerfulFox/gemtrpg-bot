@@ -13,6 +13,25 @@ def test_token_reveal_badge_uses_the_name_lane_below_the_token():
     assert "inset-block-start: calc(100% + 2px)" in css
 
 
+def test_normal_and_revealed_passives_share_a_full_width_heading():
+    run_node(r"""
+const source = fs.readFileSync('static/js/modals.js','utf8');
+window.allPassiveData = {'Pa-97':{name:'名前が長いパッシブの見本',description:'説明',flavor:'フレーバー'}};
+context.escapeDetailHtml = text => text;
+context.markupToHtml = text => text;
+vm.runInContext(fs.readFileSync('static/js/fx/hidden_passive_fx.js','utf8'),context);
+vm.runInContext(source.slice(source.indexOf('function renderCharacterPassives'),source.indexOf('function passiveDetailSignature')),context);
+context.char = {SPassive:['Pa-97']};
+for (const ids of ['[]', "['Pa-97']"]) {
+  const html=vm.runInContext('renderCharacterPassives(char,'+ids+')',context);
+  assert.match(html,/<details class="character-passive">/);
+  assert.match(html,/<summary class="character-passive-heading">[\s\S]*class="character-passive-name"[\s\S]*class="character-passive-kind"[\s\S]*<\/summary>\s*<div class="character-passive-body">/);
+}
+const css=fs.readFileSync('static/css/modules/hidden_passive.css','utf8');
+assert.match(css,/\.character-passive-name\s*\{[^}]*line-clamp:\s*3/);
+""")
+
+
 def test_reveal_effect_uses_passive_picker():
     run_node(r"""
 const html = effects.control('特殊パッシブID', 'Pa-17', {type:'passive_ref'}, '', {
