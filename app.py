@@ -293,8 +293,6 @@ MASTER_DATA_CACHE_PATHS = frozenset({
     '/api/get_skill_metadata',
     '/api/get_item_data',
     '/api/get_radiance_data',
-    '/api/get_passive_data',
-    '/api/get_summon_data',
     '/api/get_buff_data',
     '/api/get_glossary_data',
 })
@@ -309,6 +307,8 @@ def add_header(response):
     elif request.path.startswith('/images/') and response.status_code in (200, 206, 304):
         # 保存済みの画像 URL は Flask で配信し、/static/ と同じ期間キャッシュする。
         response.headers['Cache-Control'] = f'public, max-age={STATIC_CACHE_MAX_AGE}'
+    elif request.path in {'/api/get_passive_data', '/api/get_summon_data'}:
+        response.headers['Cache-Control'] = 'private, no-store'
     elif (
         request.method == 'GET'
         and response.status_code == 200
@@ -454,7 +454,8 @@ def register_http_routes(flask_app):
 
 def get_skill():
     skill_id = request.args.get('id')
-    return jsonify(all_skill_data.get(skill_id, {}))
+    from manager.battle.hidden_passives import redact_skill_reveal_targets
+    return jsonify(redact_skill_reveal_targets(all_skill_data.get(skill_id, {})))
 
 
 def get_effect_schemas():
@@ -481,7 +482,10 @@ def get_skill_data():
         for kind in ('glossary', 'buff', 'skill'):
             seed_kind_if_empty(kind)
             load_kind_into_memory(kind)
-    return jsonify(all_skill_data)
+    from manager.battle.hidden_passives import redact_skill_reveal_targets
+    skills = all_skill_data.copy()
+    public = {key: redact_skill_reveal_targets(row) for key, row in skills.items()}
+    return _catalog_response(public, redacted=any(public[key] is not row for key, row in skills.items()))
 
 def get_item_data():
     """フロントエンドにアイテムマスターデータを提供するAPI"""
@@ -500,13 +504,29 @@ def get_radiance_data():
 
 def get_passive_data():
     """フロントエンドに特殊パッシブマスターデータを提供するAPI"""
+    from manager.catalog.passive_visibility import request_catalog_reader, undiscovered_passive_ids
     from manager.passives.loader import passive_loader
     passives = passive_loader.load_passives()
-    return jsonify(passives)
+    user, full, room = request_catalog_reader()
+    hidden = set() if full else undiscovered_passive_ids(user, room)
+    public = {key: value for key, value in passives.items() if key not in hidden}
+    return _catalog_response(public, redacted=len(public) != len(passives))
 
 def get_summon_data():
     from extensions import all_summon_template_data
-    return jsonify(all_summon_template_data)
+    from manager.battle.hidden_passives import redact_hidden_passives
+    from manager.catalog.passive_visibility import request_catalog_reader
+
+    _, full, _ = request_catalog_reader()
+    public = all_summon_template_data if full else redact_hidden_passives(all_summon_template_data)
+    return _catalog_response(public, redacted=public != all_summon_template_data)
+
+
+def _catalog_response(data, *, redacted):
+    response = jsonify(data)
+    if redacted:
+        response.headers['X-Gemtrpg-Redacted'] = '1'
+    return response
 
 
 def get_buff_data():

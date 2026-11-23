@@ -91,7 +91,7 @@ def inspect_skill(payload, entry_id, stage, add):
     from manager.buff_catalog import STATIC_BUFFS, DYNAMIC_PATTERNS
     from manager.skill_catalog_warnings import warn_catalog
     from manager.skill_catalog_validation import _lint_embedded_skill_constraints
-    from extensions import all_buff_data
+    from extensions import all_buff_data, all_passive_data
     from models import CatalogEntry, CatalogDraft
 
     buffs = {key: {"payload": row, "deprecated": row.get("deprecated", False)} for key, row in all_buff_data.items()}
@@ -105,9 +105,17 @@ def inspect_skill(payload, entry_id, stage, add):
         return buffs.get(buff_id, {}).get("payload")
 
     rule = payload.get("特記処理", {})
+    passive_ids = set(all_passive_data)
+    rule_objects = list(_walk(rule))
+    if has_app_context() and any(str(row.get("type", "")).upper() == "REVEAL_PASSIVE" for _, row in rule_objects):
+        passive_ids = {row.entry_id for row in CatalogEntry.query.filter_by(kind="passive", deprecated=False)}
     if "tags" in rule and (not isinstance(rule["tags"], list) or any(not isinstance(tag, str) for tag in rule["tags"])):
         add("特記処理.tags", "文字列の配列が必要です")
-    for path, row in _walk(rule):
+    for path, row in rule_objects:
+        if str(row.get("type", "")).upper() == "REVEAL_PASSIVE":
+            key = row.get("passive_id")
+            if not isinstance(key, str) or key not in passive_ids:
+                add(f"{path}.passive_id", "公開済みの特殊パッシブを指定してください")
         for key, choices in (("timing", EFFECT_TIMINGS), ("target", EFFECT_TARGETS)):
             if key in row and row[key] not in choices:
                 add(f"{path}.{key}", "未定義の選択肢です")

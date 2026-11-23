@@ -204,6 +204,8 @@ def build_character(unit, side, serial_no, *, pattern_id=None, owner_name=None,
         "initial_state": {"inventory": deepcopy(inventory), "special_buffs": deepcopy(buffs),
                           "maxHp": hp, "maxMp": mp},
     }
+    if unit.get("hidden_passives"):
+        char["hidden_passives"] = unit["hidden_passives"]
     source_unit_id = source_unit_id or unit.get("id")
     if source_unit_id:
         char["source_unit_id"] = source_unit_id

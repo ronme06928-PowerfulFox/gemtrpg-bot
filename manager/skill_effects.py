@@ -8,6 +8,7 @@ from manager.room_manager import _update_char_stat, broadcast_log
 from manager.battle.core import process_on_damage_buffs
 from manager.constants import DamageSource
 from manager.battle.damage_context import build_damage_context
+from manager.battle.hidden_passives import reveal_passive
 from manager.summons.service import apply_summon_change
 from manager.granted_skills.service import apply_grant_skill_change
 from manager.bleed_logic import consume_bleed_maintenance_stack
@@ -210,6 +211,8 @@ def apply_skill_effects_bidirectional(
                     broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                 else:
                     logger.warning("[apply_skill_effects_bidirectional summon failed] %s", res.get("message"))
+            elif type_ == "REVEAL_PASSIVE":
+                reveal_passive(room, char, name, (state or {}).get("round", 0))
             elif type_ == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:

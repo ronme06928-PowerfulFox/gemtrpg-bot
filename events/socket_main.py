@@ -127,7 +127,10 @@ def handle_join_room(data):
         if practice_rooms.is_practice(room):
             practice_rooms.joined(room)
         preparation_stage = 'participant_payload'
-        participant_state = build_participant_state(state)
+        if attribute == GM_ATTRIBUTE and not practice_rooms.is_practice(room):
+            participant_state = build_participant_state(state, include_hidden_passives=True)
+        else:
+            participant_state = build_participant_state(state)
     except Exception as exc:
         logger.warning('Room join preparation failed at %s (%s)', preparation_stage, type(exc).__name__)
         try:

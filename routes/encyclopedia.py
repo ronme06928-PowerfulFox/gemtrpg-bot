@@ -22,12 +22,18 @@ def _utc(value):
 def get_encyclopedia():
     user = g.authenticated_user
     room = request.args.get("room", "").strip()
-    room_gm = bool(room and resolve_room_role(user.id, room) in GM_ROLES)
+    from manager.practice_rooms import is_practice
+    from manager.battle.hidden_passives import redact_hidden_passives
+
+    room_gm = bool(room and not is_practice(room) and resolve_room_role(user.id, room) in GM_ROLES)
     can_view_all = bool(user.is_catalog_author or user.is_app_admin or room_gm)
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()
     from manager.encyclopedia import unit_entries
-    units = [entry_json(row) for row, _ in unit_entries(user,full=can_view_all)]
+    units = [entry_json(row) for row, _ in unit_entries(user, full=can_view_all)]
+    if not can_view_all:
+        for unit in units:
+            unit["payload"] = redact_hidden_passives(unit["payload"])
     return jsonify(
         can_view_all=can_view_all,
         is_catalog_author=bool(user.is_catalog_author),

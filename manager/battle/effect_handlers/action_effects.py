@@ -4,6 +4,12 @@
 import copy
 
 
+def handle_reveal_passive(effect, target_obj, _sim_target, session):
+    passive_id = effect.get("passive_id")
+    if passive_id:
+        session.changes_to_apply.append((target_obj, "REVEAL_PASSIVE", passive_id, None))
+
+
 def handle_grant_skill(effect, target_obj, sim_target, session):
     grant_skill_id = str(effect.get("skill_id", effect.get("grant_skill_id", "")) or "").strip()
     if not grant_skill_id:
@@ -205,6 +211,7 @@ def handle_schedule_effect(effect, target_obj, sim_target, session):
 
 HANDLERS = {
     "GRANT_SKILL": handle_grant_skill,
+    "REVEAL_PASSIVE": handle_reveal_passive,
     "USE_SKILL_AGAIN": handle_use_skill_again,
     "SUMMON_CHARACTER": handle_summon_character,
     "SCHEDULE_EFFECT": handle_schedule_effect,
@@ -212,6 +219,17 @@ HANDLERS = {
 
 
 SCHEMAS = {
+    "REVEAL_PASSIVE": {
+        "group": "行動・進行",
+        "label": "伏せたパッシブを明かす",
+        "description": "対象が伏せている特殊パッシブを公開する。",
+        "internal": False,
+        "fields": {
+            "passive_id": {"type": "string", "required": True, "label": "特殊パッシブID"},
+        },
+        "summary": "{target}の伏せたパッシブを明かす",
+        "example": {"timing": "PRE_MATCH", "type": "REVEAL_PASSIVE", "target": "self", "passive_id": "Pa-01"},
+    },
     "GRANT_SKILL": {
         "group": "行動・進行",
         "label": "スキルを付与",

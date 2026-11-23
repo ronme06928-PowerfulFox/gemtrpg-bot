@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive
 import re
 
 from manager.game_logic import (
@@ -476,6 +477,8 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                     broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
                 else:
                     logger.warning("[pre_match summon failed] %s", res.get("message"))
+            elif type == "REVEAL_PASSIVE":
+                reveal_passive(room, char, name, (state or {}).get("round", 0))
             elif type == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:

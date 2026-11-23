@@ -116,21 +116,18 @@ def load_room():
         return jsonify({"error": "Room name required"}), 400
     # 参加者向けルーム状態は、入室済み（enter_room）か owner/参加者のみ返す。
     # mobile は開発停止につき考慮不要（/mobile は停止済み）。
-    from manager.room_access import user_can_access_room
+    from manager.room_access import GM_ROLES, resolve_room_role
     from manager.practice_rooms import is_practice, owner
     if is_practice(room_name) and owner(room_name)!=session.get('user_id'):
         return jsonify(error='この練習用のルームには入れません。'),403
     entered = session.get('entered_rooms') or []
     user_id = session.get('user_id')
-    if room_name not in entered and not user_can_access_room(
-        user_id,
-        room_name,
-        app_admin=is_user_management_admin(user_id),
-    ):
+    role = resolve_room_role(user_id, room_name, app_admin=is_user_management_admin(user_id))
+    if room_name not in entered and role is None:
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
     from manager.room_manager import build_participant_state
-    return jsonify(build_participant_state(state))
+    return jsonify(build_participant_state(state, include_hidden_passives=role in GM_ROLES and not is_practice(room_name)))
 
 
 @room_bp.route('/create_room', methods=['POST'])

@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import redact_hidden_passives, reveal_passive
 import manager.utils as _utils_mod
 from extensions import all_skill_data as _default_all_skill_data
 from extensions import socketio as _default_socketio
@@ -720,7 +721,7 @@ def _snapshot_for_outcome(actor):
 
     buffs_map = {}
     for b in actor.get('special_buffs', []) or []:
-        if not isinstance(b, dict):
+        if not isinstance(b, dict) or b.get('source') == 'passive':
             continue
         name = b.get('name')
         if not name:
@@ -746,7 +747,7 @@ def _snapshot_for_outcome(actor):
         'states': states_map,
         'bad_states': bad_states_map,
         'buffs': buffs_map,
-        'flags': dict(actor.get('flags', {}) or {}),
+        'flags': redact_hidden_passives(actor.get('flags', {}) or {}),
     }
 
 
@@ -969,6 +970,8 @@ def _apply_effect_changes_like_duel(
                 log_snippets.append(
                     f"[予約登録 Round {int((value or {}).get('execute_round', 0) or 0)}]"
                 )
+        elif effect_type == "REVEAL_PASSIVE":
+            reveal_passive(room, char, name, (state or {}).get("round", 0))
         elif effect_type == "GRANT_SKILL":
             grant_payload = dict(value) if isinstance(value, dict) else {}
             if "skill_id" not in grant_payload:

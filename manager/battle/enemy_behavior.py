@@ -466,10 +466,12 @@ def normalize_behavior_profile(raw_profile):
                     })
             transitions_out.sort(key=lambda row: int(row.get("priority", 0)), reverse=True)
 
+            reveal_ids = loop_obj.get("reveal_passive_ids")
             loops[loop_id] = {
                 "repeat": _to_bool(loop_obj.get("repeat", True), True),
                 "steps": steps_out,
                 "transitions": transitions_out,
+                **({"reveal_passive_ids": list(reveal_ids)} if isinstance(reveal_ids, list) and reveal_ids else {}),
             }
 
     normalized = {

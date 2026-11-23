@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive
 import re
 import json
 from manager.constants import DamageSource, THORNS_DAMAGE_CATS
@@ -395,6 +396,8 @@ def execute_wide_match(room, username, fired_effects=None):
                     broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                 else:
                     logger.warning("[wide summon failed] %s", res.get("message"))
+            elif type == "REVEAL_PASSIVE":
+                reveal_passive(room, char, name, (state or {}).get("round", 0))
             elif type == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:

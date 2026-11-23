@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive
 import copy
 
 
@@ -92,6 +93,8 @@ def process_on_death(room, char, username, ctx, death_context=None):
                         broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                     else:
                         ctx['logger'].warning("[on_death summon failed] %s", res.get("message"))
+                elif type == "REVEAL_PASSIVE":
+                    reveal_passive(room, c, name, (state or {}).get("round", 0))
                 elif type == "GRANT_SKILL":
                     from manager.granted_skills.service import apply_grant_skill_change
 
@@ -177,6 +180,8 @@ def process_battle_start(room, characters, ctx, *, state=None):
                         log(result.get("message") or "Summon applied")
                     elif live:
                         ctx["logger"].warning("[battle_start summon failed] %s", result.get("message"))
+                elif change_type == "REVEAL_PASSIVE":
+                    reveal_passive(room, target, name, (state or {}).get("round", 0))
                 elif change_type == "GRANT_SKILL":
                     payload = dict(value) if isinstance(value, dict) else {}
                     payload.setdefault("skill_id", name)

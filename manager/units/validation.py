@@ -6,6 +6,7 @@ from models import CatalogEntry
 from manager.catalog.kinds import MARK_LABELS
 from manager.battle.enemy_behavior import BEHAVIOR_NO_ACTION_TOKEN, normalize_behavior_profile
 from manager.battle.pve_intent_planner import _is_random_usable_skill_token
+from manager.battle.hidden_passives import validate_hidden_passives
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
 
 IDS = {"unit": ("U", 3), "formation": ("F", 3),
@@ -19,7 +20,7 @@ UNIT_FIELDS = {
     "skills": list, "other_lines": list, "passives": list, "radiance": list,
     "items": list, "special_buffs": list, "tags": list, "disabled_tags": list,
     "behavior": dict, "patterns": list, "default_pattern_id": (str, type(None)),
-    "collection_id": (str, type(None)), "marks": list,
+    "collection_id": (str, type(None)), "marks": list, "hidden_passives": list,
 }
 
 
@@ -42,6 +43,8 @@ def links(kind, payload):
 
 
 def master_links(payload):
+    for index, row in enumerate(payload.get("hidden_passives", [])):
+        yield "passive", row["passive_id"], f"hidden_passives[{index}].passive_id"
     for field, kind in MASTER_FIELDS.items():
         for index, value in enumerate(payload.get(field, [])):
             if field in ("skills", "items"):
@@ -59,6 +62,12 @@ def _check_unit(unit, errors, previous):
             errors[field] = "値の型が不正です"
     if errors:
         return
+    hidden = unit.get("hidden_passives", [])
+    hidden_error = validate_hidden_passives(hidden, unit.get("passives", []))
+    if hidden_error:
+        errors["hidden_passives"] = hidden_error
+        return
+    hidden_ids = {row["passive_id"] for row in hidden}
     marks = unit.setdefault("marks", [])
     if any(not isinstance(mark, str) or mark not in MARK_LABELS for mark in marks):
         errors["marks"] = "未定義の印があります"
@@ -104,6 +113,13 @@ def _check_unit(unit, errors, previous):
         ids.add(pattern["id"])
         if unit.get("allow_enemy") is False and pattern["id"] not in previous_ids:
             errors[path] = "敵キャラクターのみパターンを作成できます"
+        raw_loops = pattern["profile"].get("loops")
+        for loop in raw_loops.values() if isinstance(raw_loops, dict) else ():
+            ids_to_reveal = loop.get("reveal_passive_ids", []) if isinstance(loop, dict) else []
+            if not isinstance(ids_to_reveal, list) or any(
+                not isinstance(key, str) or key not in hidden_ids for key in ids_to_reveal
+            ) or len(ids_to_reveal) != len(set(ids_to_reveal)):
+                errors[path] = "ループでは伏せたパッシブのIDを重複せずに指定してください"
         profile = normalize_behavior_profile(pattern["profile"])
         pattern["profile"] = profile
         for loop in profile["loops"].values():

@@ -617,7 +617,25 @@ PRIVATE_ROOM_FIELDS = ("encounter_queue", "preset_deployment_operations")
 
 def broadcast_participant_state(room_name, state):
     # ログ履歴は入室のときだけ送り、以後は new_log で1件ずつ届ける（E01 §4.2、PERF-PAYLOAD）。
-    _safe_emit('state_updated', build_participant_state(state, include_logs=False), to=room_name)
+    from flask import has_app_context
+    from manager.practice_rooms import is_practice
+    from manager.room_access import GM_ROLES, sid_has_room_role
+
+    payload = build_participant_state(state, include_logs=False)
+    if (not has_app_context() or is_practice(room_name)
+            or not any(char.get("hidden_passive_count") for char in payload.get("characters", []))):
+        _safe_emit('state_updated', payload, to=room_name)
+        return
+    gm_payload = None
+    for sid, info in user_sids.copy().items():
+        if info.get("room") != room_name:
+            continue
+        if sid_has_room_role(sid, room_name, GM_ROLES):
+            if gm_payload is None:
+                gm_payload = build_participant_state(state, include_logs=False, include_hidden_passives=True)
+            _safe_emit('state_updated', gm_payload, to=sid)
+        else:
+            _safe_emit('state_updated', payload, to=sid)
 
 
 def broadcast_logs_cleared(room_name):
@@ -625,11 +643,16 @@ def broadcast_logs_cleared(room_name):
     _safe_emit('logs_cleared', {}, to=room_name)
 
 
-def build_participant_state(state, include_logs=True):
+def build_participant_state(state, include_logs=True, *, include_hidden_passives=False):
     """参加者へ送る状態の写し。GM専用の準備メタデータを除き、include_logs=False ならログ履歴も除く。"""
     source = state if isinstance(state, dict) else {}
     omit = set(PRIVATE_ROOM_FIELDS) | (set() if include_logs else {'logs'})
-    return copy.deepcopy({key: value for key, value in source.items() if key not in omit})
+    from manager.battle.hidden_passives import strip_hidden_passives
+
+    result = copy.deepcopy({key: value for key, value in source.items() if key not in omit})
+    if not include_hidden_passives:
+        strip_hidden_passives(result)
+    return result
 
 def broadcast_log(room_name, message, type='info', user=None, secret=False, save=True):
     """Append and broadcast a log entry for the room."""

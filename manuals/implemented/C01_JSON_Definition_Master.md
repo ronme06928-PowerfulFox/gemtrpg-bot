@@ -926,3 +926,7 @@ EFFECT_SCHEMASの各タイプはgroupを持つ。配信と管理画面だけの�
 `POST /api/catalog/<kind>/bulk`は公開版IDと`base_revision`の一覧、変更内容（category、marks_add、marks_remove）を受ける。分類はバフ・用語だけ、印はmarks対応種類だけが対象。1件ごとに既存の保存・申請・承認の検査を通し、ほかの中身を保持する。1件単位でトランザクションを確定し、失敗分はその項目の変更を取り消す。承認履歴は通常の公開と同じく1件ずつ残す。`catalog_updated` は1件でも公開したとき、一括の終わりに種類ごと1回だけ送る（全員の画面が読み直すため）。
 
 要求の形は `{"entries":[{"entry_id":"Bu-00","base_revision":1}],"changes":{"category":"能力の増減","marks_add":["enemy"],"marks_remove":["hollow"]}}`。返事は `changed`・`skipped` の件数と `results` の項目別結果。結果には `entry_id` と `status`（`published`・`pending`・`skipped`）、飛ばした理由は `reason` を入れる。分類を変えない場合は `category` を送らず、未分類にする場合は空文字を送る（バフだけ）。
+
+## 伏せた特殊パッシブ
+
+ユニットおよび召喚テンプレートの `hidden_passives` は `{passive_id, reveal_when}` の配列。ID は特殊パッシブを参照し、同じ ID の重複と通常のパッシブ欄との重複は指定できない。`reveal_when` は任意のオブジェクトで、`hp_percent_lte`（0〜100 の整数）と `round_gte`（1 以上の整数）を指定できる。両方指定した場合は両方の成立を要する。条件を省くとスキルか行動チャートで公開できる。

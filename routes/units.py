@@ -9,6 +9,8 @@ from manager.units import repository, transfer
 from manager.units.characters import read_character
 from manager.units.validation import IDS, master_links
 from manager.utils import session_required
+from manager.battle.hidden_passives import redact_hidden_passives
+from manager.practice_rooms import is_practice
 
 units_bp = Blueprint("units", __name__, url_prefix="/api/units")
 
@@ -23,7 +25,7 @@ def endpoint(*, author_only=False):
             if author_only and not author:
                 return jsonify(error="制作者権限が必要です"), 403
             room = request.args.get("room", "").strip()
-            g.units_staff = author or bool(room and resolve_room_role(user.id, room) in GM_ROLES)
+            g.units_staff = author or bool(room and not is_practice(room) and resolve_room_role(user.id, room) in GM_ROLES)
             if kwargs.get("kind") is not None and kwargs["kind"] not in IDS:
                 abort(404)
             try:
@@ -56,14 +58,16 @@ def _visible(kind, entry_id):
 def list_entries(kind=None):
     rows = repository.entries(include_staff=g.units_staff,
                               include_deprecated=request.args.get("include_deprecated") == "1")
-    return jsonify(entries=[row for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
+    return jsonify(entries=[row if g.units_staff else redact_hidden_passives(row)
+                            for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
                    marks=MARK_LABELS)
 
 
 @units_bp.get("/<kind>/<entry_id>")
 @endpoint()
 def get_entry(kind, entry_id):
-    return jsonify(repository.entry_json(_visible(kind, entry_id)))
+    entry = repository.entry_json(_visible(kind, entry_id))
+    return jsonify(entry if g.units_staff else redact_hidden_passives(entry))
 
 
 @units_bp.get("/<kind>/<entry_id>/history")
@@ -72,7 +76,8 @@ def list_history(kind, entry_id):
     _visible(kind, entry_id)
     snapshots = repository.history(kind, entry_id)
     return jsonify(history=[{
-        **repository.entry_json(row), "action": row.action,
+        **(repository.entry_json(row) if g.units_staff else redact_hidden_passives(repository.entry_json(row))),
+        "action": row.action,
         "actor_user_id": row.actor_user_id, "created_at": row.created_at.isoformat() + "Z",
     } for row in snapshots if g.units_staff or row.visibility == "public"])
 
@@ -86,7 +91,8 @@ def list_references(kind, entry_id):
     if kind == "unit":
         result["master_references"] = [
             {"kind": target, "entry_id": key, "path": path}
-            for target, key, path in master_links(row.payload)]
+            for target, key, path in master_links(row.payload)
+            if g.units_staff or not path.startswith("hidden_passives[")]
     return jsonify(result)
 
 

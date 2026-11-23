@@ -117,6 +117,10 @@ def _clear_character_combat_state(char):
     initial = char.get("initial_state") if isinstance(char.get("initial_state"), dict) else {}
     initial_buffs = initial.get("special_buffs", [])
     char["special_buffs"] = copy.deepcopy(initial_buffs) if isinstance(initial_buffs, list) else []
+    if "hidden_passives" in char:
+        from manager.utils import apply_passive_effect_buffs
+        apply_passive_effect_buffs(char)
+    char.pop("passive_revealed_round", None)
     for row in char.get("states", []):
         if isinstance(row, dict) and row.get("name") in _COMBAT_STATE_NAMES:
             row["value"] = 0

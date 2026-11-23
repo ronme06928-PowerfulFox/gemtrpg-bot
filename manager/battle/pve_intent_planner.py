@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive
 import json
 import time
 import random
@@ -378,7 +379,7 @@ def _read_behavior_profile_from_actor(actor):
     return profile
 
 
-def prepare_pve_behavior_round_plan(state, battle_state, round_value):
+def prepare_pve_behavior_round_plan(state, battle_state, round_value, *, room=None):
     """Freeze step-driven enemy actions once per round before slots are built."""
     if not isinstance(state, dict) or not isinstance(battle_state, dict):
         return {"round": int(round_value or 0), "actors": {}}
@@ -416,11 +417,11 @@ def prepare_pve_behavior_round_plan(state, battle_state, round_value):
             continue
 
         profile = _read_behavior_profile_from_actor(actor)
-        if (
-            not profile.get("enabled", False)
-            or not profile.get("loops")
-            or profile.get("slot_generation_mode") != BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS
-        ):
+        step_actions = profile.get("slot_generation_mode") == BEHAVIOR_SLOT_GENERATION_STEP_ACTIONS
+        loops = profile.get("loops", {})
+        if not profile.get("enabled") or not loops:
+            continue
+        if not step_actions and not any(loop.get("reveal_passive_ids") for loop in loops.values()):
             continue
 
         actor_id = str(actor.get("id"))
@@ -440,6 +441,13 @@ def prepare_pve_behavior_round_plan(state, battle_state, round_value):
             battle_state=battle_state,
         )
         runtime_entry = transition_result.get("runtime", runtime_entry)
+        loop = loops.get(runtime_entry.get("active_loop_id"), {})
+        for passive_id in loop.get("reveal_passive_ids", []):
+            reveal_passive(room, actor, passive_id, normalized_round)
+        if not step_actions:
+            # Fixed-count charts still need passive stats before initiative and slots.
+            snapshot.setdefault("transitions", {})[actor_id] = runtime_entry
+            continue
         picked = pick_step_actions(profile, runtime_entry)
         runtime_entry = picked.get("runtime", runtime_entry)
 
@@ -745,19 +753,13 @@ def _apply_pve_auto_enemy_intents(state, battle_state, room):
                 if isinstance(plan, dict)
             ]
         elif use_behavior_chart:
-            runtime_entry = initialize_behavior_runtime_entry(
-                behavior_profile,
-                runtime_entry=runtime_entry,
-                round_value=round_value,
-            )
-            transition_result = evaluate_transitions(
-                behavior_profile,
-                runtime_entry,
-                actor_char=actor,
-                state=state,
-                battle_state=battle_state,
-            )
-            runtime_entry = transition_result.get('runtime', runtime_entry)
+            prepared = behavior_round_plan.get("transitions", {}).get(actor_id)
+            if prepared is None:
+                runtime_entry = evaluate_transitions(
+                    behavior_profile, runtime_entry, actor_char=actor, state=state, battle_state=battle_state,
+                )["runtime"]
+            else:
+                runtime_entry = prepared
             picked = pick_step_actions(behavior_profile, runtime_entry)
             runtime_entry = picked.get('runtime', runtime_entry)
             planned_action_plans = choose_action_plans_for_slot_count(

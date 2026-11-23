@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_round_conditions
 import copy
 import time
 
@@ -315,6 +316,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
     clear_round_limited_flags(state)
     state['round'] = round_value
     execute_scheduled_effects(state, round_value, room=room)
+    reveal_round_conditions(room, state)
 
     def _roll_1d6():
         result = roll_dice("1d6")
@@ -337,6 +339,7 @@ def process_select_resolve_round_start(room, battle_id, round_value):
         state,
         battle_state,
         round_value,
+        room=room,
     )
     round_plan_actors = behavior_round_plan.get('actors', {})
     if not isinstance(round_plan_actors, dict):

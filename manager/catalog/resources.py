@@ -22,7 +22,7 @@ RESOURCE_DEFINITIONS = {
         {"hp": int, "maxHp": int, "mp": int, "maxMp": int, "initial_skill_ids": list, "SPassive": list,
          "radiance_skills": list, "hidden_skills": list, "inventory": dict, "summon_duration_mode": str,
          "summon_duration": int, "allow_duplicate_same_team": bool, "params": list, "tag_ids": list,
-         "disabled_tag_ids": list, "special_buffs": list, "flags": dict},
+         "disabled_tag_ids": list, "special_buffs": list, "flags": dict, "hidden_passives": list},
         {"hp": 0, "maxHp": 0, "mp": 0, "maxMp": 0, "initial_skill_ids": [], "SPassive": [],
          "radiance_skills": [], "hidden_skills": [], "inventory": {}, "summon_duration_mode": "permanent",
          "summon_duration": 0, "allow_duplicate_same_team": True, "params": [], "tag_ids": [],
@@ -43,6 +43,20 @@ def inspect_resource(kind, payload, invalid, add):
         return
     from flask import has_app_context
     from models import CatalogEntry, CatalogDraft
+    from manager.battle.hidden_passives import validate_hidden_passives
+
+    hidden = payload.get("hidden_passives", [])
+    hidden_error = validate_hidden_passives(hidden, payload.get("SPassive", [])) if not invalid.intersection(
+        {"hidden_passives", "SPassive"}
+    ) else None
+    if hidden_error:
+        add("hidden_passives", hidden_error)
+    elif hidden and not invalid.intersection({"hidden_passives", "SPassive"}) and has_app_context():
+        for index, row in enumerate(hidden):
+            key = row["passive_id"]
+            master = CatalogEntry.query.filter_by(kind="passive", entry_id=key, deprecated=False).first()
+            if master is None:
+                add(f"hidden_passives[{index}].passive_id", f"参照先が存在しないか廃止済みです: {key}")
     for field, target_kind in SUMMON_REFERENCES.items():
         if field in invalid:
             continue

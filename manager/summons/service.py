@@ -292,6 +292,7 @@ def apply_summon_change(room, state, summoner, payload, *, run_battle_start=True
         "inventory": inventory,
         "hidden_skills": hidden_skills,
         "SPassive": s_passive,
+        **({"hidden_passives": template["hidden_passives"]} if template.get("hidden_passives") else {}),
         "radiance_skills": radiance_skills,
         "tag_ids": tag_ids,
         "disabled_tag_ids": disabled_tag_ids,

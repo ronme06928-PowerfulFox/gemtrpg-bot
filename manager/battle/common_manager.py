@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive, reveal_round_conditions
 import copy
 import json
 import time
@@ -402,6 +403,8 @@ def _process_full_round_end_impl(room, username):
             elif type == "APPLY_BUFF":
                 apply_buff(c, name, value["lasting"], value["delay"], data=value.get("data"), count=value.get("count"))
                 broadcast_log(room, f"[{name}] applied to {c['name']}", "state-change")
+            elif type == "REVEAL_PASSIVE":
+                reveal_passive(room, c, name, (state or {}).get("round", 0))
             elif type == "GRANT_SKILL":
                 grant_payload = dict(value) if isinstance(value, dict) else {}
                 if "skill_id" not in grant_payload:
@@ -728,6 +731,8 @@ def reset_battle_logic(room, mode, username, reset_options=None):
 
                 raw_initial_buffs = initial.get('special_buffs', [])
                 char['special_buffs'] = [dict(b) for b in raw_initial_buffs]
+                if "hidden_passives" in char:
+                    _utils_mod.apply_passive_effect_buffs(char)
 
 
 
@@ -1019,6 +1024,7 @@ def _process_round_start_impl(room, username):
         if isinstance(flags, dict):
             flags.pop('immediate_action_used', None)
     execute_scheduled_effects(state, state['round'], room=room)
+    reveal_round_conditions(room, state)
 
     broadcast_log(room, f"--- {username} が Round {state['round']} を開始しました ---", 'round')
 
@@ -1032,6 +1038,7 @@ def _process_round_start_impl(room, username):
         state,
         planning_battle_state,
         state.get('round', 0),
+        room=room,
     ) if planning_battle_state else {}
     round_plan_actors = behavior_round_plan.get('actors', {}) if isinstance(behavior_round_plan, dict) else {}
     if not isinstance(round_plan_actors, dict):

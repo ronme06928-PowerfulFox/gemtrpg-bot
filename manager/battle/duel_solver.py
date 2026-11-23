@@ -1,3 +1,4 @@
+from manager.battle.hidden_passives import reveal_passive
 import re
 import json
 from threading import Lock
@@ -233,6 +234,8 @@ def handle_skill_declaration(room, data, username, sid=None):
                          broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                      else:
                          logger.warning("[immediate summon failed] %s", res.get("message"))
+                 elif type == "REVEAL_PASSIVE":
+                     reveal_passive(room, c, name, (state or {}).get("round", 0))
                  elif type == "GRANT_SKILL":
                      grant_payload = dict(value) if isinstance(value, dict) else {}
                      if "skill_id" not in grant_payload:
@@ -675,6 +678,8 @@ def execute_duel_match(room, data, username):
                         broadcast_log(room, res.get("message", "Summon applied"), "state-change", save=False)
                     else:
                         logger.warning("[select_resolve result timing summon failed] %s", res.get("message"))
+                elif effect_type == "REVEAL_PASSIVE":
+                    reveal_passive(room, char, name, (state or {}).get("round", 0))
                 elif effect_type == "GRANT_SKILL":
                     grant_payload = dict(value) if isinstance(value, dict) else {}
                     grant_payload.setdefault("skill_id", name)
@@ -846,6 +851,8 @@ def execute_duel_match(room, data, username):
                                     broadcast_log(room, res.get("message", "Summon applied"), "state-change")
                                 else:
                                     logger.warning("[unopposed summon failed] %s", res.get("message"))
+                            elif t == "REVEAL_PASSIVE":
+                                reveal_passive(room, c, n, (state or {}).get("round", 0))
                             elif t == "GRANT_SKILL":
                                 grant_payload = dict(v) if isinstance(v, dict) else {}
                                 if "skill_id" not in grant_payload:
@@ -1239,6 +1246,8 @@ def execute_duel_match(room, data, username):
                             broadcast_log(room, res.get("message", "Summon applied"), "state-change", save=False)
                         else:
                             logger.warning("[draw summon failed] %s", res.get("message"))
+                    elif type == "REVEAL_PASSIVE":
+                        reveal_passive(room, char, name, (state or {}).get("round", 0))
                     elif type == "GRANT_SKILL":
                         grant_payload = dict(value) if isinstance(value, dict) else {}
                         if "skill_id" not in grant_payload:

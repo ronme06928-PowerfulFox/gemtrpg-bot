@@ -7,6 +7,8 @@ from manager.utils import apply_origin_bonus_buffs, apply_passive_effect_buffs
 
 def normalize_character_for_play(raw, side):
     char = deepcopy(raw)
+    char.pop("hidden_passives", None)
+    char.pop("passive_revealed_round", None)
     char['type'] = side
     def number(value, default=0):
         try:

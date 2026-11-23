@@ -40,7 +40,8 @@ def character():
         return jsonify(error='source・id・sideを確認してください。'),422
     try:
         result=build_selection(g.authenticated_user,{'source':body['source'],'id':body['id']},body['side'])
-        return jsonify(character=result)
+        from manager.battle.hidden_passives import redact_hidden_passives
+        return jsonify(character=redact_hidden_passives(result))
     except CharacterNotFound as error:
         return jsonify(error=str(error)),404
     except (ValueError,TypeError,KeyError) as error:

@@ -87,6 +87,22 @@ def test_authorization_rejects_other_owned_and_unreadable_unit(app):
     assert Room.query.count()==0
 
 
+def test_practice_retains_unrevealed_passives_only_in_runtime(app):
+    unit = CatalogEntry.query.filter_by(kind="unit", entry_id="U-001").one()
+    unit.payload = {**unit.payload, "hidden_passives": [
+        {"passive_id": "Pa-999", "reveal_when": {"hp_percent_lte": 50}},
+    ]}
+    db.session.commit()
+    response = create(app, mode="auto")
+    assert response.status_code == 201
+    name = response.json["room_name"]
+    assert get_room_state(name)["characters"][1]["hidden_passives"] == unit.payload["hidden_passives"]
+    assert response.json["state"]["characters"][1]["hidden_passive_count"] == 1
+    for snapshot in (response.json, client(app).get("/load_room", query_string={"name": name}).json):
+        assert "Pa-999" not in str(snapshot)
+        assert "hp_percent_lte" not in str(snapshot)
+
+
 def test_one_per_person_cleanup_and_reconnect_deadline(app,monkeypatch):
     name=create(app).json['room_name']
     for _ in range(10):

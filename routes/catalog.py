@@ -39,6 +39,10 @@ def _endpoint(permission="read"):
             if "entry_id" in kwargs:
                 if CatalogEntry.query.filter_by(kind=kind, entry_id=kwargs["entry_id"]).first() is None:
                     abort(404)
+                if kind == "passive" and not author:
+                    from manager.catalog.passive_visibility import undiscovered_passive_ids
+                    if kwargs["entry_id"] in undiscovered_passive_ids(user):
+                        abort(404)
             try:
                 return function(*args, **kwargs)
             except (CatalogValidationError, repository.CatalogConflictError) as exc:
@@ -92,7 +96,10 @@ def _draft_json(row):
 def _published(row, *, notify=True):
     result = _entry_json(row)
     if notify:
-        socketio.emit("catalog_updated", {"kind": row.kind, "entry_id": row.entry_id, "revision": row.revision})
+        change = {"kind": row.kind}
+        if row.kind != "passive":
+            change.update(entry_id=row.entry_id, revision=row.revision)
+        socketio.emit("catalog_updated", change)
     return jsonify(result)
 
 
@@ -126,20 +133,33 @@ def overview():
 @catalog_bp.get("/api/catalog/<kind>")
 @_endpoint()
 def list_catalog(kind):
+    from manager.catalog.passive_visibility import undiscovered_passive_ids
+    from manager.battle.hidden_passives import redact_hidden_passives
+
+    user = g.authenticated_user
+    staff = user.is_app_admin or user.is_catalog_author
+    hidden = undiscovered_passive_ids(user) if kind == "passive" and not staff else set()
     result = {"kind": kind, "entries": [_entry_json(row) for row in
-              CatalogEntry.query.filter_by(kind=kind).order_by(CatalogEntry.entry_id).all()]}
-    if g.authenticated_user.is_app_admin or g.authenticated_user.is_catalog_author:
-        result["drafts"] = [_draft_json(row) for row in
-                            CatalogDraft.query.filter_by(kind=kind).order_by(CatalogDraft.id).all()]
+              CatalogEntry.query.filter_by(kind=kind).order_by(CatalogEntry.entry_id).all()
+              if row.entry_id not in hidden]}
+    if not staff:
+        return jsonify(redact_hidden_passives(result))
+    result["drafts"] = [_draft_json(row) for row in
+                        CatalogDraft.query.filter_by(kind=kind).order_by(CatalogDraft.id).all()]
     return jsonify(result)
 
 
 @catalog_bp.get("/api/catalog/<kind>/<entry_id>/history")
 @_endpoint()
 def history(kind, entry_id):
+    from manager.battle.hidden_passives import redact_hidden_passives
+
+    user = g.authenticated_user
+    staff = user.is_app_admin or user.is_catalog_author
     rows = CatalogHistory.query.filter_by(kind=kind, entry_id=entry_id).order_by(CatalogHistory.revision.desc()).all()
     return jsonify(history=[{"id": row.id, "kind": row.kind, "entry_id": row.entry_id,
-        "revision": row.revision, "payload": row.payload, "deprecated": row.deprecated,
+        "revision": row.revision, "payload": row.payload if staff else redact_hidden_passives(row.payload),
+        "deprecated": row.deprecated,
         "action": row.action, "actor_user_id": row.actor_user_id,
         "actor_user_name": _name(row.actor_user_id), "draft_id": row.draft_id,
         "created_at": _time(row.created_at)} for row in rows])
@@ -149,9 +169,13 @@ def history(kind, entry_id):
 @_endpoint()
 def references(kind, entry_id):
     user = g.authenticated_user
+    staff = user.is_catalog_author or user.is_app_admin
+    from manager.catalog.passive_visibility import undiscovered_passive_ids
+    hidden = set() if staff else undiscovered_passive_ids(user)
     return jsonify(
-        references=find_references(kind, entry_id, include_staff=user.is_catalog_author or user.is_app_admin),
-        outgoing=find_outgoing(kind, entry_id),
+        references=[link for link in find_references(kind, entry_id, include_staff=staff)
+                    if link["entry_id"] not in hidden],
+        outgoing=[link for link in find_outgoing(kind, entry_id) if link["entry_id"] not in hidden],
     )
 
 

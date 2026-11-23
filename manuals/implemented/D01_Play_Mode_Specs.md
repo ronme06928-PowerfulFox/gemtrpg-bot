@@ -529,3 +529,11 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 | 6 | `manager/battle/common_manager.py` `move_token_logic`、`events/socket_char.py` の移動・削除・駒の大きさ | 誰でも他人の駒を動かせる・消せる・大きさを変えられる | 所有者・GM |
 | 7 | `manager/battle/resolve_auto_runtime.py` `_maybe_finalize_battle_only_result`・`_auto_reset_battle_only_field` | 全滅で勝敗を自動で決め、解決表示の後に盤面を自動でリセットする | GM が戦闘終結で結果を選ぶ |
 | 8 | `manager/battle/resolve_auto_single_phase.py` `_try_auto_advance_battle_only_round`、`common_routes._complete_round_after_resolve` | 解決表示の後、ラウンド終了と次のラウンド開始を自動で行う | GM が R開始を押す |
+
+## 伏せたパッシブとラウンドの進行
+
+ラウンド開始時に、配置済みの生存・未離脱キャラの HP 割合とラウンド数を判定する。行動チャートのループには、そのループの行動を最初に計画する際に公開する `reveal_passive_ids` を指定できる。公開したパッシブはそのラウンドの宣言に効く。公開は戦闘終了後も維持され、待機列から新たに配置したキャラではユニットの伏せた状態を使う。
+
+参加者向けの状態には伏せた数だけを含める。通常ルームの GM には詳細も送る。演習場では、戦闘には同じ仕組みを使い、初期応答では伏せた詳細を送らない。
+
+伏せた項目を除いた公開マスター応答には `X-Gemtrpg-Redacted: 1` を付ける。`--pull` は省略を含む公開応答を検出したら、ローカルのマスターとキャッシュを書き換える前に停止する。

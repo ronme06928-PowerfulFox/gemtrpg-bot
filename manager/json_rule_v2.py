@@ -175,6 +175,11 @@ def _normalize_effect_rows(
         row["type"] = effect_type
         _validate_condition_row(row.get("condition"), path=f"{e_path}.condition")
 
+        if effect_type == "REVEAL_PASSIVE":
+            passive_id = row.get("passive_id")
+            if not isinstance(passive_id, str) or not re.fullmatch(r"Pa-\d{2,}", passive_id):
+                raise JsonRuleV2Error("REVEAL_PASSIVE requires a passive ID", path=f"{e_path}.passive_id")
+
         if effect_type in {"APPLY_BUFF", "REMOVE_BUFF", "APPLY_BUFF_PER_N"}:
             buff_id = str(row.get("buff_id", "") or "").strip()
             buff_name = str(row.get("buff_name", "") or "").strip()
