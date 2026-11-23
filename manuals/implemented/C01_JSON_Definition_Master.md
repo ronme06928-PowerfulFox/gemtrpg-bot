@@ -571,6 +571,14 @@ CI（`.github/workflows/skill-smoke.yml`）はファイルに対する `lint`（
 }
 ```
 
+HPを最大HPとの比で見るときは、`param`に`HP割合`（別名 `HP比率`・`hp_percent`・`hp_ratio`、行動チャートの条件と同じ）を指定する。値は今のHP÷最大HP×100（小数を切り捨てない）。最大HPが分からないキャラクターでは条件をfalseとする。`失ったHP`（`lost_hp`）は最大HP−今のHP。最大HPは `maxHp` などの欄、なければ `states`・`params` の「最大HP」から読む（2026-11-23）。
+
+```json
+{"power_bonus":[{"operation":"FIXED","value":1,"apply_to":"final","condition":{"source":"self","param":"HP割合","operator":"LTE","value":20}}]}
+```
+
+上の例は、自分のHPが最大HPの20%以下なら、使うスキルの最終威力を+1する（特殊パッシブの効果にも書ける）。
+
 `CUSTOM_EFFECT`の`DEAL_TARGET_MAX_HP_DAMAGE`は、対象の`maxHp`と同じ値のダメージを即時に与える。与ダメージ倍率、被ダメージ倍率、軽減を適用しない。対象不在、`maxHp`不明、0以下では不発となる。
 
 ```json

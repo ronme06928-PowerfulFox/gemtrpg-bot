@@ -185,6 +185,28 @@ def _resolve_buff_count_for_condition(source_obj, buff_name):
     return total
 
 
+HP_PERCENT_PARAMS = {"hp割合", "hp比率", "hp_percent", "hp_ratio"}
+
+
+def _resolve_max_hp_for_condition(source_obj):
+    """最大HPを maxHp などの欄、なければ states・params の「最大HP」から読む。分からなければ None。"""
+    for key in ("max_hp", "maxHP", "hp_max", "HP_MAX", "maxHp"):
+        val = _safe_int_for_condition(source_obj.get(key), 0)
+        if val > 0:
+            return val
+    for rows, label_keys in ((source_obj.get("states"), ("name",)), (source_obj.get("params"), ("label", "name"))):
+        for row in (rows or []):
+            if not isinstance(row, dict):
+                continue
+            row_name = next((str(row.get(k) or "").strip() for k in label_keys if row.get(k)), "")
+            if row_name not in {"最大HP", "HP上限", "MAX_HP"}:
+                continue
+            val = _safe_int_for_condition(row.get("value"), 0)
+            if val > 0:
+                return val
+    return None
+
+
 def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None, get_status_value_fn=None):
     if source_type == "death_context":
         ctx = context if isinstance(context, dict) else {}
@@ -250,56 +272,17 @@ def _get_value_for_condition(source_obj, param_name, context=None, actor=None, t
         return source_obj.get("tags", [])
 
     if normalized_param_name in {"lost_hp", "失ったHP", "HP欠損"}:
-        current_hp = _safe_int_for_condition(_resolve_status_value(source_obj, "HP", get_status_value_fn), 0)
-        max_hp_candidates = [
-            source_obj.get("max_hp"),
-            source_obj.get("maxHP"),
-            source_obj.get("hp_max"),
-            source_obj.get("HP_MAX"),
-            source_obj.get("maxHp"),
-        ]
-        max_hp = None
-        for candidate in max_hp_candidates:
-            if candidate is None:
-                continue
-            try:
-                val = int(candidate)
-            except Exception:
-                continue
-            if val > 0:
-                max_hp = val
-                break
-        if max_hp is None:
-            for row in (source_obj.get("states") or []):
-                if not isinstance(row, dict):
-                    continue
-                row_name = str(row.get("name") or "").strip()
-                if row_name not in {"最大HP", "HP上限", "MAX_HP"}:
-                    continue
-                try:
-                    val = int(row.get("value", 0) or 0)
-                except Exception:
-                    continue
-                if val > 0:
-                    max_hp = val
-                    break
-        if max_hp is None:
-            for row in (source_obj.get("params") or []):
-                if not isinstance(row, dict):
-                    continue
-                row_name = str(row.get("label") or row.get("name") or "").strip()
-                if row_name not in {"最大HP", "HP上限", "MAX_HP"}:
-                    continue
-                try:
-                    val = int(row.get("value", 0) or 0)
-                except Exception:
-                    continue
-                if val > 0:
-                    max_hp = val
-                    break
+        max_hp = _resolve_max_hp_for_condition(source_obj)
         if max_hp is None:
             return 0
+        current_hp = _safe_int_for_condition(_resolve_status_value(source_obj, "HP", get_status_value_fn), 0)
         return max(0, max_hp - current_hp)
+    if normalized_param_name.lower() in HP_PERCENT_PARAMS:
+        max_hp = _resolve_max_hp_for_condition(source_obj)
+        if max_hp is None:
+            return None
+        current_hp = _safe_int_for_condition(_resolve_status_value(source_obj, "HP", get_status_value_fn), 0)
+        return current_hp * 100 / max_hp
     if normalized_param_name in {"速度値", "speed_value", "speedvalue", "spd_value"}:
         speed_values = []
         source_id = source_obj.get("id")
