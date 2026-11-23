@@ -49,13 +49,19 @@ def test_combat_entry_discards_both_presentation_queues():
     assert state['battle_state']['resolve']['pending_gem_uses'] == []
 
 
-def test_regular_round_rebuild_keeps_late_immediate_and_battle_reset_discards_it(monkeypatch):
+def test_e14_round_does_not_replay_a_previous_round_blessing(monkeypatch):
     from manager.battle import common_manager
     from manager.battle.select_resolve_state import ensure_battle_state_vNext
-    state = {'characters': [], 'round': 2, 'timeline': [], 'battle_state': {'resolve': {}}}
+    from manager.cache_paths import SKILLS_CACHE_FILE, load_json_cache
+    state = {'characters': [], 'round': 2, 'timeline': [], 'battle_state': {'round': 2, 'resolve': {}}}
     queue_immediate_gem(state['battle_state'], {'id': 'a'}, 'G', GEM, 'late')
     rebuilt = ensure_battle_state_vNext(state, round_value=3, rebuild_slots=True)
-    assert rebuilt['pending_gem_blessings'][0]['skill_name'] == 'late'
+    skills = load_json_cache(SKILLS_CACHE_FILE)
+    queue_immediate_gem(rebuilt, {'id': 'enemy'}, 'E-14', skills['E-14'], '死ね')
+    assert take_gem_prelude(rebuilt, 123) is None
+    queue_immediate_gem(rebuilt, {'id': 'a'}, 'B-02', skills['B-02'], '守護の輝き')
+    assert take_gem_prelude(rebuilt, 124)['gem_blessings'][0]['skill_id'] == 'B-02'
+    queue_immediate_gem(rebuilt, {'id': 'a'}, 'G', GEM, 'reset')
     for name in ['broadcast_log', 'broadcast_state_update', 'save_specific_room_state', 'emit_select_resolve_events']:
         monkeypatch.setattr(common_manager, name, lambda *a, **k: None)
     monkeypatch.setattr(common_manager, 'get_room_state', lambda room: state)

@@ -108,6 +108,7 @@ export function playResolveStageFx(flow, payload, state) {
   const fx = window.Fx;
   const step = flow._activeStep;
   if (!fx || !step) return;
+  state = { ...state, stepActorVisuals: step.actorVisuals };
   if (step.kind === 'gem_blessing_prelude') {
     // フィールドの四隅に合わせて出す。
     const host = document.getElementById('map-viewport');

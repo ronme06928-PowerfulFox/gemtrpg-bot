@@ -22,7 +22,8 @@ def queue_immediate_gem(state, actor, skill_id, skill, skill_name):
 
 
 def take_gem_prelude(state, timestamp):
-    rows = state.pop('pending_gem_blessings', [])
+    current_round = state.get('round', 0)
+    rows = [row for row in state.pop('pending_gem_blessings', []) if row.get('round') == current_round]
     state['pending_gem_blessings'] = []
     if not rows:
         return None

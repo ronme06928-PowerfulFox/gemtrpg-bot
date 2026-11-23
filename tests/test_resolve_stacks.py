@@ -1,6 +1,20 @@
 """計画57 §9-10: 段の写しと時刻だけから描く累積状態。"""
 import pytest
 
+
+def test_trace_keeps_only_public_identity_for_a_participant(monkeypatch):
+    from manager.battle import resolve_trace_runtime as trace
+
+    attacker = {'id': 'char_s_enemy', 'name': 'マンティス・ヨールド', 'type': 'enemy',
+                'image': '/portrait.png', 'hidden_passives': [{'passive_id': 'Pa-09'}]}
+    state = {'slots': {'attack': {'actor_id': attacker['id']}}, 'resolve': {'trace': []}}
+    monkeypatch.setattr(trace, 'get_room_state', lambda _: {'characters': [attacker]})
+    monkeypatch.setattr(trace, '_emit_battle_trace', lambda *_: None)
+    step = trace._append_trace('r', 'b', state, 'mass_individual', 'attack')
+    assert step['actor_visuals'][attacker['id']] == {
+        'id': attacker['id'], 'name': attacker['name'], 'image': '/portrait.png', 'type': 'enemy',
+    }
+
 from manager.battle import effect_presentation as effects
 from manager.battle import resolve_trace_runtime as trace
 from tests.test_motion_fx_frontend import _run_node

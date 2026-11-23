@@ -27,6 +27,7 @@ export function stageSample(flow, step, state) {
 }
 
 export function renderResolveStage(flow, step, state, layout) {
+  state = { ...state, stepActorVisuals: step.actorVisuals };
   const e = value => flow._escape(String(value ?? ''));
   const sample = stageSample(flow, step, state);
   const summation = step.kind === 'mass_summation';
@@ -42,7 +43,7 @@ export function renderResolveStage(flow, step, state, layout) {
   const gem = (value, range, key, small = false) => `<div class="gem${small ? ' small-gem' : ''} reveal-block reveal-power"><div class="gem-facets"></div><strong class="power-number" data-anchor="power:${e(key)}">${e(value ?? '—')}</strong><small class="power-range">${e(range || '合計')}</small></div>`;
   const descriptions = [];
   const combatants = ['attacker', 'defender'].map(side => {
-    const id = flow._slotActorId(step[`${side}SlotId`], state) || step[`${side}ActorId`] || (side === 'defender' ? step.targetActorId : null);
+    const id = step[`${side}ActorId`] || flow._slotActorId(step[`${side}SlotId`], state) || (side === 'defender' ? step.targetActorId : null);
     const group = summation && side === 'defender';
     const unarmed = oneSided && side === 'defender';
     const meta = flow._resolveSkillMeta(step, side);

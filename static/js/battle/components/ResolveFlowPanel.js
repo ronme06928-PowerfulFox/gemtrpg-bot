@@ -166,24 +166,21 @@ class ResolveFlowPanel {
     }
 
     _actorNameById(actorId, state) {
-        if (!actorId) return null;
-        const chars = Array.isArray(state.characters) ? state.characters : [];
-        const hit = chars.find((c) => String(c?.id || '') === String(actorId));
-        if (hit && hit.name) return String(hit.name);
-        return String(actorId);
+        return this._characterById(actorId, state)?.name || null;
     }
 
     _characterById(actorId, state) {
         if (!actorId) return null;
         const chars = Array.isArray(state?.characters) ? state.characters : [];
-        return chars.find((c) => String(c?.id || '') === String(actorId)) || null;
+        return chars.find((c) => String(c?.id || '') === String(actorId))
+            || state?.stepActorVisuals?.[String(actorId)] || null;
     }
 
     _actorVisualMeta(actorId, state, fallbackName = null) {
         const char = this._characterById(actorId, state);
         const name = char?.name
             ? String(char.name)
-            : String(fallbackName || actorId || '-');
+            : String(fallbackName || '-');
         const image = char?.image || char?.imageOriginal || null;
         return {
             actorId: actorId ? String(actorId) : null,
@@ -266,7 +263,7 @@ class ResolveFlowPanel {
         if (side === 'defender' && String(step.kind) === 'mass_summation' && !fromSlot && !actorKey) {
             return '\u9632\u885b\u5074\u5168\u4f53';
         }
-        const name = this._actorNameById(fromSlot || actorKey, state);
+        const name = this._actorNameById(actorKey || fromSlot, state);
         return name || '-';
     }
 
@@ -658,6 +655,7 @@ class ResolveFlowPanel {
             attackerSlotId,
             defenderSlotId,
             attackerActorId: raw.attacker_actor_id || null,
+            actorVisuals: raw.actor_visuals || {},
             defenderActorId: raw.defender_actor_id || raw.target_actor_id || null,
             targetActorId: raw.target_actor_id || null,
             notes: raw.notes || null,

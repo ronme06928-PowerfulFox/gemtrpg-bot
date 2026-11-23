@@ -2,6 +2,26 @@
 from tests.test_motion_fx_frontend import ROOT, _run_node
 
 
+def test_resolve_stage_uses_trace_identity_when_attacker_is_missing_from_live_roster():
+    _run_node(r"""
+(async()=>{
+ const {ResolveFlowPanel}=await import('./static/js/battle/components/ResolveFlowPanel.js');
+ const {renderResolveStage}=await import('./static/js/battle/components/resolve_stage.js');
+ const {getLayout}=await import('./static/js/battle/components/resolve_stage_layout.js');
+ const flow=new ResolveFlowPanel();
+ flow._skillById=()=>({'デフォルト名称':'死ね'});
+ const state={characters:[{id:'ally',name:'冒険者'}],slots:{attack:{actor_id:'ally'}}};
+ const step=flow._normalizeTraceEntry({kind:'mass_individual',attacker_slot_id:'attack',
+   attacker_actor_id:'char_s_enemy',defender_actor_id:'ally',outcome_payload:{skill_id:'E-14'},
+   actor_visuals:{char_s_enemy:{id:'char_s_enemy',type:'enemy',name:'マンティス・ヨールド',image:'/mantis.png'}}},0,state);
+ const html=renderResolveStage(flow,step,state,getLayout(1180));
+ assert.match(html,/combatant attacker enemy/);
+ assert.match(html,/src="\/mantis.png" alt="マンティス・ヨールド"/);
+ assert.match(html,/class="character-name" title="マンティス・ヨールド"/);
+})().catch(e=>{console.error(e);process.exitCode=1;});
+""")
+
+
 def test_stage_layout_is_shared_with_preview_and_fits_available_height():
     _run_node(r"""
 (async()=>{

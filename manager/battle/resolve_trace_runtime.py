@@ -422,6 +422,13 @@ def _append_trace(
         actor_ids = [attacker_actor_id] if kind == 'mass_summation' else [attacker_actor_id, defender_actor_id]
         chars = (get_room_state(room) or {}).get('characters', []) if any(actor_ids) else []
         entry['stacks'] = close_step_stacks(actor_ids, chars)
+        participant_ids = {attacker_actor_id, defender_actor_id}
+        participant_ids.update(slots.get(str(sid), {}).get('actor_id') for sid in entry.get('participants', []))
+        entry['actor_visuals'] = {
+            str(char['id']): {'id': char['id'], 'name': char.get('name'), 'type': char.get('type'),
+                             'image': char.get('image') or char.get('imageOriginal')}
+            for char in chars if char.get('id') and char['id'] in participant_ids
+        }
     # 送信後の処理（RESOLVE_STEP_ENDなど）は段の外。
     end_step_effects()
     from manager.battle.gem_blessing_presentation import take_resolve_gem_users
