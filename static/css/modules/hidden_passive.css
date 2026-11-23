@@ -61,7 +61,9 @@
 .new-passive-badge {
   position: absolute;
   z-index: 3;
-  inset: -8px -7px auto auto;
+  inset-block-start: calc(100% + 2px);
+  inset-inline-start: 50%;
+  transform: translateX(-50%);
   padding: 1px 5px;
   border: 1px solid #edd398;
   border-radius: 4px;

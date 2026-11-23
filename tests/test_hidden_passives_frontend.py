@@ -1,5 +1,16 @@
 from tests.test_catalog_skill_editor import run_node
 from tests.test_catalog_skill_text import run_node as run_text
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_token_reveal_badge_uses_the_name_lane_below_the_token():
+    source = (ROOT / 'static/js/visual/visual_map.js').read_text(encoding='utf-8')
+    css = (ROOT / 'static/css/modules/hidden_passive.css').read_text(encoding='utf-8')
+    assert "nameLabel.appendChild(indicator)" in source
+    assert "token.querySelector('.token-name-text')" in source
+    assert "inset-block-start: calc(100% + 2px)" in css
 
 
 def test_reveal_effect_uses_passive_picker():

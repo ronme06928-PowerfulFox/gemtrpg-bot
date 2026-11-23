@@ -227,12 +227,13 @@ window.renderVisualMap = function () {
             }
             const hasNewPassive = window.HiddenPassiveFx?.newThisRound(char, renderState);
             const badge = token.querySelector('.new-passive-badge');
-            if (hasNewPassive && !badge) {
+            const nameLabel = token.querySelector('.token-name-label');
+            if (hasNewPassive && !badge && nameLabel) {
                 const indicator = document.createElement('span');
                 indicator.className = 'new-passive-badge';
                 indicator.textContent = 'New!!';
                 indicator.setAttribute('aria-label', 'パッシブが公開されました');
-                token.appendChild(indicator);
+                nameLabel.appendChild(indicator);
             } else if (!hasNewPassive) {
                 badge?.remove();
             }
@@ -1168,7 +1169,7 @@ function updateTokenVisuals(token, char) {
     }
 
     // Name Label
-    const nameLabel = token.querySelector('.token-name-label');
+    const nameLabel = token.querySelector('.token-name-text');
     if (nameLabel && nameLabel.textContent !== char.name) {
         nameLabel.textContent = char.name;
     }
@@ -1524,7 +1525,7 @@ window.createMapToken = function (char) {
         text-shadow: 1px 1px 2px black;
         pointer-events: none;
     `;
-    const nameLabelHtml = `<div class="token-name-label" style="${nameLabelStyle}">${char.name}</div>`;
+    const nameLabelHtml = `<div class="token-name-label" style="${nameLabelStyle}"><span class="token-name-text">${char.name}</span></div>`;
 
     const createBar = (cls, per, val, max, label) => `
         <div class="token-stat-row" data-stat="${label}" style="display:flex; align-items:center; height: 14px; gap: 4px;">
