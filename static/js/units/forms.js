@@ -48,15 +48,16 @@
   const image = value => url(value) ? `<img class="unit-image" src="${url(value)}" alt="">` : '';
 
   function defaults(kind, side) {
-    if (kind === 'unit') return {name:'', image:'', allow_ally: true, allow_enemy: true, scenario:false,
+    if (kind === 'unit') return {name:'', domain:'session', image:'', allow_ally: true, allow_enemy: true, scenario:false,
       gm_only:false, hp:0, mp:0, params:[], skills:[], other_lines:[], passives:[], radiance:[],
       hidden_passives:[], items:[], tags:[], marks:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
-    if (kind === 'formation') return {name:'', type:side, recommended_ally_count:0, members:[]};
-    return {name:'', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
+    if (kind === 'formation') return {name:'', domain:'session', type:side, recommended_ally_count:0, members:[]};
+    return {name:'', domain:'session', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
   }
 
   function overwriteUnit(previous, incoming) {
     const next = window.CatalogJson.clone(incoming);
+    next.domain = previous.domain;
     next.collection_id = previous.collection_id;
     if (!previous.patterns?.length) return next;
     next.patterns = window.CatalogJson.clone(previous.patterns);

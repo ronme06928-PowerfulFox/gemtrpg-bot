@@ -54,7 +54,7 @@ def test_queue_events_validate_update_and_reject_players(monkeypatch):
     monkeypatch.setattr(deployment_socket, "user_sids", {"gm": {"room": "r"}})
     monkeypatch.setattr(deployment_socket, "catalog_request_context", lambda _: role)
     monkeypatch.setattr(deployment_socket, "get_room_state", lambda _: state)
-    monkeypatch.setattr(deployment_socket, "deployment_store", _store)
+    monkeypatch.setattr(deployment_socket, "deployment_store", lambda *, domain: _store() if domain == "session" else {})
     monkeypatch.setattr(deployment_socket, "save_specific_room_state", lambda _: None)
     monkeypatch.setattr(deployment_socket, "broadcast_state_update", lambda _: None)
     monkeypatch.setattr(deployment_socket, "broadcast_log", lambda *_: None)
@@ -103,3 +103,61 @@ def test_retired_bookmarks_have_no_production_code():
         for suffix in (".py", ".js", ".mjs"):
             for path in (root / directory).rglob("*" + suffix):
                 assert "preset_bookmarks" not in path.read_text(encoding="utf-8"), str(path)
+
+
+def test_hollow_is_filtered_from_normal_room_entries(monkeypatch):
+    from types import SimpleNamespace
+    from tests.test_preset_deployment import _normal_state
+    from manager.units.runtime import deployment_store
+
+    session_unit = {"payload": {"name": "Session", "domain": "session"}, "visibility": "public", "deprecated": False}
+    hollow_unit = {**session_unit, "payload": {"name": "Hollow", "domain": "hollow"}}
+    resources = {
+        ("unit", "U-001"): session_unit, ("unit", "U-002"): hollow_unit,
+        ("formation", "F-001"): {**hollow_unit, "payload": {
+            **hollow_unit["payload"], "type": "enemy", "members": [{"unit_id": "U-002", "count": 1}],
+        }},
+        ("stage", "ST-001"): {**hollow_unit, "payload": {
+            **hollow_unit["payload"], "enemy_formation_id": "F-001",
+        }},
+    }
+    state = _normal_state()
+    sent = []
+    monkeypatch.setattr(deployment_socket, "request", SimpleNamespace(sid="gm"))
+    monkeypatch.setattr(deployment_socket, "user_sids", {"gm": {"room": "r"}})
+    monkeypatch.setattr(deployment_socket, "catalog_request_context", lambda _: {"room_role": "gm"})
+    monkeypatch.setattr(deployment_socket, "get_room_state", lambda _: state)
+    monkeypatch.setattr(deployment_socket, "deployment_store", lambda **kwargs: deployment_store(resources, **kwargs))
+    monkeypatch.setattr(deployment_socket.socketio, "emit", lambda event, data, **_: sent.append((event, data)))
+
+    session = {"characters": [{"id": "U-001", "count": 1}]}
+    hollow = [
+        {"characters": [{"id": "U-002", "count": 1}]},
+        {"formations": {"enemy": {"id": "F-001"}}},
+        {"stage": {"id": "ST-001"}},
+    ]
+    context = {"room": "r"}
+    deployment_socket.handle_preset_deployment_catalog(context)
+    records = sent[-1][1]["records"]
+    assert set(records["character"]) == {"U-001"}
+    assert not records["stage"] and not records["enemy_formation"]
+
+    for index, deployment in enumerate(hollow):
+        message = {**context, "name": "Hollow", "deployment": deployment, "operation_id": f"hollow-{index}"}
+        for handler, extra in (
+            (deployment_socket.handle_encounter_save, {"check_only": True}),
+            (deployment_socket.handle_encounter_save, {}),
+            (deployment_socket.handle_preset_deployment_preview, {}),
+            (deployment_socket.handle_preset_deployment_apply, {}),
+        ):
+            handler({**message, **extra})
+            assert sent[-1][0] == "preset_deployment_error"
+            assert sent[-1][1]["code"] == "not_found"
+    assert not state.get("encounter_queue")
+    assert len(state["characters"]) == 2
+    for index, deployment in enumerate([session, *hollow]):
+        state.setdefault("encounter_queue", []).append({
+            "id": str(index), "deployment": deployment_socket.normalize_deployment_request(deployment),
+        })
+    deployment_socket.handle_encounter_queue(context)
+    assert [row["id"] for row in sent[-1][1]["entries"]] == ["0"]

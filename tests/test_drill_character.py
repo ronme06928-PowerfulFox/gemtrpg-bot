@@ -28,10 +28,11 @@ def app():
             {'label':'MP','value':5,'max':10},{'label':'FP','value':3}],
             'params':[{'label':'物理補正','value':'4'}],'commands':'','SPassive':[]}))
         for index,visibility,marks,enemy in [(1,'public',[],True),(2,'public',['known'],True),
-                (3,'staff',[],True),(4,'staff',['known'],True),(5,'public',['hollow','known'],True),
+                (3,'staff',[],True),(4,'staff',['known'],True),(5,'public',['known'],True),
                 (6,'public',['known'],False),(7,'public',[],True)]:
             db.session.add(CatalogEntry(kind='unit',entry_id=f'U-{index:03}',visibility=visibility,
-                payload={'name':f'unit{index}','allow_enemy':enemy,'allow_ally':False,
+                payload={'name':f'unit{index}','domain':'hollow' if index == 5 else 'session',
+                         'allow_enemy':enemy,'allow_ally':False,
                          'hp':20,'mp':10,'params':[],'skills':[],'marks':marks}))
         from datetime import datetime
         db.session.add(CatalogEncounter(user_id='reader',kind='unit',entry_id='U-007',

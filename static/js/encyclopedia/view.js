@@ -216,6 +216,7 @@ window.createEncyclopediaView = function (panel, DATA) {
     const data = row.data;
     const range = data.射程 || data.距離;
     const marks = (data.marks || []).filter(mark => mark !== 'known').map(mark => DATA.markLabels[mark]).filter(Boolean);
+    if (row.kind === 'enemy' && data.domain === 'hollow') marks.push('ホロウ専用');
     const tags = (row.kind === 'skill'
       ? [data.タイミング || data.分類, data.属性, range ? `射程 ${range}` : '', ...(data.tags || [])]
       : [data.category, ...(data.tags || []), ...(data.granted_tag_ids || [])])

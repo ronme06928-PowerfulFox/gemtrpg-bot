@@ -45,7 +45,7 @@ KINDS = {
 }
 DRAFT_ID_PATTERN = r"X-[0-9a-fA-F]{8}"
 MARK_KINDS = ("buff", "passive", "item", "skill")
-MARK_LABELS = {"enemy": "敵専用", "hollow": "ホロウ専用", "known": "図鑑に最初から載せる"}
+MARK_LABELS = {"enemy": "敵専用", "known": "図鑑に最初から載せる"}
 for _kind in MARK_KINDS:
     KINDS[_kind]["fields"]["marks"] = list
     KINDS[_kind]["defaults"]["marks"] = []

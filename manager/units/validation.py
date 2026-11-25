@@ -12,9 +12,10 @@ from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_ro
 IDS = {"unit": ("U", 3), "formation": ("F", 3),
        "stage": ("ST", 3), "unit_collection": ("SC", 2)}
 SIDES = ("enemy", "ally")
+DOMAINS = ("session", "hollow")
 MASTER_FIELDS = {"skills": "skill", "passives": "passive", "radiance": "radiance", "items": "item"}
 UNIT_FIELDS = {
-    "name": str, "image": str, "scenario": bool, "gm_only": bool,
+    "name": str, "domain": str, "image": str, "scenario": bool, "gm_only": bool,
     "allow_ally": bool, "allow_enemy": bool, "hp": int, "mp": int,
     "initial_hp": int, "initial_mp": int, "params": list,
     "skills": list, "other_lines": list, "passives": list, "radiance": list,
@@ -147,6 +148,8 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
     payload = deepcopy(payload)
     if kind == "unit":
         _check_unit(payload, errors, previous)
+    if payload.get("domain") not in DOMAINS:
+        errors["domain"] = "session または hollow を指定してください"
     if kind in ("formation", "stage"):
         field = "recommended_ally_count" if kind == "formation" else "required_ally_count"
         count = payload.get(field, 0)
@@ -192,6 +195,9 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
         if target is None:
             errors[path] = f"参照先がありません: {key}"
             continue
+        if target["payload"].get("domain") != payload["domain"]:
+            errors[path] = f"区分の異なる資源は参照できません: {key}"
+            continue
         if target["deprecated"]:
             warnings[path + ".deprecated"] = f"参照先が廃止済みです: {key}"
         if kind in ("formation", "stage") and visibility == "public" and target["visibility"] == "staff":
@@ -201,7 +207,7 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
     if kind == "formation":
         for index, member in enumerate(payload["members"]):
             target = resources.get(("unit", member["unit_id"]))
-            if target is None:
+            if target is None or target["payload"].get("domain") != payload["domain"]:
                 continue
             unit = target["payload"]
             side = payload["type"]

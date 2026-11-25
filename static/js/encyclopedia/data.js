@@ -34,11 +34,11 @@
     const rowsByKind = Object.fromEntries(types.map(([kind]) => {
       const entries = kind === 'enemy'
         ? extra.units.filter(row => row.payload.allow_enemy !== false
+          && (full || row.payload.domain !== 'hollow')
           && (full || row.visibility === 'public' || encounters.has('unit:' + row.entry_id)))
           .map(row => [row.entry_id, row.payload])
         : Object.entries(masters[kind] || {});
-      const rows = entries.filter(([id, data]) => !data.deprecated && !id.startsWith('SYS-')
-        && (full || !data.marks?.includes('hollow'))).map(([id, data]) => {
+      const rows = entries.filter(([id, data]) => !data.deprecated && !id.startsWith('SYS-')).map(([id, data]) => {
         const gated = kind === 'enemy' || (kind === 'skill' && id.startsWith('E-'))
           || (['passive', 'buff', 'item'].includes(kind) && data.marks?.includes('enemy'));
         const firstSeenAt = encounters.get((kind === 'enemy' ? 'unit' : kind) + ':' + id);

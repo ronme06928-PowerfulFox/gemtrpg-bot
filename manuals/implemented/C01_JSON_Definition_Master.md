@@ -891,9 +891,9 @@ python scripts/skill_catalog_tool.py lint
 | アイテム（`item`） | `marks` | 文字列の配列、既定 `[]` |
 | スキル（`skill`） | `marks` | 文字列の配列、既定 `[]` |
 
-印は `enemy`（敵専用）・`hollow`（ホロウ専用）・`known`（図鑑に最初から載せる）。スキルにも同じ印の配列を持たせる。敵専用はIDの頭Eで判定し、スキルの管理画面ではenemyの入力欄を出さない。未知の値・重複は検査エラーになり、申請を止める。既存の公開版で印が省略されているときは空として扱う。公開辞書は印が付いている項目に `marks` を載せ、`--pull` でも引き継ぐ。計画35のマスターデータには `hollow` を使う。
+印は `enemy`（敵専用）・`known`（図鑑に最初から載せる）。スキルにも同じ印の配列を持たせる。敵専用はIDの頭Eで判定し、スキルの管理画面ではenemyの入力欄を出さない。未知の値・重複は検査エラーになり、申請を止める。既存の公開版で印が省略されているときは空として扱う。公開辞書は印が付いている項目に `marks` を載せ、`--pull` でも引き継ぐ。
 
-一般スキル（`E-` 以外）と `enemy` の付いていないバフ・特殊パッシブ・アイテムが、敵専用の公開データや `E-` のスキルを参照すると注意を出す。参照は「参照している物」と同じ規則で照合する。`hollow` は表示と絞り込みに使い、印による検査の注意は `enemy` に限る。
+一般スキル（`E-` 以外）と `enemy` の付いていないバフ・特殊パッシブ・アイテムが、敵専用の公開データや `E-` のスキルを参照すると注意を出す。参照は「参照している物」と同じ規則で照合する。印による検査の注意は `enemy` に限る。
 
 ### 管理画面の条件付き表示（計画60 PR60-17）
 
@@ -933,7 +933,7 @@ EFFECT_SCHEMASの各タイプはgroupを持つ。配信と管理画面だけの�
 
 `POST /api/catalog/<kind>/bulk`は公開版IDと`base_revision`の一覧、変更内容（category、marks_add、marks_remove）を受ける。分類はバフ・用語だけ、印はmarks対応種類だけが対象。1件ごとに既存の保存・申請・承認の検査を通し、ほかの中身を保持する。1件単位でトランザクションを確定し、失敗分はその項目の変更を取り消す。承認履歴は通常の公開と同じく1件ずつ残す。`catalog_updated` は1件でも公開したとき、一括の終わりに種類ごと1回だけ送る（全員の画面が読み直すため）。
 
-要求の形は `{"entries":[{"entry_id":"Bu-00","base_revision":1}],"changes":{"category":"能力の増減","marks_add":["enemy"],"marks_remove":["hollow"]}}`。返事は `changed`・`skipped` の件数と `results` の項目別結果。結果には `entry_id` と `status`（`published`・`pending`・`skipped`）、飛ばした理由は `reason` を入れる。分類を変えない場合は `category` を送らず、未分類にする場合は空文字を送る（バフだけ）。
+要求の形は `{"entries":[{"entry_id":"Bu-00","base_revision":1}],"changes":{"category":"能力の増減","marks_add":["enemy"],"marks_remove":["known"]}}`。返事は `changed`・`skipped` の件数と `results` の項目別結果。結果には `entry_id` と `status`（`published`・`pending`・`skipped`）、飛ばした理由は `reason` を入れる。分類を変えない場合は `category` を送らず、未分類にする場合は空文字を送る（バフだけ）。
 
 ## 伏せた特殊パッシブ
 

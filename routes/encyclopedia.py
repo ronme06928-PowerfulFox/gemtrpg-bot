@@ -5,9 +5,10 @@ from flask import Blueprint, g, jsonify, request
 
 from manager.utils import session_required
 from manager.catalog.kinds import MARK_LABELS
+from manager.encyclopedia import can_view_hollow, unit_entries
 from manager.units.repository import entry_json
 from manager.room_access import GM_ROLES, resolve_room_role
-from models import CatalogEncounter
+from models import CatalogEncounter, CatalogEntry
 
 encyclopedia_bp = Blueprint("encyclopedia", __name__)
 
@@ -29,7 +30,14 @@ def get_encyclopedia():
     can_view_all = bool(user.is_catalog_author or user.is_app_admin or room_gm)
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()
-    from manager.encyclopedia import unit_entries
+    if not can_view_hollow(user):
+        seen_units = {row.entry_id for row in encounters if row.kind == "unit"}
+        if seen_units:
+            hidden = {entry_id for (entry_id,) in CatalogEntry.query.with_entities(CatalogEntry.entry_id).filter(
+                CatalogEntry.kind == "unit", CatalogEntry.payload["domain"].as_string() == "hollow",
+                CatalogEntry.entry_id.in_(seen_units),
+            )}
+            encounters = [row for row in encounters if row.kind != "unit" or row.entry_id not in hidden]
     units = [entry_json(row) for row, _ in unit_entries(user, full=can_view_all)]
     if not can_view_all:
         for unit in units:

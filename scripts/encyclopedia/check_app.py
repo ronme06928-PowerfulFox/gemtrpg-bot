@@ -228,7 +228,7 @@ def main():
                     assert not page.locator('#search-results [data-entry="E-01"]').is_disabled()
                 if role == "author":
                     unit = api(page, "/api/units/unit", "POST", {"payload":{
-                        "name":"図鑑の確認用", "allow_enemy":True, "allow_ally":False, "marks":["known"]}})
+                        "name":"図鑑の確認用", "domain":"session", "allow_enemy":True, "allow_ally":False, "marks":["known"]}})
                     unit_id = unit["entry"]["entry_id"]
                     page.goto(args.base + "/#units")
                     page.locator('[data-filter="mark"]').select_option("known")

@@ -59,7 +59,7 @@ def test_direct_save_restore_and_references(unit_app):
     row, _ = repository.save("unit", None, unit, visibility="staff")
     assert row.entry_id == "U-001"
     unit_id = row.entry_id
-    formation = {"name": "敵編成", "type": "enemy",
+    formation = {"domain": "session", "name": "敵編成", "type": "enemy",
                  "members": [{"unit_id": unit_id, "count": 1, "pattern_id": None}]}
     group, warnings = repository.save("formation", None, formation)
     assert len(warnings) == 2
@@ -171,10 +171,10 @@ def test_http_permissions_and_package_preview_confirm(unit_app):
     unit = author.post(root + "/unit", json={"payload": imported.json["payload"], "visibility": "staff"})
     assert unit.status_code == 201
     assert unit.json["entry"]["entry_id"] == "U-001"
-    col = admin.post(root + "/unit_collection", json={"payload": {"name": "分類"}})
+    col = admin.post(root + "/unit_collection", json={"payload": {"domain": "session", "name": "分類"}})
     assert col.status_code == 201
     formation = author.post(root + "/formation", json={"payload": {
-        "name": "Public", "type": "enemy", "collection_id": "SC-01",
+        "domain": "session", "name": "Public", "type": "enemy", "collection_id": "SC-01",
         "members": [{"unit_id": "U-001", "count": 2, "pattern_id": None}],
     }})
     assert formation.status_code == 201
@@ -195,7 +195,7 @@ def test_http_permissions_and_package_preview_confirm(unit_app):
     assert {row["entry_id"] for row in package["entries"]} == {"U-001", "F-001", "SC-01"}
     assert all("revision" not in row for row in package["entries"])
     package["entries"].append({"kind": "stage", "entry_id": "ST-001", "visibility": "staff",
-                               "deprecated": False, "payload": {"name": "Stage", "enemy_formation_id": "F-001"}})
+                               "deprecated": False, "payload": {"domain": "session", "name": "Stage", "enemy_formation_id": "F-001"}})
     preview_path, confirm_path = root + "/import/preview", root + "/import/confirm"
     report = author.post(preview_path, json={"package": package}).json["entries"]
     assert {row["operation"] for row in report} == {"new", "overwrite"}
@@ -230,7 +230,7 @@ def test_validation_of_default_patterns_sides_and_master_deprecation(unit_app):
     assert saved.payload["default_pattern_id"] == "BP-a"
     unit["patterns"].append({"id": "BP-b", "name": "B", "profile": {}})
     assert "default_pattern_id" in repository.check("unit", unit, entry_id=saved.entry_id)[0]
-    formation = {"name": "味方", "type": "ally", "members": [{
+    formation = {"domain": "session", "name": "味方", "type": "ally", "members": [{
         "unit_id": saved.entry_id, "count": 1, "pattern_id": "BP-missing",
     }]}
     assert set(repository.check("formation", formation)[0]) == {
@@ -242,12 +242,14 @@ def test_validation_of_default_patterns_sides_and_master_deprecation(unit_app):
     assert "skills[0]" in repository.check("unit", unit | {"default_pattern_id": "BP-a"})[0]
 
 
-def test_catalog_units_build_for_deployment_and_simulator(unit_app):
+@pytest.mark.parametrize("domain", ["session", "hollow"])
+def test_catalog_units_build_for_deployment_and_simulator(unit_app, domain):
     from manager.preset_deployment import apply_deployment
     from manager.sim.preset_loader import build_room_state_from_presets
     from manager.units.runtime import deployment_store
 
     unit, _ = read_character({"name": "Test", "commands": "1d6 【E-23 固有名】"})
+    unit["domain"] = domain
     unit["patterns"] = [
         {"id": "BP-1", "name": "usual", "profile": {"enabled": False}},
         {"id": "BP-2", "name": "alternate", "profile": {"enabled": True,
@@ -256,10 +258,10 @@ def test_catalog_units_build_for_deployment_and_simulator(unit_app):
     unit["default_pattern_id"] = "BP-1"
     repository.save("unit", None, unit)
     for side in ("ally", "enemy"):
-        repository.save("formation", None, {"name": side, "type": side, "members": [
+        repository.save("formation", None, {"domain": domain, "name": side, "type": side, "members": [
             {"unit_id": "U-001", "count": 1, "pattern_id": "BP-2"},
         ]})
-    repository.save("stage", None, {"name": "Stage", "enemy_formation_id": "F-002",
+    repository.save("stage", None, {"domain": domain, "name": "Stage", "enemy_formation_id": "F-002",
                                    "ally_formation_id": "F-001"})
     store = deployment_store()
     state = {"play_mode": "normal", "characters": [], "character_owners": {}}
@@ -283,9 +285,9 @@ def test_catalog_units_build_for_deployment_and_simulator(unit_app):
 def test_export_deprecated_filter_keeps_dependencies(unit_app):
     from manager.units import transfer
 
-    used, _ = repository.save("unit", None, {"name": "Used"})
-    unused, _ = repository.save("unit", None, {"name": "Unused"})
-    formation, _ = repository.save("formation", None, {"name": "Enemy", "type": "enemy",
+    used, _ = repository.save("unit", None, {"domain": "session", "name": "Used"})
+    unused, _ = repository.save("unit", None, {"domain": "session", "name": "Unused"})
+    formation, _ = repository.save("formation", None, {"domain": "session", "name": "Enemy", "type": "enemy",
         "members": [{"unit_id": used.entry_id, "count": 1}]})
     for row in (used, unused):
         repository.set_deprecated("unit", row.entry_id, True, base_revision=1)
@@ -298,7 +300,7 @@ def test_export_deprecated_filter_keeps_dependencies(unit_app):
 def test_formation_side_is_immutable_after_create(unit_app):
     from manager.units import transfer
 
-    payload = {"name": "Enemy", "type": "enemy", "members": []}
+    payload = {"domain": "session", "name": "Enemy", "type": "enemy", "members": []}
     row, _ = repository.save("formation", None, payload)
     updated = {**payload, "type": "ally"}
     assert "type" in repository.check("formation", updated, entry_id=row.entry_id)[0]
@@ -331,7 +333,7 @@ def test_initial_states_are_discarded_and_start_at_zero(unit_app):
 def test_startup_removes_initial_states_from_units_and_history(unit_app):
     from models import CatalogHistory
 
-    row, _ = repository.save("unit", None, {"name": "Enemy", "hp": 9, "initial_hp": 4})
+    row, _ = repository.save("unit", None, {"domain": "session", "name": "Enemy", "hp": 9, "initial_hp": 4})
     key = row.entry_id
     for old in (row, CatalogHistory.query.filter_by(kind="unit", entry_id=key).one()):
         old.payload = {**old.payload, "states": {"FP": 7}}
@@ -342,19 +344,19 @@ def test_startup_removes_initial_states_from_units_and_history(unit_app):
         db.session.expire_all()
         current = repository.get("unit", key)
         assert current.revision == 1
-        assert current.payload == {"name": "Enemy", "hp": 9, "initial_hp": 4, "marks": []}
+        assert current.payload == {"domain": "session", "name": "Enemy", "hp": 9, "initial_hp": 4, "marks": []}
         assert [snapshot.payload for snapshot in repository.history("unit", key)] == [current.payload]
 
 
 def test_formation_saves_cloned_pattern_and_member_atomically(unit_app):
     profile = {"enabled": True, "loops": {"a": {"steps": [{"actions": ["E-23"]}]}}}
-    unit, _ = repository.save("unit", None, {"name": "Enemy", "skills": [{"id": "E-23"}],
+    unit, _ = repository.save("unit", None, {"domain": "session", "name": "Enemy", "skills": [{"id": "E-23"}],
         "patterns": [{"id": "BP-1", "name": "First", "profile": profile}]})
     unit_id = unit.entry_id
     pattern = {"id": "BP-2", "name": "Second", "profile": profile}
     additions = {unit_id: {"base_revision": 1, "patterns": [pattern]}}
     members = [{"unit_id": unit_id, "count": 1, "pattern_id": "BP-2"}]
-    formation = {"name": "Enemy group", "type": "enemy", "members": members}
+    formation = {"domain": "session", "name": "Enemy group", "type": "enemy", "members": members}
     assert not repository.check("formation", formation, pattern_additions=additions)[0]
     with pytest.raises(repository.CatalogValidationError):
         repository.save("formation", None, {**formation, "name": ""}, pattern_additions=additions)
@@ -376,7 +378,7 @@ def test_deploying_saved_stage_normalizes_skill_constraints(unit_app):
     from manager.units.runtime import deployment_store
 
     stage, _ = repository.save("stage", None, {
-        "name": "制約を持つステージ",
+        "name": "制約を持つステージ", "domain": "session",
         "field_effect_profile": {"version": 1, "rules": [{
             "rule_id": "limit",
             "type": "SPEED_ROLL_MOD",

@@ -8,6 +8,7 @@ FORMAT = "gemtrpg-units-v1"
 
 
 def export_package(collection_id=None, *, include_deprecated=True):
+    """Export payloads with their domains and all resource dependencies."""
     resources = repository.entries()
     selected = {key for key, row in resources.items() if include_deprecated or not row["deprecated"]}
     if collection_id:
@@ -54,6 +55,7 @@ def package_entries(package):
 def _prepare(package):
     incoming = package_entries(package)
     current = repository.entries()
+    # Resolve links against the final set, so either domain can arrive in the same package.
     combined = current | incoming
     report = []
     for kind in IDS:

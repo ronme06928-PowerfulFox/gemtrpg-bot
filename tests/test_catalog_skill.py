@@ -201,10 +201,10 @@ def test_known_mark_is_published_with_enemy_skill(catalog):
     author, admin = client(catalog, "author"), client(catalog, "admin")
     draft = author.post("/api/catalog/skill/drafts", json={"id_prefix": "E"}).json
     url = f'/api/catalog/drafts/{draft["id"]}'
-    result = author.put(url, json={"payload": payload(marks=["known", "hollow"])})
+    result = author.put(url, json={"payload": payload(marks=["known"])})
     assert result.status_code == 200
-    assert result.json["payload"]["marks"] == ["known", "hollow"]
+    assert result.json["payload"]["marks"] == ["known"]
     assert author.post(url + "/submit").status_code == 200
     key = admin.get("/api/catalog/skill/next_id?prefix=E").json["entry_id"]
     assert admin.post(url + "/approve", json={"entry_id": key}).status_code == 200
-    assert catalog.test_client().get("/api/get_skill_data").json[key]["marks"] == ["known", "hollow"]
+    assert catalog.test_client().get("/api/get_skill_data").json[key]["marks"] == ["known"]

@@ -20,8 +20,8 @@ def skills(app, monkeypatch):
     monkeypatch.setattr(skill_access, 'all_skill_data', all_skill_data)
     rows = {
         'Ps-00': {}, 'Pb-03': {}, 'E-12': {}, 'E-13': {'marks': ['known']},
-        'E-14': {}, 'Ps-20': {'marks': ['hollow']},
-        'E-15': {'marks': ['known', 'hollow']}, 'Ps-21': {'deprecated': True},
+        'E-14': {}, 'Ps-20': {},
+        'E-15': {}, 'Ps-21': {'deprecated': True},
         'SYS-STRUGGLE': {},
     }
     for key, extra in rows.items():
@@ -60,7 +60,7 @@ def test_both_sides_add_skills_without_changing_source_and_reset_keeps_them(app,
     assert (owned.data, unit.payload) == original
 
 
-@pytest.mark.parametrize('key', ['E-12', 'Ps-20', 'E-15', 'Ps-21', 'No-404', 'SYS-STRUGGLE'])
+@pytest.mark.parametrize('key', ['E-12', 'E-15', 'Ps-21', 'No-404', 'SYS-STRUGGLE'])
 def test_unreadable_missing_and_deprecated_ids_are_rejected_without_replacing_room(app, skills, key):
     name = create(app).json['room_name']
     original = active_room_states[name]
@@ -92,7 +92,7 @@ process.stdout.write(JSON.stringify(window.DrillData.readable(masters,extra).ski
                             capture_output=True, text=True, encoding='utf-8', timeout=30)
     assert result.returncode == 0, result.stderr
     assert set(actual) == set(json.loads(result.stdout))
-    keys = ['Pb-03', 'E-13', 'E-14'] if who == 'me' else ['E-12', 'Ps-20', 'E-15']
+    keys = ['Pb-03', 'E-13', 'E-14', 'Ps-20'] if who == 'me' else ['E-12', 'Ps-20', 'E-15']
     response = client(app, who).post('/api/drill/practice', json={
         'actor': {'source': 'blank', 'skills': keys}, 'target': {'source': 'blank'}})
     assert response.status_code == 201, response.json

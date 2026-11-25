@@ -9,10 +9,12 @@ MAPS = {"character": "character_presets", "enemy_formation": "enemy_formations",
         "collection": "catalog_collections"}
 
 
-def deployment_store(resources=None):
-    resources = repository.entries() if resources is None else resources
+def deployment_store(resources=None, *, domain=None):
+    resources = repository.entries(domain=domain) if resources is None else resources
     store = {key: {} for key in MAPS.values()}
     for (kind, entry_id), row in resources.items():
+        if domain is not None and row["payload"].get("domain") != domain:
+            continue
         payload = deepcopy(row["payload"])
         if kind == "formation":
             record_type = payload["type"] + "_formation"

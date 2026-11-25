@@ -15,12 +15,14 @@ def entry_json(row):
             "visibility": row.visibility, "deprecated": row.deprecated, "revision": row.revision}
 
 
-def entries(*, include_staff=True, include_deprecated=True):
+def entries(*, include_staff=True, include_deprecated=True, domain=None):
     query = CatalogEntry.query.filter(CatalogEntry.kind.in_(IDS))
     if not include_staff:
         query = query.filter_by(visibility="public")
     if not include_deprecated:
         query = query.filter_by(deprecated=False)
+    if domain is not None:
+        query = query.filter(CatalogEntry.payload["domain"].as_string() == domain)
     return {(row.kind, row.entry_id): entry_json(row)
             for row in query.order_by(CatalogEntry.kind, CatalogEntry.entry_id)}
 
@@ -38,8 +40,9 @@ def history(kind, entry_id):
 
 def next_id(kind, reserved=()):
     prefix, width = IDS[kind]
-    used = [entry_id for (entry_id,) in db.session.query(CatalogHistory.entry_id).filter_by(kind=kind).distinct()]
-    used.extend(reserved)
+    current = db.session.query(CatalogEntry.entry_id).filter_by(kind=kind)
+    past = db.session.query(CatalogHistory.entry_id).filter_by(kind=kind)
+    used = [*reserved, *(entry_id for (entry_id,) in current.union(past))]
     numbers = [int(key.split("-")[1]) for key in used if valid_id(kind, key)]
     return f"{prefix}-{max(numbers, default=0) + 1:0{width}d}"
 
@@ -144,13 +147,15 @@ def _validate(kind, key, payload, visibility, *, resources=None):
 
 
 def dependent_errors(kind, entry_id, payload, resources):
-    """Keep saved formations and stages resolvable when their target changes."""
-    if kind not in ("unit", "formation"):
-        return {}
+    """Keep saved references valid when their target changes."""
     errors = {}
     for ref in references(kind, entry_id, resources=resources):
         key = (ref["kind"], ref["entry_id"])
         source = resources[key]["payload"]
+        path = f"{ref['entry_id']}.{ref['path']}"
+        if source.get("domain") != payload["domain"]:
+            errors[path] = "参照元と異なる区分に変更できません"
+            continue
         if kind == "unit" and ref["kind"] == "formation":
             allowed = payload.get("allow_" + source["type"], True)
             patterns = {item["id"] for item in payload.get("patterns", [])}
@@ -162,7 +167,7 @@ def dependent_errors(kind, entry_id, payload, resources):
         else:
             continue
         if not valid:
-            errors[f"{ref['entry_id']}.{ref['path']}"] = "使用中の陣営またはパターンを変更できません"
+            errors[path] = "使用中の陣営またはパターンを変更できません"
     return errors
 
 
@@ -186,6 +191,25 @@ def save(kind, entry_id, payload, *, visibility="public", base_revision=None, ac
     key = entry_id or next_id(kind)
     row = write(kind, key, payload, visibility, row.deprecated if row else False,
                 "publish", actor_user_id, row=row)
+    db.session.commit()
+    return row, warnings
+
+
+@_transaction
+def duplicate_to_hollow(entry_id, *, actor_user_id=None):
+    lock_writes()
+    source = get("unit", entry_id)
+    if source is None:
+        db.session.rollback()
+        return None
+    if source.payload.get("domain") != "session":
+        raise CatalogValidationError({"domain": "セッション用ユニットを指定してください"})
+    payload = {**source.payload, "domain": "hollow", "collection_id": None}
+    errors, warnings, payload = inspect_payload("unit", payload, source.visibility, entries(), previous=source.payload)
+    if errors:
+        raise CatalogValidationError(errors)
+    row = write("unit", next_id("unit"), payload, source.visibility, False,
+                "publish", actor_user_id)
     db.session.commit()
     return row, warnings
 

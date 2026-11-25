@@ -247,8 +247,8 @@ def test_outgoing_references_are_resolved_from_published_payloads(api):
 @pytest.mark.parametrize("kind", ["buff", "passive", "item"])
 def test_catalog_marks_allow_only_unique_known_strings(kind):
     assert validate_payload(kind, {"name": "印の検査"})["marks"] == []
-    assert validate_payload(kind, {"name": "印の検査", "marks": ["enemy", "hollow"]})["marks"] == ["enemy", "hollow"]
-    for marks in (["unknown"], ["enemy", "enemy"], [{}], "enemy", None):
+    assert validate_payload(kind, {"name": "印の検査", "marks": ["enemy", "known"]})["marks"] == ["enemy", "known"]
+    for marks in (["hollow"], ["unknown"], ["enemy", "enemy"], [{}], "enemy", None):
         problems = inspect_payload(kind, {"name": "印の検査", "marks": marks}, stage="submit")
         assert any(p["field"] == "marks" and p["level"] == "error" for p in problems)
 
@@ -262,7 +262,7 @@ def test_catalog_marks_are_undefined_for_other_kinds(kind):
 def test_pre_save_inspection_warns_only_for_non_enemy_sources(api):
     db.session.add_all([
         CatalogEntry(kind="buff", entry_id="Bu-01", revision=1, payload={"name": "敵の強化", "marks": ["enemy"]}),
-        CatalogEntry(kind="buff", entry_id="Bu-02", revision=1, payload={"name": "ホロウの強化", "marks": ["hollow"]}),
+        CatalogEntry(kind="buff", entry_id="Bu-02", revision=1, payload={"name": "通常の強化", "marks": ["known"]}),
         CatalogEntry(kind="skill", entry_id="E-01", revision=1, payload={"デフォルト名称": "敵の技"}),
     ])
     db.session.commit()
@@ -289,7 +289,7 @@ def test_pre_save_inspection_warns_only_for_non_enemy_sources(api):
     assert warnings(author.post("/api/catalog/item/inspect", json={"payload": item})) == []
     assert CatalogDraft.query.count() == 0
     assert author.get("/api/catalog/overview").json["marks"] == {
-        "kinds": ["buff", "passive", "item", "skill"], "labels": {"enemy": "敵専用", "hollow": "ホロウ専用", "known": "図鑑に最初から載せる"},
+        "kinds": ["buff", "passive", "item", "skill"], "labels": {"enemy": "敵専用", "known": "図鑑に最初から載せる"},
     }
 
 

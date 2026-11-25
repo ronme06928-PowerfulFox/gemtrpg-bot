@@ -138,7 +138,10 @@ def _migrate_unit_resources():
             payload = dict(row["payload"])
             payload["name"] = row["name"]
             if resource_type == "character":
+                marks = payload.get("marks")
                 payload, _ = read_character(payload, masters=masters)
+                if isinstance(marks, list):
+                    payload["marks"] = marks
             elif kinds[resource_type] == "formation":
                 payload["type"] = resource_type.split("_")[0]
                 # 消えた参照先を指すメンバーは移さない（起動を止めない）。
@@ -169,6 +172,62 @@ def _migrate_unit_resources():
             db.session.execute(text(f"DROP TABLE {name}"))
     db.session.commit()
     logging.info("Auto Migration: moved preset resources %s, removed legacy tables", dict(counts))
+
+
+def _migrate_unit_domains(inspector):
+    from models import CatalogDraft, CatalogEntry, CatalogHistory
+    from manager.catalog.kinds import KINDS
+    from manager.units.validation import IDS, links
+
+    if not inspector.has_table(CatalogEntry.__tablename__):
+        return
+
+    units = CatalogEntry.query.filter(CatalogEntry.kind.in_(IDS)).all()
+    resources = {(row.kind, row.entry_id): row.payload for row in units}
+    domains = {key: payload.get("domain", "session") for key, payload in resources.items()}
+    neighbors = {key: set() for key in resources}
+    for key, payload in resources.items():
+        for target_kind, entry_id, _ in links(key[0], payload):
+            target = (target_kind, entry_id)
+            neighbors[key].add(target)
+            if target in neighbors:
+                neighbors[target].add(key)
+
+    for key, payload in resources.items():
+        if key[0] != "unit" or "hollow" not in (payload.get("marks") or []):
+            continue
+        if domains[key] == "hollow":
+            continue
+        incompatible = sorted(target[1] for target in neighbors[key] if domains.get(target) != "hollow")
+        if incompatible:
+            logging.warning("Auto Migration: %s kept in %s because of unit resource references: %s",
+                            key[1], domains[key], ", ".join(incompatible))
+        else:
+            domains[key] = "hollow"
+
+    master_marks = set()
+    for model in (CatalogEntry, CatalogHistory, CatalogDraft):
+        if not inspector.has_table(model.__tablename__):
+            continue
+        kinds = KINDS if model is CatalogDraft else set(IDS) | set(KINDS)
+        for row in model.query.filter(model.kind.in_(kinds)):
+            payload = dict(row.payload)
+            if row.kind in IDS:
+                key = (row.kind, row.entry_id)
+                if model is CatalogEntry:
+                    payload["domain"] = domains[key]
+                else:
+                    payload.setdefault("domain", domains.get(key, "session"))
+            marks = payload.get("marks")
+            if isinstance(marks, list) and "hollow" in marks:
+                payload["marks"] = [mark for mark in marks if mark != "hollow"]
+                if row.kind in KINDS:
+                    master_marks.add((row.kind, row.target_id if model is CatalogDraft else row.entry_id))
+            if payload != row.payload:
+                row.payload = payload
+    db.session.commit()
+    for kind, entry_id in sorted(master_marks):
+        logging.warning("Auto Migration: removed hollow mark from master data %s %s", kind, entry_id)
 
 
 def run_auto_migration(app):
@@ -313,6 +372,7 @@ def run_auto_migration(app):
             if inspector.has_table("rooms"):
                 _migrate_room_play_modes()
             _remove_unit_initial_states(inspect(db.session.connection()))
+            _migrate_unit_domains(inspect(db.session.connection()))
 
             # image_registryテーブルが存在するか確認
             if not inspector.has_table('image_registry'):

@@ -14,7 +14,7 @@ from extensions import socketio, user_sids
 from events.preset_deployment_access import catalog_request_context
 from manager.room_access import GM_ROLES
 from manager.battle.common_manager import _get_round_transition_lock
-from manager.units.runtime import deployment_store
+from manager.units.runtime import deployment_store, get_record
 from manager.preset_deployment import (
     PresetDeploymentError,
     apply_deployment,
@@ -108,9 +108,24 @@ def _queue(state):
     return state.get("encounter_queue") or []
 
 
+def _uses_hollow_resources(deployment, hollow):
+    stage = deployment.get("stage")
+    if stage and get_record(hollow, "stage", stage["record_id"]):
+        return True
+    if any(row and get_record(hollow, side + "_formation", row["record_id"])
+           for side, row in deployment.get("formations", {}).items()):
+        return True
+    return any(get_record(hollow, "character", row["record_id"])
+               for row in deployment.get("characters", []))
+
+
 def _emit_queue(context, *, summary=None):
+    entries = _queue(context["state"])
+    if entries:
+        hollow = deployment_store(domain="hollow")
+        entries = [row for row in entries if not _uses_hollow_resources(row["deployment"], hollow)]
     socketio.emit("encounter_queue", {
-        "room": context["room"], "entries": _queue(context["state"]), "summary": summary,
+        "room": context["room"], "entries": entries, "summary": summary,
     }, to=request.sid)
 
 
@@ -150,7 +165,8 @@ def handle_encounter_save(data):
         try:
             payload = _deployment_payload(context, {"deployment": data.get("deployment") or {}})
             deployment = normalize_deployment_request({**payload, "center": None})
-            summary = preview_deployment(context["state"], deployment, deployment_store(), **_manager_context(context))
+            summary = preview_deployment(context["state"], deployment, deployment_store(domain="session"),
+                                         **_manager_context(context))
             encounter_id = data.get("encounter_id")
             row = _encounter(context, encounter_id) if encounter_id else None
         except PresetDeploymentError as ex:
@@ -232,7 +248,7 @@ def handle_preset_deployment_catalog(data):
     context = _require_context(data)
     if context is None:
         return
-    store = deployment_store()
+    store = deployment_store(domain="session")
     catalog = build_deployment_catalog(
         store,
         user_id=context.get("user_id"),
@@ -256,7 +272,7 @@ def handle_preset_deployment_preview(data):
         summary = preview_deployment(
             context["state"],
             payload,
-            deployment_store(),
+            deployment_store(domain="session"),
             **_manager_context(context),
         )
     except PresetDeploymentError as ex:
@@ -311,7 +327,7 @@ def _apply(context, src):
         summary, logs = apply_deployment(
             context["state"],
             payload,
-            deployment_store(),
+            deployment_store(domain="session"),
             expected_unplaced=expected_unplaced if type(expected_unplaced) is int else None,
             room=context["room"],
             **_manager_context(context),

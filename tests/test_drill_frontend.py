@@ -16,14 +16,15 @@ def test_encyclopedia_visibility_is_reused():
 import fs from 'node:fs'; import vm from 'node:vm'; import assert from 'node:assert/strict';
 const window={CatalogSkill:{groups:[['敵',[['E','敵スキル']]]]}};
 for(const name of ['encyclopedia/data','drill/data']) vm.runInNewContext(fs.readFileSync('static/js/'+name+'.js','utf8'),{window});
-const masters={skill:{'E-01':{},'E-02':{marks:['known']},'E-03':{marks:['hollow','known']},'Ps-00':{}}};
+const masters={skill:{'E-01':{},'E-02':{marks:['known']},'E-03':{marks:['known']},'Ps-00':{}}};
 const extra={can_view_all:false,encounters:[],units:[{entry_id:'U-001',visibility:'public',payload:{allow_enemy:true}},
- {entry_id:'U-002',visibility:'public',payload:{allow_enemy:true,marks:['known']}}]};
+ {entry_id:'U-002',visibility:'public',payload:{allow_enemy:true,marks:['known']}},
+ {entry_id:'U-003',visibility:'public',payload:{domain:'hollow',marks:['known']}}]};
 let rows=window.DrillData.readable(masters,extra);
-assert.deepEqual(Array.from(rows.skill,r=>r.id),['E-02','Ps-00']);
+assert.deepEqual(Array.from(rows.skill,r=>r.id),['E-02','E-03','Ps-00']);
 assert.deepEqual(Array.from(rows.enemy,r=>r.id),['U-002']);
 rows=window.DrillData.readable(masters,{...extra,can_view_all:true});
-assert.equal(rows.skill.length,4); assert.equal(rows.enemy.length,2);
+assert.equal(rows.skill.length,4); assert.equal(rows.enemy.length,3);
 assert.deepEqual(Array.from(window.DrillData.heldSkills({commands:'1d6 【E-01 secret】\n2d6 【Ps-00 name】'},rows.skill),r=>r.id),['E-01','Ps-00']);
 """)
 

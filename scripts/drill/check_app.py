@@ -36,7 +36,7 @@ def main():
             with sqlite3.connect(copied) as connection:
                 connection.execute('UPDATE users SET is_catalog_author=1 WHERE id=?',(who['user_id'],))
             unit=api(author,'/api/units/unit',{'visibility':'public','payload':{
-                'name':'演習の番兵','allow_ally':False,'allow_enemy':True,'marks':['known'],
+                'name':'演習の番兵','domain':'session','allow_ally':False,'allow_enemy':True,'marks':['known'],
                 'hp':80,'mp':20,'image':'/static/images/characters/人狼型シュラーカー.png',
                 'params':[{'label':'速度','value':2},{'label':'五感','value':2},{'label':'物理補正','value':3}],
                 'skills':[{'id':'E-00','name':'番兵の一撃'}]}})['entry']

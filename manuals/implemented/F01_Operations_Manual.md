@@ -1457,7 +1457,7 @@ CatalogEncounterの種類にitemを追加する。敵の登場時、そのキャ
 
 ### 演習場用のキャラクター変換（PR63-2）
 
-ログイン必須のPOST /api/drill/characterは{source:'owned'|'unit', id, side:'ally'|'enemy'}を受け、{character}を返す。ownedは本人の未削除の持ちキャラだけ。unitは図鑑の閲覧条件（public/staff、出会い/known、hollow、allow_enemy、廃止）を共有し、その人が読める敵だけ。本人以外・未解禁・範囲外は404、要求の形やsideが不正なら422。制作者・アプリ管理者は図鑑と同じく全件閲覧できる。
+ログイン必須のPOST /api/drill/characterは{source:'owned'|'unit', id, side:'ally'|'enemy'}を受け、{character}を返す。ownedは本人の未削除の持ちキャラだけ。unitは図鑑の閲覧条件（public/staff、出会い/known、区分、allow_enemy、廃止）を共有し、その人が読める敵だけ。本人以外・未解禁・範囲外は404、要求の形やsideが不正なら422。制作者・アプリ管理者は図鑑と同じく全件閲覧できる。
 
 持ちキャラはルームの入力パーサと同じ形に正規化し、共通のタグ方針・出身/パッシブ/輝化の準備を行う。敵ユニットはbuild_characterと配置時のパッシブ準備を使う。名前の連番、ルームへの追加、保存、出会いの記録は行わない。選んだ陣営の配置許可は一時コピー上で認め、元のデータは変えない。GET /api/encyclopediaと共通のサーバー部品で敵の公開範囲を判定する。
 

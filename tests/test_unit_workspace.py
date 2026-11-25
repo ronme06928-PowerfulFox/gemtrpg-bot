@@ -20,7 +20,7 @@ await import('./static/js/master_data/glossary.js');
 await import('./static/js/master_data/skill.js');
 await import('./static/js/units/patterns.js');
 await import('./static/js/units/forms.js');
-UnitForms.configureMarks({enemy:'敵専用', hollow:'ホロウ専用', known:'図鑑に最初から載せる'});
+UnitForms.configureMarks({enemy:'敵専用', known:'図鑑に最初から載せる'});
 await import('./static/js/units/views.js');
 const api = UnitApi;
 const merged = UnitForms.overwriteUnit({collection_id:'SC-01',default_pattern_id:'BP-1',

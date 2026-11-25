@@ -7,7 +7,7 @@ from manager.room_access import GM_ROLES, resolve_room_role
 from manager.catalog.kinds import MARK_LABELS
 from manager.units import repository, transfer
 from manager.units.characters import read_character
-from manager.units.validation import IDS, master_links
+from manager.units.validation import DOMAINS, IDS, master_links
 from manager.utils import session_required
 from manager.battle.hidden_passives import redact_hidden_passives
 from manager.practice_rooms import is_practice
@@ -56,8 +56,12 @@ def _visible(kind, entry_id):
 @units_bp.get("/<kind>")
 @endpoint()
 def list_entries(kind=None):
+    domain = request.args.get("domain")
+    if domain is not None and domain not in DOMAINS:
+        raise repository.CatalogValidationError({"domain": "session または hollow を指定してください"})
     rows = repository.entries(include_staff=g.units_staff,
-                              include_deprecated=request.args.get("include_deprecated") == "1")
+                              include_deprecated=request.args.get("include_deprecated") == "1",
+                              domain=domain)
     return jsonify(entries=[row if g.units_staff else redact_hidden_passives(row)
                             for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
                    marks=MARK_LABELS)
@@ -115,6 +119,16 @@ def save(kind, entry_id=None):
         base_revision=data.get("base_revision"), actor_user_id=g.authenticated_user.id,
         pattern_additions=data.get("pattern_additions"))
     return jsonify(entry=repository.entry_json(row), warnings=warnings), (201 if entry_id is None else 200)
+
+
+@units_bp.post("/unit/<entry_id>/duplicate-to-hollow")
+@endpoint(author_only=True)
+def duplicate_to_hollow(entry_id):
+    result = repository.duplicate_to_hollow(entry_id, actor_user_id=g.authenticated_user.id)
+    if result is None:
+        abort(404)
+    row, warnings = result
+    return jsonify(entry=repository.entry_json(row), warnings=warnings), 201
 
 
 @units_bp.post("/<kind>/<entry_id>/deprecation")

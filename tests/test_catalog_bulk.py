@@ -22,7 +22,7 @@ def app():
         db.session.add_all([User(id="admin",name="admin",is_app_admin=True),
                             User(id="author",name="author",is_catalog_author=True), User(id="reader",name="reader")])
         for index in range(60, 65):
-            payload = {"name":f"buff{index}", "description":"KEEP", "effect":{}, "marks":["hollow"]}
+            payload = {"name":f"buff{index}", "description":"KEEP", "effect":{}, "marks":["enemy"]}
             if index == 62:
                 payload["default_duration"] = 0
             db.session.add(CatalogEntry(kind="buff",entry_id=f"Bu-{index}",payload=payload,revision=1))
@@ -48,7 +48,7 @@ def client(app, actor):
 
 def body(ids=("Bu-60","Bu-61","Bu-62","Bu-63")):
     return {"entries":[{"entry_id":key,"base_revision":9 if key=="Bu-63" else 1} for key in ids],
-            "changes":{"category":"能力の増減","marks_add":["known"],"marks_remove":["hollow"]}}
+            "changes":{"category":"能力の増減","marks_add":["known"],"marks_remove":["enemy"]}}
 
 
 @pytest.mark.parametrize("actor",["author","admin"])
@@ -69,7 +69,7 @@ def test_bulk_success_skips_and_preserves_payload(app,actor):
         assert history.action=="publish" and history.actor_user_id=="admin"
         assert CatalogDraft.query.filter_by(target_id="Bu-60").first() is None
     else:
-        assert current.revision==1 and current.payload["marks"]==["hollow"]
+        assert current.revision==1 and current.payload["marks"]==["enemy"]
         draft=CatalogDraft.query.filter_by(target_id="Bu-60").one()
         assert draft.status=="pending" and draft.payload["description"]=="KEEP"
     assert CatalogDraft.query.filter_by(target_id="Bu-62").first() is None
@@ -81,7 +81,7 @@ def test_bulk_requires_author(app,actor,status):
 
 
 def test_bulk_rejects_unknown_operations_and_duplicate_entries(app):
-    for changes in ({"name":"bad"},{"category":"bad"},{"marks_add":["bad"]},
+    for changes in ({"name":"bad"},{"category":"bad"},{"marks_add":["bad"]}, {"marks_add":["hollow"]}, {"marks_remove":["hollow"]},
                     {"marks_add":["known"],"marks_remove":["known"]},{}):
         data=body(("Bu-60",))
         data["changes"]=changes

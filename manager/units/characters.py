@@ -101,6 +101,7 @@ def read_character(raw, *, masters=None):
         patterns.append({"id": "BP-1", "name": "インポートしたパターン", "note": "",
                          "profile": normalize_behavior_profile(profile)})
     unit = {
+        "domain": "session",
         # ルームから書き出したキャラは「名前 [敵 1]」の番号付きなので、番号を外して持つ。
         "name": RUNTIME_SUFFIX.sub("", str(data.get("name") or envelope.get("name") or "")).strip(),
         "image": str(data.get("image") or ""),

@@ -57,7 +57,7 @@ controller.destroy();assert.equal(events.size,0);
 
 def test_catalog_marks_in_browse_filter_edit_and_review():
     run_node(r"""
-const labels={enemy:'敵専用',hollow:'ホロウ専用'};
+const labels={enemy:'敵専用',known:'図鑑に最初から載せる'};
 window.CatalogApi.overview=async()=>({counts:{},pending:[],marks:{kinds:['buff','passive','item'],labels}});
 const originList=window.CatalogApi.list;
 window.CatalogApi.list=async kind=>kind==='buff'
@@ -65,7 +65,7 @@ window.CatalogApi.list=async kind=>kind==='buff'
   : originList(kind);
 await controller.refresh();
 await click({kind:'buff'});
-window.CatalogApi.inspect=async (kind,payload,id)=>({problems:kind==='buff' && id==='buff-01' && payload.marks.includes('hollow')
+window.CatalogApi.inspect=async (kind,payload,id)=>({problems:kind==='buff' && id==='buff-01' && payload.marks.includes('known')
   ? [{level:'warning',field:'effect',message:'検査の注意'}] : []});
 const output=selector=>panel.querySelector(selector).innerHTML;
 const inputControl=(dataset,value,checked)=>panel.listeners.get('input')({target:{dataset,value,checked,hasAttribute:()=>false}});
@@ -79,14 +79,14 @@ await click({record:'entry:buff-01'});
 activeKind='buff';
 await click({action:'edit'});
 assert.match(output('#cat-input-content'),/type="checkbox" data-mark="enemy"/);
-inputControl({mark:'hollow'},'hollow',true);
+inputControl({mark:'known'},'known',true);
 await new Promise(resolve=>setTimeout(resolve,300));
 assert.match(output('#cat-live-problems'),/検査の注意/);
 assert.deepEqual(calls,[]);
 await click({action:'save'});
-assert.deepEqual(Array.from(savedDraft.payload.marks),['hollow']);
+assert.deepEqual(Array.from(savedDraft.payload.marks),['known']);
 const review=window.CatalogReview.rows(all.buff,{},savedDraft.payload,{marks:labels});
-assert.equal(review.find(row=>row.key==='marks').after,'ホロウ専用');
+assert.equal(review.find(row=>row.key==='marks').after,'図鑑に最初から載せる');
 controller.destroy();
 """)
 
@@ -168,7 +168,7 @@ controller.destroy();
 
 def test_known_mark_field_only_for_hidden_entries():
     run_node(r"""
-const labels={enemy:'敵専用',hollow:'ホロウ専用',known:'図鑑に最初から載せる'};
+const labels={enemy:'敵専用',known:'図鑑に最初から載せる'};
 window.CatalogApi.overview=async()=>({counts:{},pending:[],marks:{kinds:['buff','passive','item','skill'],labels}});
 await controller.refresh();
 activeKind='buff';

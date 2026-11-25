@@ -2,7 +2,7 @@
   const request = (suffix = '', ...args) => window.CatalogApi.request('/api/units' + suffix, ...args);
   const path = (kind, id) => '/' + kind + (id ? '/' + encodeURIComponent(id) : '');
   window.UnitApi = {
-    list: () => request('?include_deprecated=1'),
+    list: () => request('?include_deprecated=1&domain=session'),
     history: (kind, id) => request(path(kind, id) + '/history'),
     references: (kind, id) => request(path(kind, id) + '/references'),
     check: (kind, body) => request(path(kind) + '/check', 'POST', body),
