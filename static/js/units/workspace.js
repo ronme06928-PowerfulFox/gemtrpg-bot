@@ -7,13 +7,21 @@
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
   const labels = {unit:'ユニット',formation:'編成',stage:'ステージ'};
+  const hollowLabels = {...labels,unit_collection:'分類'};
+  const futureTabs = [
+    ['階', ['Tier','固定階','イベント','宝箱']],
+    ['報酬', ['淵遺物','ドロップ表','バフ','アイテム']],
+  ];
 
-  // メインメニューの下の全幅の画面（#units）として、渡された枠の中に描く（E02 Part 10・18）。
+  // #units と #hollow-data で同じ編集・未保存確認を使う。
   function mountUnitManagement(host, options = {}) {
-    host.innerHTML = `<section class="bo-workspace cat-workspace unit-workspace" aria-label="ユニット管理" tabindex="-1">
-      <header class="bo-workspace__header"><h2>ユニット管理</h2><div class="bo-workspace__header-actions"></div></header>
+    const domain = options.domain || 'session';
+    const hollow = domain === 'hollow';
+    const title = hollow ? 'ホロウデータ' : 'ユニット管理';
+    host.innerHTML = `<section class="bo-workspace cat-workspace unit-workspace" ${hollow ? 'data-theme="abyss"' : ''} aria-label="${title}" tabindex="-1">
+      <header class="bo-workspace__header"><h2>${title}</h2><div class="bo-workspace__header-actions"></div></header>
       <div class="cat-message" hidden></div>
-      <nav class="unit-tabs" aria-label="資源の種類"></nav>
+      <nav class="unit-tabs${hollow ? ' unit-tab-groups' : ''}" aria-label="資源の種類"></nav>
       <div class="unit-layout">
         <aside class="unit-list-pane">
           <div class="unit-list-heading"><h3>一覧</h3><div class="unit-list-actions"></div></div>
@@ -21,7 +29,7 @@
         </aside>
         <main class="unit-detail"><p class="cat-empty">読み込み中…</p></main>
       </div>
-      <section class="unit-dialog" role="dialog" aria-modal="true" aria-label="ユニット管理の操作" hidden></section>
+      <section class="unit-dialog" role="dialog" aria-modal="true" aria-label="${title}の操作" hidden></section>
       </section>`;
     const panel = host.firstElementChild;
     const get = selector => panel.querySelector(selector);
@@ -99,7 +107,7 @@
 
     function renderList() {
       const query = state.search.trim().toLowerCase();
-      const rows = tabRows().filter(row => (!state.collection || row.payload.collection_id === state.collection) &&
+      const rows = tabRows().filter(row => (state.kind === 'unit_collection' || !state.collection || row.payload.collection_id === state.collection) &&
         (state.kind !== 'unit' || !state.mark || row.payload.marks?.includes(state.mark)) &&
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
       get('.unit-records').innerHTML = rows.map(row => views.recordRow(row,row.entry_id === state.selected)).join('')
@@ -109,12 +117,16 @@
     function renderFrame() {
       get('.bo-workspace__header-actions').innerHTML = (canEdit() ? button('書き出し・取り込み','transfer') : '') +
         button('再読み込み','reload');
-      get('.unit-tabs').innerHTML = Object.entries(labels).map(([kind,label]) =>
+      const activeTabs = Object.entries(hollow ? hollowLabels : labels).map(([kind,label]) =>
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
           `data-kind="${kind}" aria-pressed="${state.kind === kind}"`)).join('');
+      const group = (label, tabs) => `<section class="unit-tab-group" aria-label="${label}"><h3>${label}</h3>${tabs}</section>`;
+      get('.unit-tabs').innerHTML = hollow ? group('敵', activeTabs) +
+        futureTabs.map(([label, tabs]) => group(label, tabs.map(tab =>
+          `<button type="button" class="cat-button" disabled>${tab}</button>`).join(''))).join('') : activeTabs;
       get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
       get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
-        <label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>
+        ${state.kind !== 'unit_collection' ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
         ${state.kind === 'unit' ? `<label class="cat-field">印<select data-filter="mark"><option value="">すべての印</option>${Object.entries(forms.markLabels).map(([key,label])=>`<option value="${key}" ${state.mark === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>` : ''}
         <label class="unit-inline"><input type="checkbox" aria-label="廃止済みも表示" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済み</label>`;
       renderList();
@@ -150,7 +162,8 @@
         </div>
         <footer class="unit-footer"><div>${canEdit() && persisted ? `<details class="unit-more">
           <summary>その他 ▾</summary>
-          <div class="unit-more-actions">${button(row.deprecated ? '廃止を取り消す' : '廃止','deprecate')}
+          <div class="unit-more-actions">${!hollow && state.kind === 'unit' ? button('ホロウへ複製','duplicate-to-hollow') : ''}
+            ${button(row.deprecated ? '廃止を取り消す' : '廃止','deprecate')}
             <div class="unit-delete-action">${button('削除','delete','aria-describedby="unit-delete-reason"','cat-danger')}
             <span id="unit-delete-reason"></span></div></div></details>` : ''}</div>
           <div><span data-unit-revision>${persisted ? '版 ' + h(row.revision) : '新規'}</span>
@@ -253,7 +266,7 @@
     }
 
     async function reload(id = state.selected, section = state.section, fromReference = false) {
-      const {entries, marks} = await api.list();
+      const {entries, marks} = await api.list(domain);
       forms.configureMarks(marks || {});
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
       const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
@@ -271,7 +284,7 @@
       state.section = 'basic';
       state.conflict = false;
       state.rawConstraints = null;
-      state.draft = {payload:clone(value), visibility:'public', deprecated:false};
+      state.draft = {payload:{...clone(value),domain}, visibility:'public', deprecated:false};
       closeDialog();
       renderFrame();
       update(true);
@@ -542,7 +555,7 @@
       get('[data-unit-action="analyse"]').classList.add('cat-primary');
       const input = get('[data-character-json]').value;
       if (!input.trim()) throw new Error('JSONを入力してください。');
-      previewImportResult(await api.readCharacter(parse(input.replace(/^\uFEFF/,''))));
+      previewImportResult(await api.readCharacter(parse(input.replace(/^\uFEFF/,'')),domain));
     }
 
     async function readFile(input) {
@@ -624,7 +637,10 @@
         (get('[data-section][aria-current="true"]') || get('[data-unit-action="new"]'))?.focus();
       }
       if (action === 'new') {
-        if (state.kind === 'stage') { if (await canLeave()) startNew('stage'); return; }
+        if (state.kind === 'stage' || state.kind === 'unit_collection') {
+          if (await canLeave()) startNew(state.kind);
+          return;
+        }
         showDialog('新規作成', state.kind === 'unit'
           ? button('空のユニット','new-unit') + button('JSONインポート','import-character')
           : button('敵編成','new-enemy') + button('味方編成','new-ally'));
@@ -687,6 +703,15 @@
         update(true);
       }
       if (action === 'save') await save();
+      if (action === 'duplicate-to-hollow') {
+        if (state.dirty) {
+          notify('変更を保存するか破棄してから複製してください。',true);
+          return;
+        }
+        const {entry} = await api.duplicateToHollow(state.selected);
+        control.closest('details').open = false;
+        notify(`${entry.entry_id} に複製しました。メインメニューの「ホロウデータ」で開けます。`);
+      }
       if (['deprecate','delete','restore'].includes(action)) {
         if (!await canLeave()) return;
         const label = control.textContent;
@@ -714,7 +739,7 @@
       }
       if (action === 'export') {
         const collection = get('[data-export-collection]').value;
-        const data = await api.exportPackage(collection,get('[data-export-deprecated]').checked);
+        const data = await api.exportPackage(collection,get('[data-export-deprecated]').checked,domain);
         download(data,`units-${collection || 'all'}.json`);
       }
       if (action === 'import-file') get('[data-unit-file="package"]').click();

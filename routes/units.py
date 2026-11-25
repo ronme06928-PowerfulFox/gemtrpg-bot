@@ -56,15 +56,20 @@ def _visible(kind, entry_id):
 @units_bp.get("/<kind>")
 @endpoint()
 def list_entries(kind=None):
-    domain = request.args.get("domain")
-    if domain is not None and domain not in DOMAINS:
-        raise repository.CatalogValidationError({"domain": "session または hollow を指定してください"})
+    domain = _domain_arg()
     rows = repository.entries(include_staff=g.units_staff,
                               include_deprecated=request.args.get("include_deprecated") == "1",
                               domain=domain)
     return jsonify(entries=[row if g.units_staff else redact_hidden_passives(row)
                             for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
                    marks=MARK_LABELS)
+
+
+def _domain_arg():
+    domain = request.args.get("domain")
+    if domain is not None and domain not in DOMAINS:
+        raise repository.CatalogValidationError({"domain": "session または hollow を指定してください"})
+    return domain
 
 
 @units_bp.get("/<kind>/<entry_id>")
@@ -159,10 +164,13 @@ def delete(kind, entry_id):
 @units_bp.post("/import-character")
 @endpoint(author_only=True)
 def import_character():
+    data = _body()
     try:
-        payload, discarded = read_character(_body().get("character"))
+        payload, discarded = read_character(data.get("character"))
     except ValueError as exc:
         raise repository.CatalogValidationError({"character": str(exc)}) from exc
+    if "domain" in data:
+        payload["domain"] = data["domain"]
     errors, warnings = repository.check("unit", payload)
     return jsonify(payload=payload, discarded=discarded, errors=errors, warnings=warnings)
 
@@ -171,7 +179,8 @@ def import_character():
 @endpoint(author_only=True)
 def export():
     return jsonify(transfer.export_package(
-        request.args.get("collection_id"), include_deprecated=request.args.get("include_deprecated", "1") == "1"))
+        request.args.get("collection_id"), include_deprecated=request.args.get("include_deprecated", "1") == "1",
+        domain=_domain_arg()))
 
 
 @units_bp.post("/import/preview")

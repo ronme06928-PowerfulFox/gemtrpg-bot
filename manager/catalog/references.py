@@ -159,5 +159,6 @@ def find_references(kind, entry_id, *, include_staff=False):
             for target_kind, target, path in master_links(row["payload"]):
                 if (target_kind, target) == (kind, entry_id):
                     references.append({"kind": "unit", "entry_id": source_id,
-                                       "display_name": row["payload"]["name"], "path": path})
+                                       "display_name": row["payload"]["name"], "path": path,
+                                       "domain": row["payload"].get("domain")})
     return references

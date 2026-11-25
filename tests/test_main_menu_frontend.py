@@ -23,11 +23,12 @@ assert.equal(s.screenFromHash(''), 'menu');
 assert.equal(s.screenFromHash('#sessions'), 'sessions');
 assert.equal(s.screenFromHash('#help'), 'help');
 assert.equal(s.screenFromHash('#nope'), 'menu');
-for (const name of ['characters', 'units', 'master', 'users', 'encyclopedia']) assert.equal(s.screenFromHash('#' + name), name);
+for (const name of ['characters', 'units', 'master', 'hollow-data', 'users', 'encyclopedia']) assert.equal(s.screenFromHash('#' + name), name);
 
 const html = s.menuHtml({name: 'Alice', isAppAdmin: false});
-const order = [...html.matchAll(/data-screen-card="(\w+)"/g)].map(m => m[1]);
-assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'encyclopedia', 'drill', 'help', 'units', 'master']);
+const order = [...html.matchAll(/data-screen-card="([\w-]+)"/g)].map(m => m[1]);
+assert.deepEqual(order, ['sessions', 'dungeon', 'characters', 'encyclopedia', 'drill', 'help', 'units', 'master', 'hollow-data']);
+assert.match(html, /data-screen-card="hollow-data"[^>]*data-theme="abyss"/);
 assert.match(html, /data-screen-card="dungeon"[^>]*disabled/);
 assert.match(html, /準備中/);
 assert.match(html, /Alice/);
@@ -52,6 +53,54 @@ def test_room_list_keeps_only_room_actions():
                     "portal-logout-btn", "portal-user-settings-btn", "manage-users-btn"):
         assert removed not in portal
     assert 'data-screen-back="menu"' in portal
+
+
+def test_hollow_workspace_reuses_screen_and_unsaved_confirmation():
+    script = r"""
+import assert from 'node:assert/strict';
+globalThis.window = globalThis;
+globalThis.currentUsername = 'Player';
+globalThis.location = {hash:'#hollow-data'};
+let allow = false, checks = 0, destroyed = 0;
+const domains = [];
+const host = {};
+const portal = {style:{}, dataset:{}, querySelector:() => host};
+const handlers = {};
+globalThis.document = {
+  getElementById: id => id === 'menu-portal' ? portal : null, addEventListener() {},
+};
+globalThis.addEventListener = (name, fn) => { handlers[name] = fn; };
+globalThis.history = {pushState(_s, _t, hash) { location.hash = hash; }};
+globalThis.AppLoading = {end() {}};
+globalThis.setRoomVisible = () => {};
+globalThis.mountUnitManagement = (target, options) => {
+  assert.equal(target, host);
+  domains.push(options.domain);
+  return {allowLeave() { checks++; return allow; }, destroy() { destroyed++; }};
+};
+await import('./static/js/app_screens.js');
+showStartScreen();
+assert.deepEqual(domains, ['hollow']);
+assert.equal(portal.dataset.theme, 'abyss');
+assert.match(portal.innerHTML, /data-screen="hollow-data"/);
+await goScreen('menu');
+assert.equal(location.hash, '#hollow-data');
+location.hash = '#units';
+await handlers.hashchange();
+assert.equal(location.hash, '#hollow-data');
+assert.equal(checks, 2);
+assert.equal(destroyed, 0);
+allow = true;
+await goScreen('units');
+await handlers.hashchange();
+assert.equal(checks, 3);
+assert.equal(destroyed, 1);
+assert.deepEqual(domains, ['hollow', 'session']);
+assert.equal(portal.dataset.theme, 'paper');
+"""
+    result = subprocess.run(["node", "--input-type=module", "-e", script],
+                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+    assert result.returncode == 0, result.stderr
 
 
 def test_screens_are_wired():

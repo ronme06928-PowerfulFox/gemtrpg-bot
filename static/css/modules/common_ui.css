@@ -331,6 +331,88 @@ button:disabled,
   --ui-primary-gloss: linear-gradient(#ffffff1f, rgb(0 0 0 / var(--ui-shade)));
 }
 
+/* 淵の夜（計画35 PR35-2、試作 A 案）。 */
+[data-theme="abyss"] {
+  --ui-text: #e7edf4;
+  --ui-sub: #b2bfcd;
+  --ui-page: #080d17;
+  --ui-bg: #101825;
+  --ui-soft: #182334;
+  --ui-input-bg: #0c1320;
+  --ui-line: #394959;
+  --ui-control: #8395a9;
+  --ui-gold: #74889d;
+  --ui-gold-strong: #a7b9ca;
+  --ui-select-line: var(--ui-primary);
+  --ui-on-primary: #0a1320;
+  --ui-danger: #ffa7ad;
+  --ui-danger-soft: #402734;
+  --ui-warn: #f3c889;
+  --ui-warn-soft: #3d2f25;
+  --ui-add: #a0e4bf;
+  --ui-add-soft: #1b342c;
+  --ui-ally: #a7cfff;
+  --ui-ally-soft: #263752;
+  --ui-enemy: #ffb3b8;
+  --ui-enemy-soft: #3e2734;
+  --ui-head-font: "Noto Serif JP", "Yu Mincho", "Hiragino Mincho ProN", "MS PMincho", serif;
+  --ui-gloss: linear-gradient(rgb(255 255 255 / var(--ui-sheen)), rgb(0 0 0 / var(--ui-shade)));
+  --ui-primary-gloss: linear-gradient(#ffffff1f, rgb(0 0 0 / var(--ui-shade)));
+  --ui-gem-facet: #ffffff66;
+  --ui-sheen: .055;
+  --ui-shade: .075;
+  --ui-inset: inset 0 1px 0 #d7e5fa17;
+  --ui-shadow-input: inset 0 1px 3px #0005;
+  --ui-shadow-button: 0 1px 2px #0006;
+  --ui-shadow-panel: 0 4px 16px #0006;
+  --ui-shadow-float: 0 12px 30px #0009;
+  --ui-overlay: #050911b8;
+  --ui-frame: none;
+  --ui-tex: none;
+  --ui-page-tex: radial-gradient(ellipse at 72% -16%, var(--abyss-light), transparent 62%);
+  --cave: url("/static/images/backgrounds/暗い遺跡洞窟.webp");
+  --abyss-banner: linear-gradient(90deg, var(--ui-bg) 20%, transparent 100%),
+    linear-gradient(0deg, var(--ui-bg), var(--abyss-light)), var(--cave);
+  color-scheme: dark;
+  --gem-emerald: var(--ui-primary);
+  --gem-sapphire: #98bdf1;
+  --gem-ruby: #eda9b4;
+  --gem-amethyst: #c6b4ef;
+  --gem-topaz: #e1b795;
+  --gem-quartz: #bacbdb;
+  --gem-diamond: #a9c2d6;
+  --gem-citrine: #d8b84a;
+  --gem-onyx: #b9bec8;
+  --gem-quartz-soft: color-mix(in srgb, var(--gem-quartz) 22%, var(--ui-bg));
+  --gem-diamond-soft: color-mix(in srgb, var(--gem-diamond) 22%, var(--ui-bg));
+  --gem-topaz-soft: color-mix(in srgb, var(--gem-topaz) 22%, var(--ui-bg));
+  --gem-emerald-soft: color-mix(in srgb, var(--gem-emerald) 22%, var(--ui-bg));
+  --gem-ruby-soft: color-mix(in srgb, var(--gem-ruby) 22%, var(--ui-bg));
+  --gem-sapphire-soft: color-mix(in srgb, var(--gem-sapphire) 22%, var(--ui-bg));
+  --gem-amethyst-soft: color-mix(in srgb, var(--gem-amethyst) 22%, var(--ui-bg));
+  --gem-citrine-soft: color-mix(in srgb, var(--gem-citrine) 22%, var(--ui-bg));
+  --gem-onyx-soft: color-mix(in srgb, var(--gem-onyx) 22%, var(--ui-bg));
+  --grade-iron: #bbc4b8;
+  --grade-iron-bg: #29342e;
+  --grade-iron-symbol: "■";
+  --grade-copper: #efb194;
+  --grade-copper-bg: #412b26;
+  --grade-copper-symbol: "▲";
+  --grade-silver: #cee3f6;
+  --grade-silver-bg: #23374c;
+  --grade-silver-symbol: "◆";
+  --grade-gold: #f6d783;
+  --grade-gold-bg: #40351c;
+  --grade-gold-symbol: "●";
+  --grade-exceptional: #f0b8ec;
+  --grade-exceptional-bg: #402842;
+  --grade-exceptional-symbol: "✦";
+  --ui-primary: #85dddd;
+  --ui-primary-soft: #17373e;
+  --ui-focus: #a2eded;
+  --abyss-light: #337c8870;
+}
+
 /* UI-2c: ivory marble for system surfaces. */
 [data-theme="marble"] {
   --ui-bg: #f5f0e4;

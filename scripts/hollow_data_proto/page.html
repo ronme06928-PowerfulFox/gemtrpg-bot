@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ホロウデータ｜配色試作</title>
+  <!--STYLE-->
+</head>
+<body>
+  <main id="menu-portal" data-theme="paper"></main>
+  <aside class="prototype-dock cat-workspace" data-theme="night" aria-label="配色比較">
+    <details class="contrast-panel">
+      <summary id="contrast-summary"></summary>
+      <table>
+        <thead><tr><th scope="col">配色</th><th scope="col">基準</th><th scope="col">A</th><th scope="col">B</th></tr></thead>
+        <tbody id="contrast-details"></tbody>
+      </table>
+    </details>
+    <div class="cat-actions">
+      <button class="cat-button" type="button" data-action="palette" data-value="a">A 青緑</button>
+      <button class="cat-button" type="button" data-action="palette" data-value="b">B 紫</button>
+      <button class="cat-button" type="button" data-action="compare">夜色と金と比較</button>
+    </div>
+  </aside>
+  <span class="palette-probe" data-theme="abyss" data-palette="a"></span>
+  <span class="palette-probe" data-theme="abyss" data-palette="b"></span>
+  <template id="menu-template">
+    <header class="menu-head">
+      <span class="menu-head__brand">ジェムリアTRPG</span>
+      <span class="menu-account__toggle">制作者</span>
+    </header>
+    <section class="main-menu">
+      <h1>メインメニュー</h1>
+      <nav class="menu-grid" aria-label="移動先">
+        <button type="button" class="menu-card" data-gem="sapphire" data-screen-card="sessions" aria-disabled="true"><span class="menu-card__copy"><strong>セッション</strong><span>ルーム一覧</span></span><span class="menu-card__arrow" aria-hidden="true">›</span></button>
+        <button type="button" class="menu-card" data-gem="ruby" data-screen-card="dungeon" disabled><span class="menu-card__copy"><strong>ダンジョン</strong><span>準備中</span></span></button>
+        <button type="button" class="menu-card" data-gem="topaz" aria-disabled="true"><span class="menu-card__copy"><strong>マイキャラクター</strong><span>作成・管理</span></span><span class="menu-card__arrow" aria-hidden="true">›</span></button>
+        <button type="button" class="menu-card" data-gem="emerald" aria-disabled="true"><span class="menu-card__copy"><strong>図鑑</strong><span>世界の理・技能と魔物</span></span><span class="menu-card__arrow" aria-hidden="true">›</span></button>
+        <button type="button" class="menu-card" data-gem="citrine" aria-disabled="true"><span class="menu-card__copy"><strong>演習場</strong><span>模擬戦闘</span></span><span class="menu-card__arrow" aria-hidden="true">›</span></button>
+        <button type="button" class="menu-card" data-gem="quartz" aria-disabled="true"><span class="menu-card__copy"><strong>使い方</strong><span>ルールブック・ガイド</span></span><span class="menu-card__arrow" aria-hidden="true">›</span></button>
+      </nav>
+      <nav class="menu-data" aria-label="データ管理">
+        <h2>データ管理</h2>
+        <button type="button" class="menu-data-button" data-gem="emerald" data-action="screen" data-value="units">ユニット管理</button>
+        <button type="button" class="menu-data-button" data-gem="amethyst" data-action="screen" data-value="master">マスターデータ</button>
+        <button type="button" class="menu-data-button" data-theme="abyss" data-screen-card="hollow-data" data-action="screen" data-value="hollow-data">ホロウデータ</button>
+      </nav>
+    </section>
+  </template>
+  <!--SCRIPT-->
+</body>
+</html>

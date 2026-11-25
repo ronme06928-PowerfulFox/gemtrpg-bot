@@ -7,9 +7,9 @@ from extensions import db
 FORMAT = "gemtrpg-units-v1"
 
 
-def export_package(collection_id=None, *, include_deprecated=True):
+def export_package(collection_id=None, *, include_deprecated=True, domain=None):
     """Export payloads with their domains and all resource dependencies."""
-    resources = repository.entries()
+    resources = repository.entries(domain=domain)
     selected = {key for key, row in resources.items() if include_deprecated or not row["deprecated"]}
     if collection_id:
         collection = ("unit_collection", collection_id)

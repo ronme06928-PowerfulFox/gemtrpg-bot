@@ -3,13 +3,16 @@
 // main.js のグローバル（showRoomPortal・leaveCurrentSocketRoom など）を使う。
 
 (function () {
-  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'users', 'encyclopedia', 'drill'];
+  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'hollow-data', 'users', 'encyclopedia', 'drill'];
+  const unitScreen = domain => domain === 'hollow' ? 'hollow-data' : 'units';
+  const mountUnits = domain => (host, options) => mountUnitManagement(host, {...options, domain});
   // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
   const WORKSPACES = {
     drill: (host, options) => mountDrill(host, options),
     encyclopedia: (host, options) => mountEncyclopedia(host, options),
     characters: host => mountOwnedCharacters(host),
-    units: (host, options) => mountUnitManagement(host, options),
+    units: mountUnits('session'),
+    'hollow-data': mountUnits('hollow'),
     master: (host, options) => mountCatalogWorkspace(host, { onOpenUnit: openReferencedUnit, ...options }),
   };
   const HELP_LINKS = [
@@ -28,6 +31,7 @@
   const DATA_CARDS = [
     ['units', 'emerald', 'ユニット管理'],
     ['master', 'amethyst', 'マスターデータ'],
+    ['hollow-data', 'emerald', 'ホロウデータ', 'abyss'],
   ];
 
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => (
@@ -49,8 +53,8 @@
         <span class="menu-card__copy"><strong>${title}</strong><span>${summary}</span></span>
         ${disabled ? '' : '<span class="menu-card__arrow" aria-hidden="true">›</span>'}</button>`;
     }).join('');
-    const data = DATA_CARDS.map(([key, gem, title]) =>
-      `<button type="button" class="menu-data-button" data-screen-card="${key}" data-gem="${gem}">${title}</button>`).join('');
+    const data = DATA_CARDS.map(([key, gem, title, theme]) =>
+      `<button type="button" class="menu-data-button" data-screen-card="${key}" data-gem="${gem}"${theme ? ` data-theme="${theme}"` : ''}>${title}</button>`).join('');
     const adminItem = isAppAdmin ? '<li><button type="button" data-account-action="users">ユーザー管理</button></li>' : '';
     return `<header class="menu-head">
         <span class="menu-head__brand">ジェムリアTRPG</span>
@@ -93,7 +97,7 @@
     if (users) users.style.display = 'none';
   }
 
-  function showPortal(html) {
+  function showPortal(html, theme = 'paper') {
     setRoomVisible(false);
     for (const id of ['entry-portal', 'room-portal']) {
       const el = document.getElementById(id);
@@ -101,6 +105,7 @@
     }
     hideMenuScreens();
     const menu = portal();
+    menu.dataset.theme = theme;
     menu.innerHTML = html;
     menu.style.display = 'block';
   }
@@ -114,7 +119,8 @@
   }
 
   function showWorkspace(name, options) {
-    showPortal(`${backBar()}<div class="screen-workspace" data-screen="${name}"></div>`);
+    showPortal(`${backBar()}<div class="screen-workspace" data-screen="${name}"></div>`,
+      name === 'hollow-data' ? 'abyss' : 'paper');
     mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'), options)};
   }
 
@@ -128,8 +134,8 @@
     showWorkspace(name, options);
   }
 
-  function openReferencedUnit(entryId, origin, trail) {
-    followWorkspaceLink('units', { entryId, originName: origin.name,
+  function openReferencedUnit(entryId, origin, trail, domain) {
+    followWorkspaceLink(unitScreen(domain), { entryId, originName: origin.name,
       onReferenceBack: () => followWorkspaceLink('master', { origin, trail }) });
   }
 

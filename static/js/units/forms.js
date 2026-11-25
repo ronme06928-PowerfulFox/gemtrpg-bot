@@ -5,6 +5,7 @@
       ['gear',['パッシブ・','輝化スキル・','アイテム']], ['behavior','行動設定'], ['patterns','行動パターン'], ['history','履歴']],
     formation: [['basic','基本情報'], ['members','メンバー'], ['history','履歴']],
     stage: [['basic','基本情報'], ['battle','編成'], ['field','フィールド効果'], ['avatar','ステージアバター'], ['history','履歴']],
+    unit_collection: [['basic','基本情報'], ['history','履歴']],
   };
   const rules = {SPEED_ROLL_MOD:'速度ロール補正', DAMAGE_DEALT_MOD:'与ダメージ補正', APPLY_STATE_ON_CONDITION:'条件付き状態異常付与'};
   const scopes = {ALL:'全員', ALLY:'味方のみ', ENEMY:'敵のみ'};
@@ -52,6 +53,7 @@
       gm_only:false, hp:0, mp:0, params:[], skills:[], other_lines:[], passives:[], radiance:[],
       hidden_passives:[], items:[], tags:[], marks:[], disabled_tags:[], behavior:{}, patterns:[], default_pattern_id:null};
     if (kind === 'formation') return {name:'', domain:'session', type:side, recommended_ally_count:0, members:[]};
+    if (kind === 'unit_collection') return {name:'', domain:'session'};
     return {name:'', domain:'session', tags:[], required_ally_count:0, field_effect_profile:{version:1,rules:[]}, stage_avatar:{enabled:false}};
   }
 
@@ -102,14 +104,15 @@
       <button type="submit" class="cat-button">追加</button></form>` : ''}`);
     if (section === 'basic') {
       const collection = records.find(r => r.kind === 'unit_collection' && r.entry_id === p.collection_id);
+      const visibility = `<fieldset class="unit-choice"><legend>公開範囲</legend><div class="unit-radio-options">
+          ${Object.entries({public:'公開',staff:'制作者・GMのみ'}).map(([value,label]) => `<label>
+            <input type="radio" data-path="visibility" name="unit-visibility" value="${value}" ${row.visibility === value ? 'checked' : ''}> ${label}</label>`).join('')}
+        </div></fieldset>`;
+      if (kind === 'unit_collection') return field('分類名','name',p.name) + `<div class="unit-classification">${visibility}</div>`;
       const common = `<div class="unit-classification">
         <fieldset class="unit-choice"><legend>分類</legend><div class="unit-current-choice">
           <span>${h(collection?.payload.name || p.collection_id || '未分類')}</span>
-          ${picker('分類を選択','collection','collection_id',edit)}</div></fieldset>
-        <fieldset class="unit-choice"><legend>公開範囲</legend><div class="unit-radio-options">
-          ${Object.entries({public:'公開',staff:'制作者・GMのみ'}).map(([value,label]) => `<label>
-            <input type="radio" data-path="visibility" name="unit-visibility" value="${value}" ${row.visibility === value ? 'checked' : ''}> ${label}</label>`).join('')}
-        </div></fieldset></div>`;
+          ${picker('分類を選択','collection','collection_id',edit)}</div></fieldset>${visibility}</div>`;
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
         card('画像',image(p.image) + '<div class="unit-row-actions">' + (edit ? button('画像を選択','image') + (p.image ? button('解除','clear-image') : '') : '') + '</div>'),
         card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy !== false,'checkbox')),

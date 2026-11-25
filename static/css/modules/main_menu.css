@@ -142,6 +142,11 @@
 }
 .menu-data h2 { margin: 0 6px 0 0; font-size: 1rem; }
 #menu-portal .menu-data-button { padding: 8px 14px 8px 32px; font-weight: 600; }
+#menu-portal .menu-data-button[data-theme="abyss"] {
+  background-color: var(--ui-bg);
+  border-color: var(--ui-gold);
+  color: var(--ui-text);
+}
 
 .screen-back-bar { width: min(100%, 1100px); margin: 0 auto; padding: 14px 0; }
 #menu-portal:has(.screen-workspace:not([data-screen="characters"])) .screen-back-bar { width: min(100%, 1500px); }

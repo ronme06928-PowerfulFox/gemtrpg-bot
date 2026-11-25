@@ -1,0 +1,74 @@
+[data-theme="abyss"] {
+  --ui-text: #e7edf4;
+  --ui-sub: #b2bfcd;
+  --ui-page: #080d17;
+  --ui-bg: #101825;
+  --ui-soft: #182334;
+  --ui-input-bg: #0c1320;
+  --ui-line: #394959;
+  --ui-control: #8395a9;
+  --ui-gold: #74889d;
+  --ui-gold-strong: #a7b9ca;
+  --ui-select-line: var(--ui-primary);
+  --ui-on-primary: #0a1320;
+  --ui-danger: #ffa7ad;
+  --ui-danger-soft: #402734;
+  --ui-warn: #f3c889;
+  --ui-warn-soft: #3d2f25;
+  --ui-add: #a0e4bf;
+  --ui-add-soft: #1b342c;
+  --ui-ally: #a7cfff;
+  --ui-ally-soft: #263752;
+  --ui-enemy: #ffb3b8;
+  --ui-enemy-soft: #3e2734;
+  --ui-sheen: .055;
+  --ui-shade: .075;
+  --ui-inset: inset 0 1px 0 #d7e5fa17;
+  --ui-shadow-input: inset 0 1px 3px #0005;
+  --ui-shadow-button: 0 1px 2px #0006;
+  --ui-shadow-panel: 0 4px 16px #0006;
+  --ui-shadow-float: 0 12px 30px #0009;
+  --ui-overlay: #050911b8;
+  --ui-frame: none;
+  --ui-tex: none;
+  --ui-page-tex: radial-gradient(ellipse at 72% -16%, var(--abyss-light), transparent 62%);
+  --abyss-banner: linear-gradient(90deg, var(--ui-bg) 20%, transparent 100%),
+    linear-gradient(0deg, var(--ui-bg), var(--abyss-light)), var(--cave);
+  --surface-scheme: dark;
+  --gem-emerald: var(--ui-primary);
+  --gem-sapphire: #98bdf1;
+  --gem-ruby: #eda9b4;
+  --gem-amethyst: #c6b4ef;
+  --gem-topaz: #e1b795;
+  --gem-quartz: #bacbdb;
+  --grade-iron: #bbc4b8;
+  --grade-iron-bg: #29342e;
+  --grade-copper: #efb194;
+  --grade-copper-bg: #412b26;
+  --grade-silver: #cee3f6;
+  --grade-silver-bg: #23374c;
+  --grade-gold: #f6d783;
+  --grade-gold-bg: #40351c;
+  --grade-exceptional: #f0b8ec;
+  --grade-exceptional-bg: #402842;
+}
+
+[data-theme="abyss"]:not([data-palette="b"]) {
+  --ui-primary: #85dddd;
+  --ui-primary-soft: #17373e;
+  --ui-focus: #a2eded;
+  --abyss-light: #337c8870;
+}
+
+[data-theme="abyss"][data-palette="b"] {
+  --ui-page: #0e0b18;
+  --ui-bg: #171524;
+  --ui-soft: #211f34;
+  --ui-input-bg: #111020;
+  --ui-line: #484359;
+  --ui-control: #948aa9;
+  --ui-primary: #cab5fb;
+  --ui-primary-soft: #33294e;
+  --ui-focus: #decbff;
+  --abyss-light: #6b4eab78;
+}

@@ -156,3 +156,12 @@ def test_duplicate_session_unit_with_independent_patterns(app):
         root + "?domain=session").json["entries"]}
     assert copy["entry_id"] in {row["entry_id"] for row in author.get(
         root + "?domain=hollow").json["entries"]}
+    for domain, expected in [("session", source["entry_id"]), ("hollow", copy["entry_id"])]:
+        exported = author.get(root + f"/export?domain={domain}").json["entries"]
+        assert {row["payload"]["domain"] for row in exported} == {domain}
+        assert expected in {row["entry_id"] for row in exported}
+    imported = author.post(root + "/import-character", json={
+        "character": {"name": "Import"}, "domain": "hollow",
+    })
+    assert imported.json["payload"]["domain"] == "hollow"
+    assert imported.json["errors"] == {}

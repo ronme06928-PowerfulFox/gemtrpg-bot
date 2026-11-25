@@ -76,6 +76,7 @@
   }
 
   function preview(kind, row, records, masters) {
+    if (kind === 'unit_collection') return '';
     const p = row.payload;
     const resource = id => records.find(item => item.entry_id === id)?.payload.name || id || '未設定';
     if (kind === 'unit') return card('チャットパレット（配置時）', `<pre class="unit-palette">${h(palette(p,masters.skill) || 'パレット行なし')}</pre>`);

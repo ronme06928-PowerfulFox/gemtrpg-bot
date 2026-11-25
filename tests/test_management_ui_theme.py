@@ -32,7 +32,7 @@ def _app_theme(theme):
     return _theme_tokens((CSS / "common_ui.css").read_text(encoding="utf-8"), theme)
 
 
-@pytest.mark.parametrize("theme", ["paper", "night"])
+@pytest.mark.parametrize("theme", ["paper", "night", "abyss"])
 def test_theme_text_and_control_contrast(theme):
     tokens = _app_theme(theme)
     for foreground, background, minimum in [
@@ -55,6 +55,21 @@ def test_night_tokens_match_template_and_paper_names():
     night = _app_theme("night")
     assert {name: night[name] for name in reference} == reference
     assert night.keys() == _app_theme("paper").keys()
+
+
+def test_abyss_uses_the_selected_prototype_and_grade_badges():
+    source = (CSS / "common_ui.css").read_text(encoding="utf-8")
+    prototype = (CSS.parents[2] / "scripts/hollow_data_proto/themes.css").read_text(encoding="utf-8")
+    prototype = prototype.replace('[data-theme="abyss"]:not([data-palette="b"])', '[data-theme="abyss-a"]')
+    expected = _theme_tokens(prototype, "abyss") | _theme_tokens(prototype, "abyss-a")
+    assert expected.items() <= _app_theme("abyss").items()
+    tokens = re.search(r'\[data-theme="abyss"\]\s*\{([^}]+)\}', source)[1]
+    for grade, symbol in zip(("iron", "copper", "silver", "gold", "exceptional"), "■▲◆●✦"):
+        ink, bg = (re.search(rf"--grade-{grade}{suffix}:\s*#([0-9a-f]{{6}});", tokens)[1]
+                   for suffix in ("", "-bg"))
+        assert (_luminance(ink) + .05) / (_luminance(bg) + .05) >= 4.5
+        assert f'--grade-{grade}-symbol: "{symbol}";' in tokens
+    assert 'data-palette=' not in source
 
 
 def test_encounter_queue_uses_night_tokens():

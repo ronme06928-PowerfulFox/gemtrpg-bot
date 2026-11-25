@@ -24,7 +24,7 @@
       const label = `${h(kind)} · ${h(ref.entry_id)} ${h(ref.display_name)}`;
       const paths = [...ref.paths].map(h).join('<br>');
       return button(`<span>${label}</span>${paths ? `<span class="cat-caption">${paths}</span>` : ''}`, 'goto', 'cat-reference',
-        `data-target-kind="${h(ref.kind)}" data-target="${h(ref.entry_id)}"`);
+        `data-target-kind="${h(ref.kind)}" data-target="${h(ref.entry_id)}"${ref.domain ? ` data-target-domain="${h(ref.domain)}"` : ''}`);
     }).join('');
     return `<details class="bo-workspace__card cat-fold"><summary>${label}（${grouped.size}件）</summary>${links || '<p class="cat-caption">参照なし</p>'}</details>`;
   }
@@ -779,7 +779,7 @@
         if (!destination || !row) return;
         const origin = { kind: state.kind, id: row.target_id, key: row.key, name: nameOf(row.payload) };
         if (destination.kind === 'unit') {
-          options.onOpenUnit?.(destination.id, origin, trail);
+          options.onOpenUnit?.(destination.id, origin, trail, control.dataset.targetDomain);
           return;
         }
         if (!back) {

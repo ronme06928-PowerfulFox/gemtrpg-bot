@@ -182,13 +182,14 @@ async function buildBattleBundle() {
 
 async function buildCssBundle() {
   // styles.css の @import 群を esbuild がインライン化 + minify する。
-  // モジュールCSSに url() は無いため、パス解決の問題は起きない。
+  // Flask が配信する画像は、出力先にかかわらず同じ URL を使う。
   const outCss = path.join(DIST, 'app.bundle.css');
   await build({
     entryPoints: [path.join(STATIC, 'styles.css')],
     bundle: true,
     minify: true,
     loader: { '.css': 'css' },
+    external: ['/static/images/*'],
     legalComments: 'none',
     sourcemap: true,
     outfile: outCss,
