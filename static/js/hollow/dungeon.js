@@ -114,7 +114,7 @@
       dialog.close();
       await refresh();
       if (!host.isConnected) return;
-      if (result.join_code) await showRoomJoinCode(result.join_code);
+      if (result.join_code) window.HollowParty.showCode(result.room_name, result.join_code, {created:true});
       else window.showAppNotice(`「${room_name}」に参加しました。`, {kind:'success'});
     });
 

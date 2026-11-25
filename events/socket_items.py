@@ -64,6 +64,9 @@ def handle_use_item(data):
         owner_name = user_char.get('owner')
         owner_id = user_char.get('owner_id')
         authorized = (owner_name == username) or (user_session_id and owner_id == user_session_id)
+    if not authorized and user_id in state.get("party", {}).get("order", []):
+        from manager.hollow.host import can_manage_hollow
+        authorized = can_manage_hollow(room, user_session_id)
     if not authorized:
         print(f"[WARNING] Security: User {username} tried to use item as {user_id} without permission.")
         emit('item_use_error', {'message': 'Permission denied.'})

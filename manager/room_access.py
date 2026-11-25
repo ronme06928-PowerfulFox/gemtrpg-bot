@@ -239,6 +239,9 @@ def revoke_membership(room_name, target_user_id, *, commit=True):
     m.revoked_at = datetime.utcnow()
     if commit:
         db.session.commit()
+        if is_hollow(room):
+            from manager.hollow.host import member_departed
+            member_departed(room_name, target_user_id)
     return True
 
 

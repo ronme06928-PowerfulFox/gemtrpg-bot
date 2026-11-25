@@ -117,6 +117,7 @@ function updateActionDock() {
                 console.log('[ActionDock] Rendering ExplorationDock content');
             }
             window.ExplorationDock.render();
+            window.HollowParty?.mountDock(dock, battleState);
         } else {
             // Script might not be loaded yet
             if (typeof window !== 'undefined' && window.BATTLE_DEBUG_VERBOSE) {
@@ -167,6 +168,7 @@ function updateActionDock() {
     }
 
     // ★ Add Switch to Exploration Button for GM (if not exists)
+    window.HollowParty?.mountDock(dock, battleState);
     if (isGMUser && dock) {
         let expBtn = document.getElementById('dock-to-exploration-btn');
         if (!expBtn) {

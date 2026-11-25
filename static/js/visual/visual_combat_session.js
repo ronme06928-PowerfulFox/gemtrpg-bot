@@ -347,7 +347,8 @@
             ? '戦闘進行操作を利用できます。'
             : '戦闘進行操作は戦闘突入後に利用できます。');
 
-        root.innerHTML = `
+        if (roomState?.play_mode === 'hollow') window.HollowParty.renderRibbon(root, roomState);
+        else root.innerHTML = `
             <div class="combat-session-status combat-session-status--${phase}">
                 <span class="combat-session-status__label">${ready ? '戦闘準備中' : '戦闘中'}</span>
                 <span class="combat-session-status__description">${sessionMeta}</span>

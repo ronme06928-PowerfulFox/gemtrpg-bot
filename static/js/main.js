@@ -592,7 +592,7 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 function openInRoomSettingsChooser() {
     document.getElementById('settings-chooser-backdrop')?.remove();
     const canManageRoom = currentUserAttribute === 'GM' ||
-        (window.currentRoomPlayMode === 'hollow' && window.currentRoomRole === 'owner');
+        (window.currentRoomPlayMode === 'hollow' && window.HollowParty.isOwner());
     const backdrop = document.createElement('div');
     backdrop.id = 'settings-chooser-backdrop';
     backdrop.className = 'modal-backdrop room-settings-backdrop';
@@ -618,11 +618,12 @@ async function openCurrentRoomSettings() {
     if (!currentRoomName) { window.showAppNotice('ルーム情報を取得できませんでした。', {kind: 'error'}); return; }
     try {
         const hollow = window.currentRoomPlayMode === 'hollow';
-        const response = await fetchWithSession(hollow ? '/api/hollow/rooms' : '/list_rooms');
+        if (hollow) return window.HollowParty.reviewCode();
+        const response = await fetchWithSession('/list_rooms');
         const data = await response.json();
         const info = (data.rooms || []).find(r => r.name === currentRoomName);
         if (!info) { window.showAppNotice('ルーム情報が見つかりませんでした。', {kind: 'error'}); return; }
-        openRoomSettingsModal(info, { refreshLobby: false, codeOnly: hollow });
+        openRoomSettingsModal(info, { refreshLobby: false });
     } catch (error) {
         window.showAppNotice(error.message, {kind: 'error'});
     }
@@ -648,12 +649,12 @@ function openRoomSettingsModal(info, opts = {}) {
     backdrop.innerHTML = `
         <div class="modal-content room-settings-modal">
             <h3 style="margin:0 0 12px;">ルーム情報: ${esc(info.name)}</h3>
-            ${opts.codeOnly ? '' : `<label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
+            <label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
             <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">募集状態</label>
             <input id="rs-recruitment" type="text" maxlength="20" style="width:100%; box-sizing:border-box;" value="${esc(info.recruitment_status)}" placeholder="例: 募集中 / 締切">
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナー・管理者のみ変更可)'}</label>
-            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>`}
+            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
             ${isOwner ? `
             <div class="clasp" aria-hidden="true"><i></i></div>
             <div>
@@ -664,7 +665,7 @@ function openRoomSettingsModal(info, opts = {}) {
             <div id="rs-message" class="auth-message" style="margin-top:10px;"></div>
             <div style="margin-top:14px; text-align:right;">
                 <button id="rs-cancel" class="btn-set" type="button" style="margin-right:6px;">閉じる</button>
-                ${opts.codeOnly ? '' : '<button id="rs-save" class="btn-set is-primary" type="button">保存</button>'}
+                <button id="rs-save" class="btn-set is-primary" type="button">保存</button>
             </div>
         </div>`;
     applySystemWindow(backdrop.querySelector('.room-settings-modal'));
@@ -1068,6 +1069,7 @@ function initializeSocketIO() {
         // ログ履歴は入室のときだけ届く。以後の配信には入らないので、手元の履歴を引き継ぐ（E01 §4.2）。
         if (newState && !Array.isArray(newState.logs)) newState.logs = Array.isArray(previousState?.logs) ? previousState.logs : [];
         battleState = newState;
+        window.HollowParty?.render(newState);
         window.PracticeRoom?.sync(newState);
         refreshOpenCharacterSkills(previousState, newState);
         refreshOpenCharacterPassives(previousState, newState);
@@ -1104,6 +1106,7 @@ function initializeSocketIO() {
             updateActionDock();
         }
     });
+    registerAppSocketHandler('hollow_membership_revoked', data => window.HollowParty?.revoked(data));
     registerAppSocketHandler('logs_cleared', () => {
         if (battleState) battleState.logs = [];
         window._lastLogCount = 0;

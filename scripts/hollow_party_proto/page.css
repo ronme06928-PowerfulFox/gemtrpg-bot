@@ -1,0 +1,168 @@
+/* 試作だけの部屋の骨組み。色は common_ui.css の変数を使う。 */
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { font-family: "Noto Sans JP", "Yu Gothic UI", "Meiryo", sans-serif; background: #12141d; color: #ece6d6; overflow-x: hidden; }
+button { font: inherit; }
+
+.room {
+  display: grid; height: 100vh; min-height: 640px;
+  grid-template: 52px 1fr / 64px 1fr 360px;
+  grid-template-areas: "head head head" "dock board side";
+}
+.room-head {
+  grid-area: head; display: flex; align-items: center; gap: 16px; padding: 0 20px;
+  background: #262a3c; border-bottom: 1px solid #3a4058;
+}
+.room-brand { font: 700 20px var(--ui-head-font, serif); margin-right: auto; }
+.room-name { background: #3b3421; color: #f0d27a; border-radius: 999px; padding: 4px 12px; font-weight: 700; font-size: 14px; }
+.room-user { font-size: 14px; }
+.dock { grid-area: dock; display: flex; flex-direction: column; gap: 10px; padding: 10px 7px; background: #1c2030; border-right: 1px solid #3a4058; }
+.dock-icon {
+  display: grid; place-items: center; width: 48px; height: 46px; border-radius: 8px;
+  border: 1px solid #3a4058; background: #262b40; font-size: 20px; color: inherit;
+}
+.dock-party { display: none; cursor: pointer; }
+.room[data-place="b"] .dock-party { display: grid; }
+.dock-party[data-theme="abyss"], .room[data-place="b"] .dock-party {
+  background: #101825; border-color: #85dddd; box-shadow: 0 0 0 1px #17373e inset;
+}
+.dock-party:focus-visible { outline: 2px solid #a2eded; outline-offset: 2px; }
+.board {
+  grid-area: board; position: relative; background-color: #4a4a4a;
+  background-image: linear-gradient(#5a5a5a 1px, transparent 1px), linear-gradient(90deg, #5a5a5a 1px, transparent 1px);
+  background-size: 54px 54px;
+}
+.board-note { position: absolute; left: 16px; top: 12px; color: #c9c9c9; font-size: 13px; }
+.side { grid-area: side; display: flex; flex-direction: column; min-height: 0; background: #1c2030; border-left: 1px solid #3a4058; }
+.chat { flex: 1; display: flex; flex-direction: column; min-height: 160px; }
+.chat-tabs { display: flex; gap: 6px; padding: 8px; border-bottom: 1px solid #3a4058; font-size: 13px; }
+.chat-tabs span { border: 1px solid #3a4058; border-radius: 999px; padding: 2px 10px; }
+.chat-tabs .on { border-color: #d9b85a; color: #f0d27a; }
+.chat-log { flex: 1; background: #f4ecdb; color: #2b2418; font-size: 13px; padding: 4px 10px; overflow: auto; }
+.chat-log p { margin: 4px 0; border-bottom: 1px dotted #d8ccb4; }
+
+/* ホロウの欄（淵の夜） */
+.hollow-strip, .hollow-panel, .hollow-dialog { color: var(--ui-text); background: var(--ui-bg); font-size: 13px; }
+.hollow-strip { padding: 8px 12px; border-bottom: 1px solid var(--ui-line); background: var(--abyss-banner); background-size: cover; background-position: center 40%; }
+.strip-line { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.strip-state { font-weight: 700; color: var(--ui-primary); }
+.strip-sub { margin-top: 4px; color: var(--ui-sub); }
+.strip-sub b, .strip-host b { color: var(--ui-text); }
+.room[data-place="a"] .strip-sub .ui-btn { display: none; }
+.inline-panel { display: none; max-height: 60vh; overflow: auto; border-bottom: 1px solid var(--ui-line); }
+.room[data-place="a"] .inline-panel { display: block; }
+
+.panel-block { padding: 10px 12px; }
+.panel-block + .panel-block { border-top: 1px solid var(--ui-line); }
+.panel-block h3 { display: flex; align-items: baseline; gap: 8px; margin: 0 0 2px; font: 700 15px var(--ui-head-font); }
+.panel-block h3 small { font: 400 12px sans-serif; color: var(--ui-sub); }
+.lock { margin-left: auto; font: 700 12px sans-serif; color: var(--ui-warn); }
+.panel-caption { margin: 0 0 6px; font-size: 12px; color: var(--ui-sub); }
+.party-list, .member-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.party-row {
+  display: grid; align-items: center; gap: 4px 8px; padding: 6px 8px;
+  grid-template-columns: auto 30px 1fr auto; grid-template-areas: "slot face who actions" "slot face stats stats";
+  border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-soft);
+}
+body[data-sort="b"] .party-row { grid-template-columns: auto auto 30px 1fr auto; grid-template-areas: "handle slot face who actions" "handle slot face stats stats"; }
+.party-row.is-dragging { opacity: .5; }
+.party-row.is-hurt { border-color: var(--ui-danger); }
+.row-handle { grid-area: handle; width: 22px; height: 40px; border: 1px solid var(--ui-control); border-radius: 6px; background: transparent; color: var(--ui-sub); cursor: grab; padding: 0; }
+.row-handle:disabled { cursor: default; opacity: .4; }
+.row-handle:focus-visible, .ui-btn:focus-visible, select:focus-visible { outline: 2px solid var(--ui-focus); outline-offset: 2px; }
+.slot {
+  grid-area: slot; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  border: 1px solid var(--ui-primary); color: var(--ui-primary); font-weight: 700;
+}
+.face { grid-area: face; width: 30px; height: 30px; border-radius: 6px; background: var(--ui-input-bg) center / cover; border: 1px solid var(--ui-line); }
+.face-male { background-image: var(--face-male); }
+.face-female { background-image: var(--face-female); }
+.who { grid-area: who; display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.who b { font-size: 14px; white-space: nowrap; }
+.who small { color: var(--ui-sub); font-size: 12px; }
+.stats { grid-area: stats; display: flex; gap: 8px; flex-wrap: wrap; }
+.stat { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ui-sub); }
+.stat-label { font-weight: 700; }
+.stat-bar { width: 40px; height: 5px; border-radius: 3px; background: var(--ui-input-bg); overflow: hidden; }
+.stat-bar span { display: block; height: 100%; }
+.stat-hp .stat-bar span { background: #7fd8a0; }
+.stat-mp .stat-bar span { background: #98bdf1; }
+.stat-fp .stat-bar span { background: #f3c889; }
+.is-hurt .stat-hp .stat-num { color: var(--ui-danger); font-weight: 700; }
+.row-actions { grid-area: actions; display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.row-move { display: inline-flex; gap: 2px; }
+
+.ui-btn {
+  border: 1px solid var(--ui-control); border-radius: 6px; background: transparent; color: var(--ui-text);
+  padding: 5px 12px; font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.ui-btn.small { padding: 2px 8px; font-size: 12px; }
+.ui-btn.icon { width: 24px; padding: 2px 0; font-size: 12px; }
+.ui-btn.primary { background: var(--ui-primary); border-color: var(--ui-primary); color: var(--ui-on-primary); }
+.ui-btn.danger { color: var(--ui-danger); }
+.ui-btn:disabled { opacity: .4; cursor: default; }
+
+.party-add { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.party-add label { display: flex; gap: 6px; align-items: center; color: var(--ui-sub); flex: 1; }
+.party-add select { flex: 1; min-width: 0; background: var(--ui-input-bg); color: var(--ui-text); border: 1px solid var(--ui-control); border-radius: 6px; padding: 3px 6px; }
+
+.member-row { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-soft); }
+.join-order { color: var(--ui-sub); font-size: 12px; width: 14px; text-align: right; }
+.member-give { margin-left: auto; }
+.badge { border-radius: 999px; padding: 0 8px; font-size: 11px; font-weight: 700; border: 1px solid; }
+.badge.host { color: var(--ui-warn); background: var(--ui-warn-soft); }
+.badge.owner { color: var(--ui-ally); background: var(--ui-ally-soft); }
+.badge.self { color: var(--ui-sub); }
+.code-open { margin-top: 8px; }
+
+/* 窓 */
+.hollow-dialog { border: 1px solid var(--ui-line); border-radius: 12px; padding: 0; box-shadow: var(--ui-shadow-float); max-width: calc(100vw - 32px); }
+.hollow-dialog::backdrop { background: var(--ui-overlay); }
+.party-dialog { width: 640px; }
+.party-dialog .dialog-panel { max-height: 70vh; overflow: auto; }
+.dialog-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid var(--ui-line); background: var(--abyss-banner); background-size: cover; }
+.dialog-head h2, .code-dialog h2, .confirm-dialog h2 { margin: 0; font: 700 18px var(--ui-head-font); }
+.code-dialog, .confirm-dialog { width: 420px; padding: 18px 20px; }
+.code-lead { color: var(--ui-sub); margin: 6px 0 0; }
+.code-lead:empty { display: none; }
+.code-pair { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 14px 0; padding: 12px; border: 1px solid var(--ui-line); border-radius: 8px; background: var(--ui-soft); }
+.code-pair dt { color: var(--ui-sub); }
+.code-pair dd { margin: 0; font-weight: 700; font-size: 15px; }
+.code-value { font-family: ui-monospace, Consolas, monospace; letter-spacing: .15em; font-size: 20px !important; color: var(--ui-primary); }
+.code-done { min-height: 1.2em; margin: 0 0 8px; color: var(--ui-add); font-size: 12px; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+
+.toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); background: #f4ecdb; color: #2b2418; border-left: 4px solid #2f7a4d; border-radius: 8px; padding: 8px 14px; font-size: 13px; box-shadow: 0 6px 20px #0008; z-index: 20; }
+
+/* 見比べの切り替え */
+.compare { position: fixed; right: 12px; bottom: 12px; z-index: 10; display: grid; gap: 4px; padding: 8px 10px; border-radius: 10px; background: #0d1016ee; border: 1px solid #555d70; font-size: 12px; max-width: calc(100vw - 24px); }
+.compare-row { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.compare-row > span { width: 4.5em; color: #b3ad9a; }
+.compare button { border: 1px solid #555d70; background: transparent; color: #ece6d6; border-radius: 6px; padding: 1px 8px; cursor: pointer; }
+.compare button[aria-pressed="true"] { border-color: #85dddd; color: #85dddd; font-weight: 700; }
+.contrast summary { cursor: pointer; color: #b3ad9a; }
+.contrast summary.ng { color: #ffa7ad; }
+.contrast table { border-collapse: collapse; margin-top: 4px; }
+.contrast th, .contrast td { padding: 0 6px; text-align: left; font-weight: 400; }
+.contrast tr.ng { color: #ffa7ad; }
+
+@media (max-width: 760px) {
+  .inline-panel .party-row { grid-template-columns: auto 30px 1fr auto; grid-template-areas: "slot face who actions" "slot face stats stats"; }
+  .room { height: auto; grid-template: 52px auto auto / 56px 1fr; grid-template-areas: "head head" "dock board" "side side"; }
+  .room-brand { font-size: 15px; }
+  .room-name { display: none; }
+  .board { min-height: 300px; }
+  .dock { gap: 6px; padding: 6px 4px; }
+  .dock-icon { width: 46px; height: 40px; }
+  .side { border-left: 0; border-top: 1px solid #3a4058; }
+  .inline-panel { max-height: none; }
+  .chat { min-height: 200px; padding-bottom: 150px; }
+}
+
+/* 右の列（A）は幅が狭いので、操作を3段目に下ろす */
+.inline-panel .party-row { grid-template-columns: auto 30px 1fr; grid-template-areas: "slot face who" "slot face stats" "actions actions actions"; }
+body[data-sort="b"] .inline-panel .party-row { grid-template-columns: auto auto 30px 1fr; grid-template-areas: "handle slot face who" "handle slot face stats" "actions actions actions actions"; }
+.inline-panel .row-actions { justify-content: flex-start; }
+.inline-panel .row-move { margin-right: auto; }
+.inline-panel .stat-bar { width: 28px; }

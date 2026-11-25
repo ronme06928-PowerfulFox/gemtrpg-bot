@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ホロウの部屋の操作盤 試作</title>
+<!--STYLE-->
+</head>
+<body>
+<div class="room" data-place="a" data-sort="a">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+    <span class="room-home" aria-hidden="true">🏠</span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">📝</span>
+    <span class="dock-icon">➕</span>
+    <span class="dock-icon">📦</span>
+    <button type="button" class="dock-icon dock-party" data-open-party aria-label="パーティ" title="パーティ">👥</button>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+    <span class="dock-icon">✨</span>
+  </nav>
+  <main class="board" aria-label="盤面"><span class="board-note">盤面</span></main>
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line">
+        <span class="strip-state" data-run-label></span>
+        <span class="strip-host">ホスト <b data-host-name></b></span>
+      </div>
+      <div class="strip-line strip-sub">
+        <span>パーティ <b data-party-count></b></span>
+        <button type="button" class="ui-btn ghost small" data-open-code>参加コード</button>
+      </div>
+    </section>
+    <section class="hollow-panel inline-panel" data-theme="abyss" data-panel="inline" aria-label="パーティと参加者"></section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log"><p>リオ が入室しました。</p><p>ナギ が入室しました。</p><p>トウカ が入室しました。</p></div>
+    </section>
+  </aside>
+</div>
+
+<dialog class="hollow-dialog party-dialog" data-theme="abyss" data-party-dialog aria-labelledby="party-dialog-title">
+  <div class="dialog-head">
+    <h2 id="party-dialog-title">パーティ</h2>
+    <button type="button" class="ui-btn ghost small" data-close>閉じる</button>
+  </div>
+  <div class="hollow-panel dialog-panel" data-panel="dialog"></div>
+</dialog>
+
+<dialog class="hollow-dialog code-dialog" data-theme="abyss" data-code-dialog aria-labelledby="code-dialog-title">
+  <h2 id="code-dialog-title" data-code-title></h2>
+  <p class="code-lead" data-code-lead></p>
+  <dl class="code-pair">
+    <dt>部屋</dt><dd>青晶坑の先遣隊</dd>
+    <dt>参加コード</dt><dd class="code-value">8YJGBP</dd>
+  </dl>
+  <p class="code-done" data-copied role="status"></p>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn primary" data-copy>まとめて写す</button>
+    <button type="button" class="ui-btn ghost" data-close>閉じる</button>
+  </div>
+</dialog>
+
+<dialog class="hollow-dialog confirm-dialog" data-theme="abyss" data-confirm-dialog aria-labelledby="confirm-title">
+  <h2 id="confirm-title">ホストを譲る</h2>
+  <p data-confirm-text></p>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn ghost" data-close>やめる</button>
+    <button type="button" class="ui-btn primary" data-confirm-ok>譲る</button>
+  </div>
+</dialog>
+
+<div class="toast" data-toast role="status" hidden></div>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>置き場</span>
+    <button type="button" data-compare="place" data-value="a">A 右の列</button>
+    <button type="button" data-compare="place" data-value="b">B ドックの窓</button></div>
+  <div class="compare-row"><span>並べ替え</span>
+    <button type="button" data-compare="sort" data-value="a">A ↑↓</button>
+    <button type="button" data-compare="sort" data-value="b">B つかむ</button></div>
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-viewer="rio">リオ</button>
+    <button type="button" data-viewer="nagi">ナギ</button>
+    <button type="button" data-viewer="touka">トウカ</button></div>
+  <div class="compare-row"><span>状態</span>
+    <button type="button" data-run="forming">編成中</button>
+    <button type="button" data-run="running">ラン中</button>
+    <button type="button" data-code-mode="created">作成直後の窓</button></div>
+  <details class="contrast"><summary data-contrast-summary></summary><table data-contrast></table></details>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

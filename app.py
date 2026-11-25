@@ -243,6 +243,7 @@ def register_socket_handlers():
     import events.socket_wide_calculate
     import events.socket_items
     import events.socket_exploration
+    import events.socket_hollow
 
     _SOCKET_HANDLERS_REGISTERED = True
 

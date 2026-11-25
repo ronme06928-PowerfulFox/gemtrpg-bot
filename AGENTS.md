@@ -45,6 +45,7 @@
 15. ホロウデータと「淵の夜」の試作は `node scripts/hollow_data_proto/build.mjs` で `/_local/hollow_data_proto/index.html` を作る（計画35 PR35-2）。本番のバンドルには入らない。
 16. Tier・固定階の編集画面の試作は `node scripts/hollow_tier_proto/build.mjs` で `/_local/hollow_tier_proto/index.html` を作る（計画35 PR35-4）。本番のバンドルには入らない。
 17. ダンジョン入口とホロウの部屋一覧の試作は `node scripts/dungeon_proto/build.mjs` で `/_local/dungeon_proto/index.html` を作る（計画35 PR35-5）。本番のバンドルには入らない。
+18. ホロウの部屋の操作盤（パーティ・参加者・参加コードの窓）の試作は `node scripts/hollow_party_proto/build.mjs` で `/_local/hollow_party_proto/index.html` を作る（計画35 PR35-6）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

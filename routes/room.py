@@ -134,7 +134,10 @@ def load_room():
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
     from manager.room_manager import build_participant_state
-    return jsonify(build_participant_state(state, include_hidden_passives=role in GM_ROLES and not hollow and not is_practice(room_name)))
+    return jsonify(build_participant_state(
+        state, include_hidden_passives=role in GM_ROLES and not hollow and not is_practice(room_name),
+        room_name=room_name if hollow else None,
+    ))
 
 
 @room_bp.route('/create_room', methods=['POST'])
@@ -249,6 +252,11 @@ def save_room_route():
         if field in current:
             state[field] = current[field]
     active_room_states[room_name] = state
+    if state.get("play_mode") == HOLLOW_MODE:
+        from manager.hollow.party import prune_party
+        from manager.room_manager import broadcast_participant_state
+        if prune_party(state):
+            broadcast_participant_state(room_name, state)
     save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
 
@@ -394,6 +402,9 @@ def room_transfer_owner():
         return jsonify({"error": "Room not found"}), 404
     _sync_room_member_session(room_name, target_user_id)
     _sync_room_member_session(room_name, session.get('user_id'))
+    if is_hollow_room(room_name):
+        from manager.room_manager import broadcast_state_update
+        broadcast_state_update(room_name)
     return jsonify({"message": "オーナーを移譲しました", "user_id": target_user_id})
 
 
@@ -453,6 +464,9 @@ def join_room_by_code():
     # listed でコード未設定なら公開参加を許可する。
 
     role = join_room_as_player(room_name, user_id)
+    if hollow:
+        from manager.room_manager import broadcast_state_update
+        broadcast_state_update(room_name)
     return jsonify({"message": "ルームに参加しました", "role": role, "room_name": room_name})
 
 

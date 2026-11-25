@@ -26,9 +26,13 @@ async function loadItemData() {
 }
 
 // アイテムモーダルを開く
-function openItemModal() {
+function openItemModal(charId = null) {
     // 既存のモーダルがあれば表示を切り替え
     let backdrop = document.getElementById('item-modal-backdrop');
+    if (typeof charId === 'string') {
+        backdrop?.remove();
+        backdrop = null;
+    }
     if (backdrop) {
         if (backdrop.style.display === 'none') {
             backdrop.style.display = 'flex';
@@ -115,7 +119,8 @@ function openItemModal() {
     });
 
     // キャラクター一覧を表示
-    showCharacterList();
+    if (typeof charId === 'string') showItemList(charId);
+    else showCharacterList();
 }
 
 // キャラクター一覧を表示
@@ -239,7 +244,7 @@ function showItemList(charId) {
                 align-items: center;
                 justify-content: center;
             " title="戻る">←</button>
-            <h3 style="margin: 0; font-size: 1.2em;">🎒 ${char.name} のアイテム</h3>
+            <h3 style="margin: 0; font-size: 1.2em;"></h3>
         </div>
         <div class="modal-controls" style="display: flex; gap: 12px;">
             <button class="window-control-btn minimize-btn" style="
@@ -264,6 +269,7 @@ function showItemList(charId) {
     `;
 
     // ホバー効果を追加
+    header.querySelector('h3').textContent = `🎒 ${char.name} のアイテム`;
     const backBtn = header.querySelector('.back-btn');
     const minimizeBtn = header.querySelector('.minimize-btn');
     const closeBtn = header.querySelector('.close-btn');

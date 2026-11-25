@@ -552,6 +552,9 @@ def save_specific_room_state(room_name, immediate=False):
     state = active_room_states.get(room_name)
     if not state:
         return False
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.party import prune_party
+        prune_party(state)
     if _app_ref is None:
         try:
             _app_ref = current_app._get_current_object()
@@ -593,6 +596,10 @@ def trim_room_logs_with_archive(room_name, state, limit=500):
 def broadcast_state_update(room_name):
     state = get_room_state(room_name)
     if state:
+        if state.get("play_mode") == "hollow":
+            from manager.hollow.party import prune_party
+            if prune_party(state):
+                save_specific_room_state(room_name)
         if _PERF_LOG:
             try:
                 size = len(json.dumps(state, ensure_ascii=False, default=str))
@@ -621,7 +628,7 @@ def broadcast_participant_state(room_name, state):
     from manager.practice_rooms import is_practice
     from manager.room_access import GM_ROLES, sid_has_room_role
 
-    payload = build_participant_state(state, include_logs=False)
+    payload = build_participant_state(state, include_logs=False, room_name=room_name if has_app_context() else None)
     if (not has_app_context() or is_practice(room_name)
             or not any(char.get("hidden_passive_count") for char in payload.get("characters", []))):
         _safe_emit('state_updated', payload, to=room_name)
@@ -643,13 +650,16 @@ def broadcast_logs_cleared(room_name):
     _safe_emit('logs_cleared', {}, to=room_name)
 
 
-def build_participant_state(state, include_logs=True, *, include_hidden_passives=False):
+def build_participant_state(state, include_logs=True, *, include_hidden_passives=False, room_name=None):
     """参加者へ送る状態の写し。GM専用の準備メタデータを除き、include_logs=False ならログ履歴も除く。"""
     source = state if isinstance(state, dict) else {}
     omit = set(PRIVATE_ROOM_FIELDS) | (set() if include_logs else {'logs'})
     from manager.battle.hidden_passives import strip_hidden_passives
 
     result = copy.deepcopy({key: value for key, value in source.items() if key not in omit})
+    if room_name and result.get("play_mode") == "hollow":
+        from manager.hollow.host import member_rows
+        result["hollow"]["members"] = member_rows(room_name)
     if not include_hidden_passives:
         strip_hidden_passives(result)
     return result

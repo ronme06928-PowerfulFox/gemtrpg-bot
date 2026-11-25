@@ -1,11 +1,13 @@
 """Phase 6: ルーム参加コード（join code）の管理。
 
 参加コードは GM PIN とは別の秘密値として扱う（同じ列・用途に流用しない）。
-DB にはハッシュのみ保存し、実値は発行時のみ返す。
+DB には照合用ハッシュのみ保存する。ホロウの自動コードは再現できる。
 """
 from datetime import datetime
+from hmac import digest
 
 import secrets
+from flask import current_app
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
@@ -54,6 +56,19 @@ def _get_room(room_name):
     return Room.query.filter_by(name=room_name).first()
 
 
+def _hollow_code(room_id, rotated_at):
+    secret = current_app.secret_key
+    if isinstance(secret, str):
+        secret = secret.encode("utf-8")
+    nonce = f"hollow-join:{room_id}:{rotated_at.isoformat()}"
+    value = int.from_bytes(digest(secret, nonce.encode("utf-8"), "sha256"), "big")
+    letters = []
+    for _ in range(JOIN_CODE_LENGTH):
+        value, index = divmod(value, len(JOIN_CODE_ALPHABET))
+        letters.append(JOIN_CODE_ALPHABET[index])
+    return "".join(letters)
+
+
 def set_join_code(room_name, code=None, *, commit=True):
     """参加コードを設定する。
 
@@ -63,15 +78,32 @@ def set_join_code(room_name, code=None, *, commit=True):
     room = _get_room(room_name)
     if room is None:
         return None
-    if code is None:
+    from manager.hollow.rooms import is_hollow
+
+    rotated_at = datetime.utcnow()
+    if is_hollow(room):
+        if code is not None:
+            raise JoinCodeError("ホロウの参加コードは自動で発行します")
+        value = _hollow_code(room.id, rotated_at)
+    elif code is None:
         value = generate_join_code()
     else:
         value = validate_join_code(code)
     room.join_code_hash = generate_password_hash(_normalize(value))
-    room.join_code_rotated_at = datetime.utcnow()
+    room.join_code_rotated_at = rotated_at
     if commit:
         db.session.commit()
     return value
+
+
+def review_hollow_join_code(room):
+    if not room.join_code_hash:
+        return None
+    if room.join_code_rotated_at:
+        code = _hollow_code(room.id, room.join_code_rotated_at)
+        if check_password_hash(room.join_code_hash, code):
+            return code
+    return set_join_code(room.name)
 
 
 def clear_join_code(room_name, *, commit=True):

@@ -4,10 +4,10 @@ from sqlalchemy.exc import IntegrityError
 
 from extensions import active_room_states, db
 from manager.battle.combat_session import ensure_combat_session_defaults
-from manager.hollow.rooms import initial_state, lobby_cards
-from manager.join_code import set_join_code
+from manager.hollow.rooms import initial_state, is_hollow, lobby_cards
+from manager.join_code import review_hollow_join_code, set_join_code
 from manager.practice_rooms import is_practice
-from manager.room_access import OWNER, VIS_LISTED, ensure_membership
+from manager.room_access import OWNER, VIS_LISTED, ensure_membership, get_membership_role, revoke_membership
 from manager.utils import session_required
 from models import Room
 
@@ -49,4 +49,36 @@ def create_room():
             return jsonify(error="その部屋名は既に使用されています。"), 409
         raise
     active_room_states[name] = state
-    return jsonify(room_name=name, join_code=code), 201
+    return jsonify(room_name=name, join_code=code), 201, {"Cache-Control": "no-store"}
+
+
+def _requested_room():
+    data = request.get_json(silent=True)
+    name = data.get("room_name") if isinstance(data, dict) else None
+    return Room.query.filter_by(name=name).first() if isinstance(name, str) else None
+
+
+@hollow_bp.post("/api/hollow/join_code")
+@session_required
+def join_code():
+    room = _requested_room()
+    if not is_hollow(room) or get_membership_role(session["user_id"], room.name) != OWNER:
+        return jsonify(error="オーナー権限が必要です"), 403
+    code = review_hollow_join_code(room)
+    if code is None:
+        return jsonify(error="参加コードは失効しています"), 409
+    return jsonify(room_name=room.name, join_code=code), 200, {"Cache-Control": "no-store"}
+
+
+@hollow_bp.post("/api/hollow/leave")
+@session_required
+def leave_room():
+    room = _requested_room()
+    user_id = session["user_id"]
+    if not is_hollow(room) or not get_membership_role(user_id, room.name):
+        return jsonify(error="参加中の部屋が見つかりません"), 404
+    try:
+        revoke_membership(room.name, user_id)
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    return jsonify(room_name=room.name)
