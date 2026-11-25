@@ -1,0 +1,140 @@
+(function () {
+  const {h} = window.CatalogWorkspaceParts;
+  const {button, field, select, grid, card, remove} = window.UnitForms;
+  const labels = {tier:'Tier',fixed_floor:'固定階'};
+  const types = {boss:'ボス',town:'町',camp:'キャンプ'};
+  const events = {normal:'通常戦闘',elite:'精鋭戦闘',chest:'宝箱',miasma:'魔素だまり',camp:'ベースキャンプ'};
+  const grades = {'鉄級':'iron','銅級':'copper','銀級':'silver','金級':'gold','特異級':'exceptional'};
+  const supports = kind => Object.hasOwn(labels, kind);
+  const tierOf = floor => Math.ceil(floor / 10);
+  const floorLabel = floor => 'T' + tierOf(floor) + ' · ' + floor + 'F';
+  const number = row => row.payload[row.kind === 'tier' ? 'tier' : 'floor'] ?? Infinity;
+
+  function defaults(kind, records) {
+    if (kind === 'fixed_floor') return {name:'',floor:10,type:'boss',text:''};
+    const used = new Set(records.filter(row => row.kind === 'tier' && !row.deprecated).map(number));
+    return {name:'',tier:[1,2,3,4,5].find(value => !used.has(value)) ?? 1,description:'',
+      hp_multiplier:1,attack_multiplier:1,event_weights:{},encounters:{normal:[],elite:[]}};
+  }
+
+  function checked(path, control) {
+    return `<div class="unit-checked-field">${control}<span class="cat-field-error" data-unit-field-error="${path}" id="unit-error-${path}" hidden></span></div>`;
+  }
+
+  function numberField(label, path, value, attributes) {
+    return checked(path, field(label,path,value,'number',attributes));
+  }
+
+  function reference(label, path, kind, value, records) {
+    const choices = Object.fromEntries(records.filter(row => row.kind === kind && row.payload.domain === 'hollow' &&
+      (kind !== 'formation' || row.payload.type === 'enemy') && (!row.deprecated || row.entry_id === value))
+      .map(row => [row.entry_id,row.payload.name]));
+    if (value && !Object.hasOwn(choices,value)) choices[value] = value;
+    return checked(path, select(label,path,{'':'選択',...choices},value));
+  }
+
+  function membersOf(formationId, records) {
+    const formation = records.find(row => row.kind === 'formation' && row.entry_id === formationId);
+    return (formation?.payload.members || []).map(({unit_id,count}) => {
+      const unit = records.find(row => row.kind === 'unit' && row.entry_id === unit_id)?.payload;
+      const grade = (unit?.tags || []).find(tag => typeof tag === 'string' && tag.startsWith('等級:'))?.slice(3);
+      const badge = Object.hasOwn(grades,grade)
+        ? `<span class="cat-badge unit-grade" data-grade="${grades[grade]}">${grade}</span>` : '';
+      return `<span>${badge}${h(unit?.name || unit_id)}×${count}</span>`;
+    }).join('');
+  }
+
+  function encounterTable(group, label, rows, records, edit) {
+    const path = `encounters.${group}`;
+    return `<section class="unit-encounter-group" data-encounter-group="${group}">
+      <div class="unit-list-heading"><h4>${label}</h4>${edit ? button(`＋ ${label}を追加`,'encounter-add',`data-path="${path}"`) : ''}</div>
+      <div class="unit-encounter-head" aria-hidden="true"><span>編成</span><span>重み</span><span>割合</span></div>
+      ${rows.map((row,i) => `<div class="unit-encounter-row">
+        <div>${reference('編成',`${path}.${i}.formation_id`,'formation',row.formation_id,records)}
+          <div class="unit-encounter-members">${membersOf(row.formation_id,records)}</div></div>
+        ${numberField('重み',`${path}.${i}.weight`,row.weight,'min="0" step="1"')}
+        <div class="unit-encounter-share"><output data-encounter-share></output><span aria-hidden="true"><i></i></span></div>
+        ${edit ? remove(path,i) : ''}</div>`).join('')}
+    </section>`;
+  }
+
+  function render(section, {kind,row,edit,records}) {
+    const p = row.payload;
+    const name = checked('name', field('名前','name',p.name));
+    if (kind === 'fixed_floor') {
+      return name + grid(numberField('階','floor',p.floor,'min="1" max="50" step="1"'),
+        checked('type',select('種類','type',types,p.type))) +
+        (p.type === 'boss' ? grid(reference('敵編成','formation_id','formation',p.formation_id,records),
+          reference('ステージ','stage_id','stage',p.stage_id,records)) : '') +
+        checked('text',field('文章','text',p.text,'area'));
+    }
+    if (section === 'events') {
+      return `<div class="unit-event-strip" aria-label="イベントの割合">
+        ${Object.keys(events).map(key => `<span data-event-share="${key}" data-event="${key}"></span>`).join('')}</div>
+        <div class="unit-event-fields">${Object.entries(events).map(([key,label]) =>
+          `<div data-event="${key}">${numberField(label,`event_weights.${key}`,p.event_weights?.[key] ?? 0,'min="0" step="1"')}</div>`
+        ).join('')}</div>`;
+    }
+    if (section === 'encounters') {
+      return encounterTable('normal','通常',p.encounters?.normal || [],records,edit) +
+        encounterTable('elite','精鋭',p.encounters?.elite || [],records,edit);
+    }
+    return name + grid(numberField('区切りの番号','tier',p.tier,'min="1" max="5" step="1"'),
+      numberField('HP係数','hp_multiplier',p.hp_multiplier,'step="any"'),
+      numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"')) +
+      checked('description',field('説明','description',p.description,'area'));
+  }
+
+  const weight = value => Number.isInteger(value) && value >= 0 ? value : 0;
+  const sum = values => values.reduce((total,value) => total + weight(value),0);
+  const percent = (value,total) => total ? weight(value) * 100 / total : 0;
+  const share = (value,total) => total ? `${Math.round(percent(value,total)*10)/10}%` : '—';
+
+  function update(section, payload, errors) {
+    section.querySelectorAll('[data-unit-field-error]').forEach(note => {
+      const path = note.dataset.unitFieldError;
+      const key = path.replace(/\.(\d+)(?=\.)/g,'[$1]');
+      const message = errors[key] || '';
+      note.hidden = !message;
+      note.textContent = message;
+      const input = note.parentElement.querySelector('[data-path]');
+      if (message) {
+        input.setAttribute('aria-invalid','true');
+        input.setAttribute('aria-describedby',note.id);
+      } else {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+      }
+    });
+
+    const eventWeights = payload.event_weights || {};
+    const eventTotal = sum(Object.values(eventWeights));
+    section.querySelectorAll('[data-event-share]').forEach(segment => {
+      const key = segment.dataset.eventShare;
+      const ratio = share(eventWeights[key],eventTotal);
+      segment.style.setProperty('--unit-share', eventTotal ? percent(eventWeights[key],eventTotal) : 20);
+      segment.toggleAttribute('data-empty',!eventTotal);
+      segment.textContent = ratio;
+      segment.title = `${events[key]} ${ratio}`;
+      segment.setAttribute('aria-label',segment.title);
+    });
+    section.querySelectorAll('[data-encounter-group]').forEach(group => {
+      const rows = payload.encounters?.[group.dataset.encounterGroup] || [];
+      const total = sum(rows.map(row => row.weight));
+      group.querySelectorAll('[data-encounter-share]').forEach((output,i) => {
+        output.textContent = share(rows[i].weight,total);
+        output.parentElement.style.setProperty('--unit-share', `${percent(rows[i].weight,total)}%`);
+      });
+    });
+  }
+
+  function preview(kind,payload) {
+    if (kind === 'fixed_floor') {
+      return card('固定階',`<p>${payload.floor ? floorLabel(payload.floor) : '階未設定'} · ${h(types[payload.type])}</p>`);
+    }
+    return card('Tier',`<p>T${h(payload.tier || '—')} · HP ×${h(payload.hp_multiplier)} · 攻撃 ×${h(payload.attack_multiplier)}</p>
+      <p>通常 ${payload.encounters?.normal?.length || 0}件 · 精鋭 ${payload.encounters?.elite?.length || 0}件</p>`);
+  }
+
+  window.UnitHollowFloors = {labels,types,supports,floorLabel,number,defaults,render,update,preview};
+})();

@@ -6,6 +6,8 @@
     formation: [['basic','基本情報'], ['members','メンバー'], ['history','履歴']],
     stage: [['basic','基本情報'], ['battle','編成'], ['field','フィールド効果'], ['avatar','ステージアバター'], ['history','履歴']],
     unit_collection: [['basic','基本情報'], ['history','履歴']],
+    tier: [['basic','基本情報'], ['events','イベント'], ['encounters','遭遇表'], ['history','履歴']],
+    fixed_floor: [['basic','基本情報'], ['history','履歴']],
   };
   const rules = {SPEED_ROLL_MOD:'速度ロール補正', DAMAGE_DEALT_MOD:'与ダメージ補正', APPLY_STATE_ON_CONDITION:'条件付き状態異常付与'};
   const scopes = {ALL:'全員', ALLY:'味方のみ', ENEMY:'敵のみ'};
@@ -39,7 +41,7 @@
   const badges = row => {
     const p = row.payload;
     return [p.allow_ally && badge('味方','unit-ally'), p.allow_enemy && badge('敵','unit-enemy'),
-      p.type && badge(sides[p.type], p.type === 'enemy' ? 'unit-enemy' : 'unit-ally'),
+      Object.hasOwn(sides,p.type) && badge(sides[p.type], p.type === 'enemy' ? 'unit-enemy' : 'unit-ally'),
       row.visibility === 'staff' && badge('非公開','unit-staff'), row.deprecated && badge('廃止','unit-deprecated'),
       ...(p.marks || []).map(mark => badge(h(markLabels[mark] || mark),'unit-mark'))].filter(Boolean).join(' ');
   };
@@ -237,5 +239,5 @@
     return '';
   }
 
-  window.UnitForms = {sections, sides, button, options, field, card, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain, markLabels, configureMarks};
+  window.UnitForms = {sections, sides, button, options, field, select, grid, card, remove, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain, markLabels, configureMarks};
 })();

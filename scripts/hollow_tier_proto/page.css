@@ -1,0 +1,174 @@
+body {
+  margin: 0;
+  background: var(--ui-page) var(--ui-page-tex) fixed;
+}
+
+.tier-workspace.cat-workspace.bo-workspace {
+  min-height: calc(100vh - 28px);
+  height: auto;
+  margin: 12px auto 16px;
+  padding-bottom: 65px;
+}
+
+.tier-workspace .unit-layout { grid-template-rows: auto; }
+.tier-workspace .unit-section { overflow: visible; padding: 10px 14px; }
+.tier-workspace .unit-footer { justify-content: flex-end; min-height: 43px; }
+.tier-workspace .unit-footer [role="status"] { margin-right: auto; color: var(--cat-sub); }
+.tier-workspace .unit-records { max-height: none; }
+.tier-workspace .unit-records .bo-workspace__record { --unit-row: 6ch minmax(0, 1fr) max-content; }
+.tier-workspace :is(.unit-records,.floor-map) small { color: var(--cat-sub); }
+.tier-workspace .unit-fields .cat-field { margin-bottom: 3px; }
+.tier-block { margin-block: 0 12px; }
+.tier-block:last-child { margin-bottom: 0; }
+.tier-block > h4 { margin: 0 0 7px; padding-bottom: 4px; border-bottom: 1px solid var(--cat-edge); }
+
+.floor-map { padding: 8px 12px; border-bottom: 1px solid var(--cat-edge); }
+.floor-map.map-in-tier { padding: 0 0 8px; margin-bottom: 9px; }
+.floor-map h3 { margin: 0 0 5px; font-size: 14px; }
+.floor-map h3 small { margin-inline-start: 6px; font: 11px system-ui, sans-serif; }
+.map-strip { display: grid; grid-template-columns: repeat(50, minmax(0, 1fr)); gap: 1px; padding-top: 2px; }
+.map-floor { position: relative; height: 13px; margin-bottom: 16px; background: var(--cat-soft); }
+.map-floor[data-state^="HT-"],
+.map-key { --map-color: var(--ui-primary); --map-bg: var(--ui-primary-soft); }
+.map-floor[data-state="HT-02"], .map-key[data-state="HT-02"] {
+  --map-color: var(--ui-ally); --map-bg: var(--ui-ally-soft);
+}
+.map-floor[data-state^="HT-"] { background: var(--map-bg); border-top: 2px solid var(--map-color); }
+.map-floor[data-state="gap"] {
+  background: repeating-linear-gradient(125deg, var(--ui-warn-soft) 0 3px, var(--cat-bg) 3px 6px);
+  border-top: 2px dashed var(--ui-warn);
+}
+.map-floor[data-state="overlap"] {
+  background: repeating-linear-gradient(125deg, var(--ui-danger-soft) 0 3px, var(--ui-danger) 3px 4px);
+  border-top: 2px solid var(--ui-danger);
+}
+.map-in-tier .map-floor[data-state^="HT-"]:not([data-active]) { border-top-color: var(--cat-control); }
+.map-floor[data-active] { border-bottom: 2px solid var(--ui-primary); }
+[data-fixed="boss"] { --fixed-symbol: "◆"; --fixed-color: var(--ui-warn); }
+[data-fixed="town"] { --fixed-symbol: "■"; --fixed-color: var(--ui-ally); }
+[data-fixed="camp"] { --fixed-symbol: "▲"; --fixed-color: var(--ui-add); }
+.map-floor[data-fixed]::before, .map-fixed-key::before { content: var(--fixed-symbol); color: var(--fixed-color); }
+.map-floor[data-fixed]::before {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  line-height: 1;
+  text-shadow: 0 1px 2px var(--cat-bg), 0 -1px 2px var(--cat-bg);
+}
+.map-tick { position: absolute; top: 13px; right: 0; color: var(--cat-sub); font-size: 10px; font-variant-numeric: tabular-nums; }
+.map-keys { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
+.map-key { color: var(--map-color); display: inline-flex; align-items: center; gap: 4px; }
+.map-key::before { content: ""; width: 13px; height: 7px; background: var(--map-bg); border-top: 2px solid currentColor; }
+.map-key[data-active] { font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.map-fixed-key::before { margin-inline-end: 4px; }
+.map-gap { color: var(--ui-warn); }
+.map-overlap { color: var(--ui-danger); }
+
+.event-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 171px), 1fr)); gap: 5px 8px; }
+.event-weight { display: flex; align-items: center; gap: 4px; }
+.event-weight::before { content: ""; background: var(--event-color); width: 7px; height: 7px; flex: 0 0 7px; }
+.tier-workspace .event-weight .cat-field { flex: 1; justify-content: space-between; gap: 4px; margin: 0; }
+.tier-workspace .event-weight input[type="number"] { width: 6ch; }
+.event-weight output { min-width: 4ch; text-align: end; color: var(--cat-sub); }
+.event-strip { display: flex; height: 23px; margin: 0 0 7px; background: var(--cat-soft); border: 1px solid var(--cat-control); overflow: hidden; border-radius: 4px; }
+.event-strip span {
+  flex: 0 0 calc(var(--share) * 1%);
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  align-content: center;
+  color: var(--ui-on-primary);
+  background: var(--event-color);
+  font-weight: 700;
+  font-size: 11px;
+}
+.event-strip [data-empty] { background: var(--cat-soft); color: var(--cat-sub); }
+
+.encounter-group + .encounter-group { margin-top: 8px; }
+.encounter-group .unit-list-heading { padding: 0 0 4px; }
+.encounter-group .unit-list-heading h4 { margin: 0; }
+.encounter-head, .encounter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 9ch minmax(9ch, 20%) max-content;
+  gap: 6px 10px;
+  align-items: center;
+}
+.encounter-head { padding: 2px 6px; background: var(--cat-soft); color: var(--cat-sub); }
+.encounter-row { padding: 3px 6px; border-bottom: 1px solid var(--cat-edge); }
+.tier-workspace .encounter-row .cat-field, .tier-workspace .encounter-card .cat-field { margin: 0; }
+.tier-workspace :is(.encounter-row,.encounter-card) select { width: 100%; max-width: none; }
+.tier-workspace .encounter-row input[type="number"] { width: 100%; }
+.share { display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.share output { min-width: 5ch; color: var(--cat-sub); }
+.share-track { width: min(70px, 100%); height: 5px; background: var(--cat-soft); border-radius: 3px; }
+.share-track span { display: block; width: var(--share); height: 100%; background: var(--cat-primary); border-radius: inherit; }
+.encounter-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 6px;
+}
+.encounter-card {
+  display: grid;
+  grid-template-columns: max-content 1fr max-content;
+  align-items: center;
+  gap: 5px 6px;
+  padding: 7px;
+  background: var(--cat-soft);
+  border: 1px solid var(--cat-edge);
+  border-radius: 6px;
+}
+.encounter-card > :first-child, .encounter-members { grid-column: 1 / -1; }
+.tier-workspace .encounter-card input[type="number"] { width: 7.5ch; }
+.encounter-members { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; list-style: none; padding: 0; }
+.encounter-members li { white-space: nowrap; }
+.tier-workspace .grade-badge { color: var(--grade-ink); background: var(--grade-bg); }
+.grade-badge::before { content: var(--grade-symbol); margin-inline-end: 3px; }
+
+.prototype-dock {
+  position: fixed;
+  z-index: 5;
+  bottom: 9px;
+  right: max(12px, calc((100vw - 1250px) / 2));
+  max-width: calc(100vw - 24px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 12px;
+  padding: 6px 8px;
+  border: 1px solid var(--cat-control);
+  background: var(--cat-bg);
+  border-radius: 7px;
+  box-shadow: var(--ui-shadow-float);
+}
+.compare-options { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.compare-option { display: flex; gap: 3px; align-items: center; }
+.compare-option > span { margin-inline-end: 2px; color: var(--cat-sub); }
+.contrast-panel { position: relative; font-variant-numeric: tabular-nums; }
+.contrast-panel summary { cursor: pointer; color: var(--cat-sub); white-space: nowrap; }
+.contrast-panel table {
+  display: block;
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 9px);
+  min-width: 210px;
+  max-height: min(53vh, 420px);
+  overflow: auto;
+  background: var(--cat-bg);
+  border: 1px solid var(--cat-control);
+  border-radius: 5px;
+  padding: 5px 8px;
+  text-align: left;
+}
+.contrast-panel :is(th,td) { padding: 2px 5px; white-space: nowrap; }
+.contrast-panel .fail { color: var(--ui-danger); }
+
+@media (max-width: 720px) {
+  .tier-workspace.cat-workspace.bo-workspace { padding-bottom: 91px; }
+  .tier-workspace .unit-layout { align-content: start; }
+  .tier-workspace .unit-section { padding-inline: 8px; }
+  .floor-map { padding-inline: 8px; }
+  .tier-workspace .unit-records .bo-workspace__record { width: 100%; }
+}

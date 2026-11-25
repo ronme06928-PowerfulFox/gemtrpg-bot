@@ -3,15 +3,12 @@
   const forms = window.UnitForms;
   const views = window.UnitViews;
   const patterns = window.UnitPatterns;
+  const floors = window.UnitHollowFloors;
   const {button, badges, sections} = forms;
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
   const labels = {unit:'ユニット',formation:'編成',stage:'ステージ'};
   const hollowLabels = {...labels,unit_collection:'分類'};
-  const futureTabs = [
-    ['階', ['Tier','固定階','イベント','宝箱']],
-    ['報酬', ['淵遺物','ドロップ表','バフ','アイテム']],
-  ];
 
   // #units と #hollow-data で同じ編集・未保存確認を使う。
   function mountUnitManagement(host, options = {}) {
@@ -107,9 +104,11 @@
 
     function renderList() {
       const query = state.search.trim().toLowerCase();
-      const rows = tabRows().filter(row => (state.kind === 'unit_collection' || !state.collection || row.payload.collection_id === state.collection) &&
+      const isFloor = floors.supports(state.kind);
+      const rows = tabRows().filter(row => (isFloor || state.kind === 'unit_collection' || !state.collection || row.payload.collection_id === state.collection) &&
         (state.kind !== 'unit' || !state.mark || row.payload.marks?.includes(state.mark)) &&
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
+      if (isFloor) rows.sort((a,b) => floors.number(a) - floors.number(b));
       get('.unit-records').innerHTML = rows.map(row => views.recordRow(row,row.entry_id === state.selected)).join('')
         || '<p class="cat-empty">該当する資源はありません。</p>';
     }
@@ -117,16 +116,17 @@
     function renderFrame() {
       get('.bo-workspace__header-actions').innerHTML = (canEdit() ? button('書き出し・取り込み','transfer') : '') +
         button('再読み込み','reload');
-      const activeTabs = Object.entries(hollow ? hollowLabels : labels).map(([kind,label]) =>
+      const activeTabs = choices => Object.entries(choices).map(([kind,label]) =>
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
           `data-kind="${kind}" aria-pressed="${state.kind === kind}"`)).join('');
       const group = (label, tabs) => `<section class="unit-tab-group" aria-label="${label}"><h3>${label}</h3>${tabs}</section>`;
-      get('.unit-tabs').innerHTML = hollow ? group('敵', activeTabs) +
-        futureTabs.map(([label, tabs]) => group(label, tabs.map(tab =>
-          `<button type="button" class="cat-button" disabled>${tab}</button>`).join(''))).join('') : activeTabs;
+      const inactive = (...tabs) => tabs.map(tab => `<button type="button" class="cat-button" disabled>${tab}</button>`).join('');
+      get('.unit-tabs').innerHTML = hollow ? group('敵', activeTabs(hollowLabels)) +
+        group('階',activeTabs(floors.labels) + inactive('イベント','宝箱')) +
+        group('報酬',inactive('淵遺物','ドロップ表','バフ','アイテム')) : activeTabs(labels);
       get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
       get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
-        ${state.kind !== 'unit_collection' ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
+        ${state.kind !== 'unit_collection' && !floors.supports(state.kind) ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
         ${state.kind === 'unit' ? `<label class="cat-field">印<select data-filter="mark"><option value="">すべての印</option>${Object.entries(forms.markLabels).map(([key,label])=>`<option value="${key}" ${state.mark === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>` : ''}
         <label class="unit-inline"><input type="checkbox" aria-label="廃止済みも表示" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済み</label>`;
       renderList();
@@ -140,9 +140,10 @@
       const persisted = !!state.selected;
       const scroll = get('.unit-editor');
       const position = scroll ? [scroll.scrollTop,get('.unit-section').scrollTop,get('.unit-confirm').scrollTop] : null;
+      const renderForm = floors.supports(state.kind) ? floors.render : forms.render;
       const sectionBody = state.section === 'history'
         ? (persisted ? history(state.history, {revision:row.revision, restore:canEdit(), button}) : '<p class="cat-caption">保存すると履歴が表示されます。</p>')
-        : forms.render(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.patternAdditions.size ? state.records.map(withPendingPatterns) : state.records});
+        : renderForm(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.patternAdditions.size ? state.records.map(withPendingPatterns) : state.records});
       detail.innerHTML = `${backButton()}<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
         <div class="unit-editor${state.wideConfirm ? ' is-confirm-wide' : ''}">
@@ -181,7 +182,9 @@
       const constraints = get('[data-path="behavior.constraints"]');
       if (constraints && state.rawConstraints !== null && constraints !== document.activeElement) constraints.value = state.rawConstraints;
       get('[data-unit-title]').textContent = payload().name || '名前未入力';
-      get('.unit-preview').innerHTML = views.preview(state.kind,state.draft,state.records,masters);
+      const isFloor = floors.supports(state.kind);
+      get('.unit-preview').innerHTML = isFloor ? floors.preview(state.kind,payload()) : views.preview(state.kind,state.draft,state.records,masters);
+      if (isFloor) floors.update(get('.unit-section'),payload(),state.check?.errors || {});
       if (canEdit()) get('.unit-check').innerHTML = state.check ? views.issues(state.check) : '<p class="cat-caption">確認中…</p>';
       const refs = state.refs;
       get('.unit-references').innerHTML = !state.selected ? '<p>未保存</p>' : !refs ? '<p>確認中…</p>' :
@@ -275,7 +278,7 @@
       if (fromReference && !row) notify('リンク先のユニットが見つかりません。', true);
     }
 
-    function startNew(kind, value = forms.defaults(kind)) {
+    function startNew(kind, value = floors.supports(kind) ? floors.defaults(kind,state.records) : forms.defaults(kind)) {
       state.patternAdditions.clear();
       state.kind = kind;
       state.selected = null;
@@ -637,7 +640,7 @@
         (get('[data-section][aria-current="true"]') || get('[data-unit-action="new"]'))?.focus();
       }
       if (action === 'new') {
-        if (state.kind === 'stage' || state.kind === 'unit_collection') {
+        if (!['unit','formation'].includes(state.kind)) {
           if (await canLeave()) startNew(state.kind);
           return;
         }
@@ -676,6 +679,12 @@
       }
       if (action === 'candidate') pick(control);
       if (action === 'clear-reference') { setPath(path,null); update(true); }
+      if (action === 'encounter-add') {
+        addRow(path,{formation_id:'',weight:1});
+        update(true);
+        const added = get(`[data-path="${path}.${payload().encounters[path.split('.')[1]].length - 1}.formation_id"]`);
+        added?.focus();
+      }
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
         const pendingTag = path === 'tags' ? get('[data-unit-tag-input]').value : '';
@@ -770,6 +779,12 @@
           : '版が変わりました。「再読み込み」で最新の版を確認してください。') : detail || error.message;
         if (conflict && ['save','deprecate','restore'].includes(operation)) {
           state.conflict = true;
+          updatePreview();
+        }
+        if (error.status === 422 && error.errors && floors.supports(state.kind) && state.draft) {
+          clearTimeout(checkTimer);
+          ++checkToken;
+          state.check = {errors:error.errors};
           updatePreview();
         }
         if (conflict && operation === 'confirm-package') {
@@ -868,7 +883,13 @@
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
-      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy';
+      const floorType = state.kind === 'fixed_floor' && path === 'type';
+      if (floorType && value !== 'boss') {
+        delete payload().formation_id;
+        delete payload().stage_id;
+      }
+      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy' || floorType ||
+        (state.kind === 'tier' && path.endsWith('.formation_id'));
       update(refresh);
       if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});
       if (path.startsWith('patterns.') && path.endsWith('.name')) {

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ホロウデータ｜Tier・固定階</title>
+  <!--STYLE-->
+</head>
+<body data-theme="abyss">
+  <section class="bo-workspace cat-workspace unit-workspace tier-workspace" aria-label="ホロウデータ">
+    <header class="bo-workspace__header"><h2>ホロウデータ</h2></header>
+    <nav class="unit-tabs unit-tab-groups" aria-label="資源の種類">
+      <section class="unit-tab-group" aria-label="敵">
+        <h3>敵</h3>
+        <button type="button" class="cat-button" disabled>ユニット</button>
+        <button type="button" class="cat-button" disabled>編成</button>
+        <button type="button" class="cat-button" disabled>ステージ</button>
+        <button type="button" class="cat-button" disabled>分類</button>
+      </section>
+      <section class="unit-tab-group" aria-label="階">
+        <h3>階</h3>
+        <button type="button" class="cat-button" data-tab="tier" aria-pressed="true">Tier</button>
+        <button type="button" class="cat-button" data-tab="fixed_floor" aria-pressed="false">固定階</button>
+        <button type="button" class="cat-button" disabled>イベント</button>
+        <button type="button" class="cat-button" disabled>宝箱</button>
+      </section>
+      <section class="unit-tab-group" aria-label="報酬">
+        <h3>報酬</h3>
+        <button type="button" class="cat-button" disabled>淵遺物</button>
+        <button type="button" class="cat-button" disabled>ドロップ表</button>
+        <button type="button" class="cat-button" disabled>バフ</button>
+        <button type="button" class="cat-button" disabled>アイテム</button>
+      </section>
+    </nav>
+    <div id="overview"></div>
+    <div class="unit-layout">
+      <aside class="unit-list-pane" aria-label="一覧">
+        <header class="unit-list-heading"><h3 id="list-title"></h3></header>
+        <div class="unit-records"></div>
+      </aside>
+      <main class="unit-detail" id="editor"></main>
+    </div>
+    <aside class="prototype-dock" aria-label="表示比較">
+      <div class="compare-options"></div>
+      <details class="contrast-panel">
+        <summary id="contrast-summary"></summary>
+        <table aria-label="コントラスト"><tbody></tbody></table>
+      </details>
+    </aside>
+  </section>
+  <!--SCRIPT-->
+</body>
+</html>

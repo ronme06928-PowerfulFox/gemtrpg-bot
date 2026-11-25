@@ -67,7 +67,7 @@ def _prepare(package):
             previous = current.get(key, {})
             errors, warnings, payload = inspect_payload(
                 kind, row["payload"], row["visibility"], combined, previous=previous.get("payload"),
-                entry_id=key[1])
+                entry_id=key[1], deprecated=row["deprecated"])
             row["payload"] = payload
             if not previous and repository.history(*key):
                 errors["entry_id"] = "このIDは削除済みです"

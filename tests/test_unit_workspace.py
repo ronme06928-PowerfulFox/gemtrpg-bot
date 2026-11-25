@@ -18,9 +18,11 @@ await import('./static/js/master_data/catalog_api.js');
 await import('./static/js/units/api.js');
 await import('./static/js/master_data/glossary.js');
 await import('./static/js/master_data/skill.js');
+await import('./static/js/master_data/workspace_parts.js');
 await import('./static/js/units/patterns.js');
 await import('./static/js/units/forms.js');
 UnitForms.configureMarks({enemy:'敵専用', known:'図鑑に最初から載せる'});
+await import('./static/js/units/hollow_floors.js');
 await import('./static/js/units/views.js');
 const api = UnitApi;
 const merged = UnitForms.overwriteUnit({collection_id:'SC-01',default_pattern_id:'BP-1',
@@ -41,6 +43,8 @@ assert.match(UnitViews.candidateList(candidates,'visible'), /data-unit-action="c
 assert.doesNotMatch(UnitViews.candidateList(candidates,'visible'), /<datalist|<select/);
 assert.doesNotMatch(UnitForms.render('basic',{kind:'formation',row:draft,records,edit:true}), /data-path="type"/);
 assert.match(UnitViews.importReport([{kind:'unit',entry_id:'U-001',operation:'overwrite',base_revision:2,errors:{},warnings:{ref:'廃止済み'}}]), /上書き（版 2）/);
+assert.match(UnitViews.importReport([{kind:'tier',entry_id:'HT-01',operation:'new',errors:{}}]), /Tier HT-01/);
+assert.match(UnitViews.recordRow({kind:'fixed_floor',entry_id:'HF-01',payload:{floor:15,name:'先人のキャンプ',type:'camp'}},false), /T2 · 15F/);
 assert.equal(UnitForms.sectionAction('skills',draft.payload,true).includes('＋ スキルを追加'),true);
 assert.equal(UnitForms.sectionAction('skills',draft.payload,false),'');
 assert.match(UnitViews.deleteReason('unit',{references:[{kind:'formation'}]}), /編成で使用中/);

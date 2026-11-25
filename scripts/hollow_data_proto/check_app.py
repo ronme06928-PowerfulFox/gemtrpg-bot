@@ -1,6 +1,7 @@
 """Verify the deployed bundle against the disposable PR35-2 database."""
 
 import argparse
+from contextlib import closing
 import os
 import socket
 import sqlite3
@@ -70,7 +71,7 @@ def register(browser, name, *, author=False):
     page = browser.new_page(base_url=BASE, viewport={"width": 1280, "height": 860})
     api(page, "POST", "/api/register", login_name=name, password=uuid4().hex)
     if author:
-        with sqlite3.connect(DB) as connection:
+        with closing(sqlite3.connect(DB)) as connection, connection:
             result = connection.execute("UPDATE users SET is_catalog_author=1 WHERE name=?", (name,))
             assert result.rowcount == 1
     return page
@@ -135,8 +136,8 @@ def verify(browser):
     click(page, "ホロウデータ")
     expect(page.locator('.unit-workspace')).to_have_attribute("data-theme", "abyss")
     expect(page.locator(".unit-tab-group h3")).to_have_text(["敵", "階", "報酬"])
-    expect(page.locator(".unit-tab-group button:not(:disabled)")).to_have_count(4)
-    expect(page.locator(".unit-tab-group button:disabled")).to_have_count(8)
+    expect(page.locator(".unit-tab-group button:not(:disabled)")).to_have_count(6)
+    expect(page.locator(".unit-tab-group button:disabled")).to_have_count(6)
     expect(page.locator(f'.unit-records [data-id="{session_unit}"]')).to_have_count(0)
     expect(page.locator(f'.unit-records [data-id="{staff_unit}"]')).to_be_visible()
     name = select_unit(page, hollow_unit)
@@ -221,7 +222,7 @@ def verify(browser):
     return photos
 
 
-def launch_and_verify(app_python):
+def launch_and_verify(app_python, exercise=verify):
     assert DB.is_file() and DB.resolve() == DB, "Prepare the disposable DB"
     with socket.socket() as probe:
         if os.name == "nt":
@@ -252,7 +253,7 @@ def launch_and_verify(app_python):
             expect.set_options(timeout=15000)
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(channel="chrome")
-                photos = verify(browser)
+                photos = exercise(browser)
                 browser.close()
                 return photos
         except Exception:

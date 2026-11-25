@@ -7,6 +7,7 @@ from extensions import db
 from models import CatalogEntry, CatalogHistory
 from manager.catalog.kinds import CatalogValidationError
 from manager.catalog.repository import CatalogConflictError, _transaction, record_history
+from manager.hollow.resources import tier_number_error
 from manager.units.validation import IDS, inspect_payload, links, valid_id
 
 
@@ -57,9 +58,9 @@ def check(kind, payload, visibility="public", *, entry_id=None, pattern_addition
         return exc.errors, {}
     except CatalogConflictError as exc:
         return exc.errors, {}
-    previous = current.get((kind, entry_id), {}).get("payload")
-    errors, warnings, normalized = inspect_payload(kind, payload, visibility, current, previous=previous,
-                                                   entry_id=entry_id)
+    previous = current.get((kind, entry_id), {})
+    errors, warnings, normalized = inspect_payload(kind, payload, visibility, current, previous=previous.get("payload"),
+                                                   entry_id=entry_id, deprecated=previous.get("deprecated", False))
     if not errors and entry_id:
         errors = dependent_errors(kind, entry_id, normalized, current)
     return errors, warnings
@@ -136,11 +137,11 @@ def _formation_pattern_updates(kind, payload, additions, resources):
     return updates
 
 
-def _validate(kind, key, payload, visibility, *, resources=None):
+def _validate(kind, key, payload, visibility, *, resources=None, deprecated=False):
     resources = entries() if resources is None else resources
     previous = resources.get((kind, key), {}).get("payload")
     errors, warnings, normalized = inspect_payload(kind, payload, visibility, resources, previous=previous,
-                                                   entry_id=key)
+                                                   entry_id=key, deprecated=deprecated)
     if not errors and key:
         errors = dependent_errors(kind, key, normalized, resources)
     if errors:
@@ -189,7 +190,8 @@ def save(kind, entry_id, payload, *, visibility="public", base_revision=None, ac
     if kind not in IDS:
         raise CatalogValidationError({"kind": "未対応の種類です"})
     key = entry_id or next_id(kind)
-    payload, warnings = _validate(kind, key, payload, visibility, resources=resources)
+    payload, warnings = _validate(kind, key, payload, visibility, resources=resources,
+                                  deprecated=row.deprecated if row else False)
     for (_, unit_id), unit in updates.items():
         write("unit", unit_id, unit["payload"], unit["visibility"], unit["deprecated"],
               "publish", actor_user_id, row=get("unit", unit_id))
@@ -228,6 +230,10 @@ def set_deprecated(kind, entry_id, deprecated, *, base_revision, actor_user_id=N
     if type(deprecated) is not bool:
         raise CatalogValidationError({"deprecated": "真偽値が必要です"})
     if row.deprecated != deprecated:
+        if kind == "tier" and not deprecated:
+            error = tier_number_error(row.payload, entries(), entry_id)
+            if error:
+                raise CatalogValidationError({"tier": error})
         write(kind, entry_id, row.payload, row.visibility, deprecated,
               "deprecate" if deprecated else "undeprecate", actor_user_id, row=row)
     db.session.commit()
@@ -244,7 +250,8 @@ def restore(kind, entry_id, revision, *, base_revision, actor_user_id=None):
     snapshot = CatalogHistory.query.filter_by(kind=kind, entry_id=entry_id, revision=revision).first()
     if snapshot is None:
         raise CatalogValidationError({"revision": "指定の版がありません"})
-    payload, warnings = _validate(kind, entry_id, snapshot.payload, snapshot.visibility)
+    payload, warnings = _validate(kind, entry_id, snapshot.payload, snapshot.visibility,
+                                  deprecated=snapshot.deprecated)
     write(kind, entry_id, payload, snapshot.visibility, snapshot.deprecated,
           "restore", actor_user_id, row=row)
     db.session.commit()

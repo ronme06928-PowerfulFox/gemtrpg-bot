@@ -155,7 +155,7 @@ def _check_unit(unit, errors, previous):
         errors["default_pattern_id"] = "パターンがある場合は既定を1つ指定してください"
 
 
-def inspect_payload(kind, payload, visibility, resources, *, previous=None, entry_id=None):
+def inspect_payload(kind, payload, visibility, resources, *, previous=None, entry_id=None, deprecated=False):
     errors, warnings = {}, {}
     if kind not in IDS:
         return {"kind": "未対応の種類です"}, warnings, payload
@@ -167,6 +167,10 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None, entr
     payload = deepcopy(payload)
     if kind in hollow.HOLLOW_IDS:
         hollow.inspect_payload(kind, payload, entry_id, errors, warnings)
+        if kind == "tier" and "tier" not in errors:
+            error = hollow.tier_number_error(payload, resources, entry_id, deprecated=deprecated)
+            if error:
+                errors["tier"] = error
         if not errors:
             _inspect_links(kind, payload, visibility, resources, errors, warnings)
         return errors, warnings, payload

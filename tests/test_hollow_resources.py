@@ -9,7 +9,7 @@ from tests.test_units import unit_app
 
 
 PAYLOADS = {
-    "tier": ("HT-01", {"floor_min": 1, "floor_max": 9, "encounters": {
+    "tier": ("HT-01", {"tier": 1, "encounters": {
         "normal": [{"formation_id": "F-001", "weight": 1}],
     }}),
     "fixed_floor": ("HF-01", {"floor": 10, "type": "boss", "formation_id": "F-001", "stage_id": "ST-001"}),
@@ -103,7 +103,13 @@ def test_transfer_includes_all_kinds_and_checks_references(resource_set):
     ("tier", {"encounters": {"normal": [{"formation_id": "F-999", "weight": 1}]}}, "encounters.normal[0].formation_id"),
     ("tier", {"encounters": {"normal": [{"formation_id": "F-002", "weight": 1}]}}, "encounters.normal[0].formation_id"),
     ("tier", {"encounters": {"normal": [{"formation_id": "F-003", "weight": 1}]}}, "encounters.normal[0].formation_id"),
-    ("tier", {"floor_max": 51}, "floor_max"),
+    ("tier", {"tier": 0}, "tier"),
+    ("tier", {"tier": 6}, "tier"),
+    ("tier", {"tier": True}, "tier"),
+    ("tier", {"tier": 1.5}, "tier"),
+    ("tier", {"tier": "1"}, "tier"),
+    ("fixed_floor", {"formation_id": ""}, "formation_id"),
+    ("fixed_floor", {"stage_id": ""}, "stage_id"),
     ("fixed_floor", {"stage_id": "ST-002"}, "stage_id"),
     ("fixed_floor", {"stage_id": "F-001"}, "stage_id"),
     ("relic", {"buff_id": "HI-01"}, "buff_id"),
@@ -130,6 +136,46 @@ def test_invalid_resources_cannot_be_saved(resource_set, kind, fields, error):
         repository.save(kind, key, payload, base_revision=1)
     assert error in exc.value.errors
     assert repository.get(kind, key).revision == 1
+
+
+def test_tier_number_is_unique_among_active_records(unit_app):
+    first = save("tier", tier=1)
+    first_id = first.entry_id
+    assert "tier" not in repository.check("tier", first.payload, entry_id=first_id)[0]
+    assert "tier" in repository.check("tier", {"name": "重複", "tier": 1})[0]
+    with pytest.raises(CatalogValidationError, match="tier"):
+        save("tier", tier=1)
+    repository.save("tier", first_id, {"name": "変更", "tier": 5}, base_revision=1)
+    second = save("tier", tier=1)
+    with pytest.raises(CatalogValidationError, match="tier"):
+        repository.restore("tier", first_id, 1, base_revision=2)
+
+    repository.set_deprecated("tier", first_id, True, base_revision=2)
+    archived, _ = repository.save("tier", first_id, {"name": "廃止", "tier": 1}, base_revision=3)
+    assert archived.deprecated
+    with pytest.raises(CatalogValidationError, match="tier"):
+        repository.set_deprecated("tier", first_id, False, base_revision=4)
+    with pytest.raises(CatalogValidationError, match="tier"):
+        repository.restore("tier", first_id, 1, base_revision=4)
+    repository.set_deprecated("tier", second.entry_id, True, base_revision=1)
+    assert not repository.set_deprecated("tier", first_id, False, base_revision=4).deprecated
+
+
+def test_tier_import_checks_final_active_numbers(unit_app):
+    first, second = save("tier", tier=1), save("tier", tier=2)
+    package = transfer.export_package(domain="hollow")
+    left, right = package["entries"]
+    left["payload"]["tier"] = 2
+    report = transfer.preview(package)
+    assert all("tier" in row["errors"] for row in report)
+    revisions = {f"tier:{row.entry_id}": 1 for row in (first, second)}
+    with pytest.raises(CatalogValidationError, match="tier"):
+        transfer.confirm(package, revisions)
+    assert first.payload["tier"] == 1
+    right["payload"]["tier"] = 1
+    assert all(not row["errors"] for row in transfer.preview(package))
+    transfer.confirm(package, revisions)
+    assert (first.payload["tier"], second.payload["tier"]) == (2, 1)
 
 
 def test_grade_and_inventory_checks_leave_existing_units_readable(resource_set, unit_app):

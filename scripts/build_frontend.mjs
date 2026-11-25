@@ -90,6 +90,7 @@ const CLASSIC_SCRIPTS = [
   'js/units/api.js',
   'js/units/patterns.js',
   'js/units/forms.js',
+  'js/units/hollow_floors.js',
   'js/units/views.js',
   'js/units/workspace.js',
   'js/main.js',

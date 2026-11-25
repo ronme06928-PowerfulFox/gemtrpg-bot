@@ -43,6 +43,7 @@
 13. ルームの試作の第3回（大理石の白の窓・宝飾の台座の飾り・操作ボタンの色分け）は `node scripts/ui_room_proto3/build.mjs` で `/_local/ui_room_proto3/index.html` を作る（UI 基盤計画 §7.4 論点7〜9）。本物の素材と `common_ui.css` を使った見本の画面で、アプリは起動しない。本番のバンドルには入らない。
 14. 図鑑の見た目の試作は `node scripts/encyclopedia_proto/build.mjs` で `/_local/encyclopedia_proto/index.html` を作る（E02 の「図鑑の画面」の元になった、第6回で固めた形）。標本箱の扉と同寸の背表紙、3冊一組のスキルの区画、影絵の小物、用語の章別目次と耳を遊ぶ人と GM の両方で試せる単体HTML。`node scripts/encyclopedia_proto/check.mjs --shots` で両方の表示を検査・撮影する。本番のバンドルには入らない。
 15. ホロウデータと「淵の夜」の試作は `node scripts/hollow_data_proto/build.mjs` で `/_local/hollow_data_proto/index.html` を作る（計画35 PR35-2）。本番のバンドルには入らない。
+16. Tier・固定階の編集画面の試作は `node scripts/hollow_tier_proto/build.mjs` で `/_local/hollow_tier_proto/index.html` を作る（計画35 PR35-4）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

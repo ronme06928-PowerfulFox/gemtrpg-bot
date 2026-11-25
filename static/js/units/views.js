@@ -1,6 +1,7 @@
 (function () {
   const h = window.CatalogGlossary.escape;
   const {button, options, nameOf, card, palette, image, badges, plain, sides} = window.UnitForms;
+  const floors = window.UnitHollowFloors;
   const master = ['skill','passive','radiance','item'];
   const issues = (result = {}) => [['errors','エラー','error'],['warnings','注意','warning']].map(([key,label,style]) => {
     const rows = Object.values(result[key] || {});
@@ -27,10 +28,14 @@
   }
 
   function recordRow(row, selected) {
+    const p = row.payload;
+    const caption = row.kind === 'tier' ? (p.tier ? `T${p.tier}` : '—')
+      : row.kind === 'fixed_floor' ? floors.floorLabel(p.floor) : row.entry_id;
+    const summary = row.kind === 'fixed_floor' ? h(floors.types[p.type]) : badges(row);
     return `<button type="button" class="bo-workspace__record ${selected ? 'is-selected' : ''}"
       data-ui-kind="${h(row.kind)}" data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${selected}">
-      <code class="cat-id">${h(row.entry_id)}</code><strong title="${h(row.payload.name)}">${h(row.payload.name)}</strong>
-      <span class="unit-record-badges">${badges(row)}</span></button>`;
+      <code class="cat-id" title="${h(row.entry_id)}">${h(caption)}</code><strong title="${h(p.name)}">${h(p.name)}</strong>
+      <span class="unit-record-badges">${summary}${row.kind === 'fixed_floor' && row.deprecated ? ' · 廃止' : ''}</span></button>`;
   }
 
   const skillPrefix = id => id.split('-')[0];
@@ -105,7 +110,7 @@
   }
 
   function importReport(rows) {
-    const names = {unit:'ユニット',formation:'編成',stage:'ステージ',unit_collection:'分類'};
+    const names = {unit:'ユニット',formation:'編成',stage:'ステージ',unit_collection:'分類',...floors.labels};
     return `<table class="unit-table"><thead><tr><th>資源</th><th>操作</th><th>参照の確認</th></tr></thead><tbody>
       ${rows.map(row => `<tr><th scope="row">${h(names[row.kind])} ${h(row.entry_id)}</th><td>${row.operation === 'new' ? '新規' : `上書き（版 ${h(row.base_revision)}）`}</td><td>${issues(row)}</td></tr>`).join('')}
     </tbody></table>`;

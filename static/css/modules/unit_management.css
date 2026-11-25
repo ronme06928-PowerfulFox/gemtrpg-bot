@@ -103,6 +103,68 @@
 .unit-workspace .cat-badge.unit-ally { background: var(--ui-ally-soft); color: var(--ui-ally); }
 .unit-workspace .cat-badge.unit-staff { background: var(--cat-primary-soft); color: var(--cat-primary); }
 .unit-workspace .cat-badge.unit-deprecated { background: var(--cat-soft); color: var(--cat-sub); }
+.unit-records .bo-workspace__record[data-ui-kind="fixed_floor"] { --unit-row: 9ch minmax(0, 1fr) fit-content(7em); }
+
+.unit-checked-field { min-width: 0; }
+.unit-checked-field :is(input,select,textarea)[aria-invalid="true"] { border-color: var(--cat-danger); }
+.unit-checked-field .cat-field-error { margin: 0 0 4px; overflow-wrap: anywhere; }
+.unit-event-strip {
+  display: flex;
+  overflow: hidden;
+  min-height: 24px;
+  margin-bottom: 8px;
+  border: 1px solid var(--cat-control);
+  border-radius: 5px;
+  background: var(--cat-soft);
+}
+.unit-event-strip > span {
+  flex: 0 0 calc(var(--unit-share, 0) * 1%);
+  overflow: hidden;
+  text-align: center;
+  align-content: center;
+  background: var(--event-color);
+  color: var(--ui-on-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+.unit-event-strip [data-empty] { color: var(--cat-sub); background: var(--cat-soft); }
+.unit-workspace [data-event="normal"] { --event-color: var(--ui-primary); }
+.unit-workspace [data-event="elite"] { --event-color: var(--gem-amethyst); }
+.unit-workspace [data-event="chest"] { --event-color: var(--gem-citrine); }
+.unit-workspace [data-event="miasma"] { --event-color: var(--gem-ruby); }
+.unit-workspace [data-event="camp"] { --event-color: var(--gem-sapphire); }
+.unit-event-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 144px), 1fr)); gap: 4px 8px; }
+.unit-event-fields > div { display: grid; grid-template-columns: 7px minmax(0, 1fr); gap: 4px; }
+.unit-event-fields > div::before { content: ""; width: 7px; height: 7px; margin-top: 9px; background: var(--event-color); }
+.unit-event-fields .cat-field { justify-content: space-between; }
+.unit-workspace .unit-event-fields input[type="number"] { width: 6.5ch; }
+
+.unit-encounter-group + .unit-encounter-group { margin-top: 12px; }
+.unit-encounter-group .unit-list-heading { padding: 2px 0 5px; }
+.unit-encounter-head, .unit-encounter-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6ch, 8ch) minmax(7ch, 14ch) max-content;
+  align-items: start;
+  gap: 4px 8px;
+  padding: 4px 6px;
+}
+.unit-encounter-head { background: var(--cat-soft); color: var(--cat-sub); }
+.unit-encounter-row { border-bottom: 1px solid var(--cat-edge); }
+.unit-workspace .unit-encounter-row .cat-field { display: block; margin: 0; font-size: 0; }
+.unit-workspace .unit-encounter-row :is(select,input[type="number"]) { width: 100%; max-width: none; }
+.unit-encounter-share { display: flex; align-items: center; gap: 4px; min-height: 25px; color: var(--cat-sub); }
+.unit-encounter-share output { min-width: 4.5ch; font-variant-numeric: tabular-nums; }
+.unit-encounter-share > span { flex: 1; height: 5px; background: var(--cat-soft); border-radius: 3px; }
+.unit-encounter-share i { display: block; width: var(--unit-share); height: 100%; border-radius: inherit; background: var(--cat-primary); }
+.unit-encounter-members { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--cat-sub); }
+.unit-encounter-members > span + span { margin-inline-start: 6px; }
+.unit-workspace .unit-grade { color: var(--grade-ink); background: var(--grade-bg); margin-inline-end: 3px; }
+.unit-grade::before { content: var(--grade-symbol); margin-inline-end: 2px; }
+.unit-grade[data-grade="iron"] { --grade-ink: var(--grade-iron); --grade-bg: var(--grade-iron-bg); --grade-symbol: var(--grade-iron-symbol); }
+.unit-grade[data-grade="copper"] { --grade-ink: var(--grade-copper); --grade-bg: var(--grade-copper-bg); --grade-symbol: var(--grade-copper-symbol); }
+.unit-grade[data-grade="silver"] { --grade-ink: var(--grade-silver); --grade-bg: var(--grade-silver-bg); --grade-symbol: var(--grade-silver-symbol); }
+.unit-grade[data-grade="gold"] { --grade-ink: var(--grade-gold); --grade-bg: var(--grade-gold-bg); --grade-symbol: var(--grade-gold-symbol); }
+.unit-grade[data-grade="exceptional"] { --grade-ink: var(--grade-exceptional); --grade-bg: var(--grade-exceptional-bg); --grade-symbol: var(--grade-exceptional-symbol); }
 
 .unit-detail-header { justify-content: flex-start; background: none; color: var(--cat-text); display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--cat-edge); }
 .unit-detail-header h3 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }

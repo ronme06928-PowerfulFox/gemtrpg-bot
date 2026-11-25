@@ -49,6 +49,22 @@ def _floor(value):
     return _integer(value, 1) and value <= 50
 
 
+def _tier_number(value):
+    return _integer(value, 1) and value <= 5
+
+
+def tier_number_error(payload, resources, entry_id, *, deprecated=False):
+    number = payload.get("tier")
+    if not _tier_number(number):
+        return "区切りの番号は1〜5の整数を指定してください"
+    if not deprecated and any(
+        kind == "tier" and key != entry_id and not row["deprecated"] and row["payload"].get("tier") == number
+        for (kind, key), row in resources.items()
+    ):
+        return f"T{number} は登録済みです"
+    return None
+
+
 def _multiplier(value):
     return (type(value) is int and value > 0) or (type(value) is float and isfinite(value) and value > 0)
 
@@ -77,8 +93,6 @@ def _array(value, path, errors, *, maximum=None):
 
 
 def _inspect_tier(data, errors):
-    if "floor_min" not in errors and "floor_max" not in errors and data["floor_max"] < data["floor_min"]:
-        errors["floor_max"] = "開始階以上の階を指定してください"
     _object(data["event_weights"], dict.fromkeys(EVENT_TYPES, _integer), (), "event_weights", errors)
     encounters = data["encounters"]
     if _object(encounters, dict.fromkeys(ENCOUNTER_TYPES, lambda value: isinstance(value, list)),
@@ -144,7 +158,7 @@ def _inspect_drop_table(data, errors):
 
 SCHEMAS = {
     "tier": (
-        {"floor_min": _floor, "floor_max": _floor, "description": lambda value: isinstance(value, str),
+        {"tier": _tier_number, "description": lambda value: isinstance(value, str),
          "event_weights": lambda value: isinstance(value, dict), "encounters": lambda value: isinstance(value, dict),
          "hp_multiplier": _multiplier, "attack_multiplier": _multiplier},
         {"description": "", "event_weights": {}, "encounters": {}, "hp_multiplier": 1, "attack_multiplier": 1},
