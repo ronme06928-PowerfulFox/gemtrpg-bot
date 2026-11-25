@@ -5,7 +5,7 @@ from flask import Blueprint, g, jsonify, request
 
 from manager.utils import session_required
 from manager.catalog.kinds import MARK_LABELS
-from manager.encyclopedia import can_view_hollow, unit_entries
+from manager.encyclopedia import can_view_hollow, hollow_reward_entries, unit_entries
 from manager.units.repository import entry_json
 from manager.room_access import GM_ROLES, resolve_room_role
 from models import CatalogEncounter, CatalogEntry
@@ -31,6 +31,7 @@ def get_encyclopedia():
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()
     if not can_view_hollow(user):
+        encounters = [row for row in encounters if not row.entry_id.startswith(("HBu-", "HI-"))]
         seen_units = {row.entry_id for row in encounters if row.kind == "unit"}
         if seen_units:
             hidden = {entry_id for (entry_id,) in CatalogEntry.query.with_entities(CatalogEntry.entry_id).filter(
@@ -52,4 +53,6 @@ def get_encyclopedia():
             "first_seen_at": _utc(row.first_seen_at).isoformat().replace("+00:00", "Z"),
         } for row in encounters],
         units=units,
+        hollow_buffs=[entry_json(row) for row in hollow_reward_entries(user, "hollow_buff")],
+        hollow_items=[entry_json(row) for row in hollow_reward_entries(user, "hollow_item")],
     )

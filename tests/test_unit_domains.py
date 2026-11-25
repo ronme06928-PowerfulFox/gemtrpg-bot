@@ -29,12 +29,12 @@ def test_domain_checks_all_links_including_reverse_and_transfer(unit_app, side):
 
     collection = save("unit_collection", "Collection")
     unit = save("unit", "Unit", collection_id=collection.entry_id)
-    hollow_unit = save("unit", "Hollow", "hollow")
+    hollow_unit = save("unit", "Hollow", "hollow", tags=["等級:鉄級"])
     members = [{"unit_id": unit.entry_id, "count": 1}]
     formation = save("formation", "Formation", type=side, members=members)
     stage_field = side + "_formation_id"
     for kind, fields, path in (
-        ("unit", {"collection_id": collection.entry_id}, "collection_id"),
+        ("unit", {"collection_id": collection.entry_id, "tags": ["等級:鉄級"]}, "collection_id"),
         ("formation", {"type": side, "members": members}, "members[0].unit_id"),
         ("formation", {"type": side, "members": [], "collection_id": collection.entry_id}, "collection_id"),
         ("stage", {stage_field: formation.entry_id}, stage_field),
@@ -48,6 +48,8 @@ def test_domain_checks_all_links_including_reverse_and_transfer(unit_app, side):
 
     for row in (unit, collection):
         new_payload = {**row.payload, "domain": "hollow", "collection_id": None}
+        if row.kind == "unit":
+            new_payload["tags"] = ["等級:鉄級"]
         assert repository.check(row.kind, new_payload, entry_id=row.entry_id)[0]
         with pytest.raises(CatalogValidationError):
             repository.save(row.kind, row.entry_id, new_payload, base_revision=row.revision)

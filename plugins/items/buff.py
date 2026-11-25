@@ -33,8 +33,8 @@ class BuffEffect(BaseItemEffect):
             }
 
         # ★ バフ図鑑からバフ定義を取得
-        from extensions import all_buff_data
-        buff_data = all_buff_data.get(buff_id)
+        from manager.buff_catalog import get_buff_by_id
+        buff_data = get_buff_by_id(buff_id)
 
         if not buff_data:
             return {
@@ -81,7 +81,7 @@ class BuffEffect(BaseItemEffect):
                 'buff_id': buff_id,
                 'delay': 0,
                 'lasting': buff_data.get('default_duration', 1),
-                'is_permanent': False,
+                'is_permanent': buff_id.startswith("HBu-") and buff_data.get('default_duration', 1) == -1,
                 'description': buff_data.get('description'),
                 'flavor': buff_data.get('flavor', '')
             }

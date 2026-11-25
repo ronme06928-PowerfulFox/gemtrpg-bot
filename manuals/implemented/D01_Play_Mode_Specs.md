@@ -563,3 +563,24 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 
 - メインメニューの「データ管理」から「ホロウデータ」（`#hollow-data`）を開く。公開資源の閲覧と制作者・アプリ管理者の編集はユニット管理と同じ。
 - 「敵」のユニット・編成・ステージ・分類はユニット管理の部品を `hollow` で使う。「階」と「報酬」はタブの札を表示する。ユニット管理にある保存済みのユニットは「その他」からホロウ側へ複製できる。
+
+## 3. ホロウ専用の資源（計画35 PR35-3）
+
+8種類はユニット資源と同じ直接保存・版・履歴・復元・廃止・削除・書き出しと取り込みを使う。`payload.domain` は `hollow` で、省略時に入る。`name` は全種類共通の必須項目。
+
+| 種類 | ID | `payload` の主な項目 | 参照 |
+|---|---|---|---|
+| `tier` | `HT-01` | `floor_min`、`floor_max`（1〜50、昇順）、`description`、`event_weights`（`normal`・`elite`・`chest`・`miasma`・`camp` の重み）、`encounters`（`normal`／`elite` ごとに `{formation_id, weight}` の配列）、`hp_multiplier`・`attack_multiplier` | ホロウの敵編成 |
+| `fixed_floor` | `HF-01` | `floor`（1〜50）、`type`（`boss`・`town`・`camp`）、`text`、`stage_id`（任意。ボスでは必須）、`formation_id`（ボスで必須） | ホロウのステージと敵編成 |
+| `relic` | `HR-01` | `rarity`（鉄級・銅級・銀級・金級・特異級）、`target`、`buff_id`、`flavor`、`image` | `Bu-` または `HBu-` |
+| `hollow_event` | `HE-01` | `type`（`miasma`・`camp`）、`text`、`choices`（最大4件。各行に `label`、任意の `difficulty`・`effect`・`failure_effect`・`failure_target`） | 効果の種類に合うバフまたはアイテム |
+| `treasure_chest` | `HC-01` | `text`、`drop_table_id` | ドロップ表 |
+| `drop_table` | `HD-01` | `rows`（`{kind, id, weight}` の配列。`kind` は `item`／`relic`） | `I-`・`HI-` または淵遺物 |
+| `hollow_buff` | `HBu-01` | 共通のバフ項目 | 共通の効果検査 |
+| `hollow_item` | `HI-01` | 共通のアイテム項目 | バフ付与効果では `Bu-` または `HBu-` |
+
+- 淵遺物の `target` は `{type:"all"}`（既定）、`{type:"condition", condition:"hp_lowest"|"bled_last_round"|"has_tag:<tag>"}`、`{type:"nth", n:整数}`（1始まり）。代償の項目は論点10で決める。
+- 効果参照は `{kind:"buff"|"item", id, battles?}`。`battles` は1以上の整数。選択肢の `difficulty` を省略すると判定なし。失敗の対象は `selected` か `all`。重みは0以上の整数、補正係数は正の有限数。
+- 存在しない参照、種類違い、区分違いは保存エラー。参照元がある資源は削除できず、「使用中」に表示する。束の書き出しは参照先のホロウ資源も同梱する。共通マスターは取り込み先で検査する。
+- 敵として配置できるホロウのユニットは、保存・復元・複製・取り込みで `等級:鉄級`〜`等級:特異級` のいずれか1つが必要。既存資源はそのまま読み出せる。ホロウのユニットだけが `HI-` のアイテムや `HBu-` の初期バフを持てる。
+- 戦闘は ID でホロウのバフ・アイテムを引く。シミュレーターは DB または書き出し束の定義も利用する。セッション向けの候補一覧は共通マスターを使う。

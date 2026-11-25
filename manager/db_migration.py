@@ -177,7 +177,7 @@ def _migrate_unit_resources():
 def _migrate_unit_domains(inspector):
     from models import CatalogDraft, CatalogEntry, CatalogHistory
     from manager.catalog.kinds import KINDS
-    from manager.units.validation import IDS, links
+    from manager.units.validation import UNIT_IDS as IDS, links
 
     if not inspector.has_table(CatalogEntry.__tablename__):
         return

@@ -356,7 +356,9 @@ def run_battle(
     rounds = safe_int(state.get("round"), 0)
     rounds_detail = []
 
-    with _patched_headless_runtime(room, state, roll_mode):
+    from manager.hollow.runtime import simulation_rewards
+
+    with simulation_rewards(state.get("hollow_rewards")), _patched_headless_runtime(room, state, roll_mode):
         for round_value in range(1, max_rounds + 1):
             result = estimate_battle_result(state)
             if result != "in_progress":

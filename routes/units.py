@@ -5,6 +5,8 @@ from flask import Blueprint, abort, g, jsonify, request
 
 from manager.room_access import GM_ROLES, resolve_room_role
 from manager.catalog.kinds import MARK_LABELS
+from manager.encyclopedia import can_view_hollow
+from manager.hollow.resources import HOLLOW_IDS
 from manager.units import repository, transfer
 from manager.units.characters import read_character
 from manager.units.validation import DOMAINS, IDS, master_links
@@ -21,12 +23,14 @@ def endpoint(*, author_only=False):
         @session_required
         def guarded(*args, **kwargs):
             user = g.authenticated_user
-            author = user.is_catalog_author or user.is_app_admin
+            author = can_view_hollow(user)
             if author_only and not author:
                 return jsonify(error="制作者権限が必要です"), 403
             room = request.args.get("room", "").strip()
             g.units_staff = author or bool(room and not is_practice(room) and resolve_room_role(user.id, room) in GM_ROLES)
-            if kwargs.get("kind") is not None and kwargs["kind"] not in IDS:
+            g.units_author = author
+            kind = kwargs.get("kind")
+            if kind is not None and (kind not in IDS or (kind in HOLLOW_IDS and not author)):
                 abort(404)
             try:
                 return function(*args, **kwargs)
@@ -61,7 +65,8 @@ def list_entries(kind=None):
                               include_deprecated=request.args.get("include_deprecated") == "1",
                               domain=domain)
     return jsonify(entries=[row if g.units_staff else redact_hidden_passives(row)
-                            for (row_kind, _), row in rows.items() if kind is None or kind == row_kind],
+                            for (row_kind, _), row in rows.items()
+                            if (kind is None or kind == row_kind) and (g.units_author or row_kind not in HOLLOW_IDS)],
                    marks=MARK_LABELS)
 
 
@@ -95,8 +100,9 @@ def list_history(kind, entry_id):
 @endpoint()
 def list_references(kind, entry_id):
     row = _visible(kind, entry_id)
-    result = {"references": repository.references(
-        kind, entry_id, resources=repository.entries(include_staff=g.units_staff))}
+    result = {"references": [ref for ref in repository.references(
+        kind, entry_id, resources=repository.entries(include_staff=g.units_staff))
+        if g.units_author or ref["kind"] not in HOLLOW_IDS]}
     if kind == "unit":
         result["master_references"] = [
             {"kind": target, "entry_id": key, "path": path}

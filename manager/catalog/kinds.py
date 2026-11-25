@@ -85,6 +85,49 @@ def _strings(value):
             yield from _strings(child)
 
 
+def inspect_fields(definition, payload, add):
+    for field in sorted(payload.keys() - definition["fields"].keys()):
+        add(field, "未定義の項目です")
+    for field in definition["required"]:
+        if not isinstance(payload.get(field), str) or not payload[field].strip():
+            add(field, "必須の文字列です")
+    invalid = set()
+    for field, value in payload.items():
+        expected = definition["fields"].get(field)
+        if expected is None or (field == "sort_order" and value is None):
+            continue
+        if type(value) is not expected:
+            add(field, "型が違います")
+            invalid.add(field)
+    return invalid
+
+
+def inspect_marks(payload, invalid, add):
+    if "marks" not in invalid:
+        marks = payload.get("marks", [])
+        if any(not isinstance(mark, str) or mark not in MARK_LABELS for mark in marks):
+            add("marks", "未定義の印があります")
+        elif len(marks) != len(set(marks)):
+            add("marks", "同じ印は重複して指定できません")
+
+
+def inspect_buff_effect(payload, entry_id, stage, add):
+    duration = payload.get("default_duration", 1)
+    if type(duration) is int and duration != -1 and duration < 1:
+        add("default_duration", "-1 または1以上の整数が必要です")
+    effect = payload.get("effect", {})
+    if isinstance(effect, dict) and effect.get("type") == "plugin":
+        # 戦闘はプラグインをバフIDで呼ぶ（BUFF_IDS）。effect.name は判定に使わない。
+        from plugins.buffs.registry import buff_registry
+        if not buff_registry.list_registered():
+            buff_registry.auto_discover()
+        if buff_registry.get_handler(entry_id) is None:
+            if stage != "approve" and isinstance(entry_id, str) and re.fullmatch(DRAFT_ID_PATTERN, entry_id):
+                add("effect.type", "正式なIDをプラグインに登録するまで効果は動きません", "warning")
+            else:
+                add("effect.type", "このIDのプラグインがコードにありません")
+
+
 def inspect_payload(kind, payload, *, entry_id=None, id_prefix=None, stage, published_ids=None, draft_ids=None):
     """保存を妨げずに問題を返す。参照はDBの現在の公開版・用語下書きで判定する。"""
     definition = get_kind(kind)
@@ -100,25 +143,9 @@ def inspect_payload(kind, payload, *, entry_id=None, id_prefix=None, stage, publ
     if not isinstance(payload, dict):
         add("payload", "オブジェクトが必要です")
         return problems
-    for field in sorted(payload.keys() - definition["fields"].keys()):
-        add(field, "未定義の項目です")
-    for field in definition["required"]:
-        if not isinstance(payload.get(field), str) or not payload[field].strip():
-            add(field, "必須の文字列です")
-    invalid = set()
-    for field, value in payload.items():
-        expected = definition["fields"].get(field)
-        if expected is None or (field == "sort_order" and value is None):
-            continue
-        if type(value) is not expected:
-            add(field, "型が違います")
-            invalid.add(field)
-    if kind in MARK_KINDS and "marks" not in invalid:
-        marks = payload.get("marks", [])
-        if any(not isinstance(mark, str) or mark not in MARK_LABELS for mark in marks):
-            add("marks", "未定義の印があります")
-        elif len(marks) != len(set(marks)):
-            add("marks", "同じ印は重複して指定できません")
+    invalid = inspect_fields(definition, payload, add)
+    if kind in MARK_KINDS:
+        inspect_marks(payload, invalid, add)
     if kind == "buff" and isinstance(payload.get("category"), str):
         if payload["category"] and payload["category"] not in definition["categories"]:
             add("category", "未定義の分類です")
@@ -141,20 +168,7 @@ def inspect_payload(kind, payload, *, entry_id=None, id_prefix=None, stage, publ
     published = set(glossary) if published_ids is None or kind != "glossary" else set(published_ids)
     drafts = drafts if draft_ids is None or kind != "glossary" else set(draft_ids)
     if kind == "buff":
-        duration = payload.get("default_duration", 1)
-        if type(duration) is int and duration != -1 and duration < 1:
-            add("default_duration", "-1 または1以上の整数が必要です")
-        effect = payload.get("effect", {})
-        if isinstance(effect, dict) and effect.get("type") == "plugin":
-            # 戦闘はプラグインをバフIDで呼ぶ（BUFF_IDS）。effect.name は判定に使わない。
-            from plugins.buffs.registry import buff_registry
-            if not buff_registry.list_registered():
-                buff_registry.auto_discover()
-            if buff_registry.get_handler(entry_id) is None:
-                if stage != "approve" and isinstance(entry_id, str) and re.fullmatch(DRAFT_ID_PATTERN, entry_id):
-                    add("effect.type", "正式なIDをプラグインに登録するまで効果は動きません", "warning")
-                else:
-                    add("effect.type", "このIDのプラグインがコードにありません")
+        inspect_buff_effect(payload, entry_id, stage, add)
         for row in buffs:
             if row.entry_id == entry_id:
                 if row.payload.get("name") != payload.get("name"):

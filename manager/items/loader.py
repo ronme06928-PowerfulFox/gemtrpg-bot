@@ -7,6 +7,9 @@ class ItemLoader:
         return extensions.all_item_data
 
     def get_item(self, entry_id):
+        if isinstance(entry_id, str) and entry_id.startswith("HI-"):
+            from manager.hollow.runtime import get_reward
+            return get_reward("hollow_item", entry_id)
         return self.load_items().get(entry_id)
 
 

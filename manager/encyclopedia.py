@@ -19,6 +19,11 @@ def can_view_hollow(user):
     return bool(user.is_catalog_author or user.is_app_admin)
 
 
+def hollow_reward_entries(user, kind):
+    if can_view_hollow(user):
+        yield from CatalogEntry.query.filter_by(kind=kind, deprecated=False).order_by(CatalogEntry.entry_id)
+
+
 def unit_entries(user, *, full):
     seen = {row.entry_id for row in CatalogEncounter.query.filter_by(user_id=user.id,kind='unit')}
     view_hollow = full and can_view_hollow(user)

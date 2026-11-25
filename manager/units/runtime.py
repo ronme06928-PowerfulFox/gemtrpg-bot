@@ -2,6 +2,8 @@
 from copy import deepcopy
 
 from manager.room_access import GM_ROLES
+from manager.hollow.resources import REWARD_KINDS
+from manager.units.validation import UNIT_IDS
 from manager.units import repository
 
 MAPS = {"character": "character_presets", "enemy_formation": "enemy_formations",
@@ -9,11 +11,16 @@ MAPS = {"character": "character_presets", "enemy_formation": "enemy_formations",
         "collection": "catalog_collections"}
 
 
-def deployment_store(resources=None, *, domain=None):
+def deployment_store(resources=None, *, domain=None, include_hollow_rewards=False):
     resources = repository.entries(domain=domain) if resources is None else resources
     store = {key: {} for key in MAPS.values()}
+    rewards = {kind: {} for kind in REWARD_KINDS}
     for (kind, entry_id), row in resources.items():
         if domain is not None and row["payload"].get("domain") != domain:
+            continue
+        if kind not in UNIT_IDS:
+            if include_hollow_rewards and kind in rewards:
+                rewards[kind][entry_id] = {**deepcopy(row["payload"]), "id": entry_id}
             continue
         payload = deepcopy(row["payload"])
         if kind == "formation":
@@ -25,6 +32,8 @@ def deployment_store(resources=None, *, domain=None):
         payload["catalog_meta"] = {"collection_id": payload.get("collection_id"),
                                    "archived": row["deprecated"]}
         store[MAPS[record_type]][entry_id] = payload
+    if any(rewards.values()):
+        store["hollow_rewards"] = rewards
     return store
 
 

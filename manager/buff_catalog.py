@@ -345,15 +345,15 @@ def resolve_runtime_buff_effect(buff_entry):
     if not isinstance(buff_entry, dict):
         return {}
 
-    buff_name = buff_entry.get("name")
-    base = get_buff_effect(buff_name)
+    buff_id = _extract_buff_id(buff_entry)
+    name = buff_entry.get("name")
+    base = get_buff_effect(name, buff_id) if buff_id.startswith("HBu-") else get_buff_effect(name)
     effect_data = dict(base) if isinstance(base, dict) else {}
 
     inst_data = buff_entry.get("data")
     if isinstance(inst_data, dict):
         effect_data = _merge_effect_dict(effect_data, inst_data)
 
-    buff_id = _extract_buff_id(buff_entry)
     if buff_id not in VALUE_DRIVEN_BUFF_IDS:
         return effect_data
 
@@ -365,8 +365,24 @@ def resolve_runtime_buff_effect(buff_entry):
     return _merge_effect_dict(effect_data, fixed_effect)
 
 
-def get_buff_effect(buff_name):
+def _catalog_effect(record):
+    effect = record.get("effect", {}).copy()
+    for field in ("flavor", "description"):
+        if record.get(field):
+            effect[field] = record[field]
+    return effect
+
+
+def get_buff_effect(buff_name, buff_id=None):
     """バフ名から効果定義を取得する（静的 -> DBの共有辞書 -> 動的 の順で検索）"""
+    if isinstance(buff_id, str) and buff_id.startswith("HBu-"):
+        record = get_buff_by_id(buff_id)
+        if not record:
+            return None
+        effect = _catalog_effect(record)
+        if effect.get("type") == "stat_mod" and effect.get("stat") and effect.get("value") is not None:
+            effect["stat_mods"] = {effect["stat"]: effect["value"]}
+        return effect
     if not buff_name:
         return None
     # 1. 静的定義にあればそれを返す
@@ -379,15 +395,7 @@ def get_buff_effect(buff_name):
         from extensions import all_buff_data
         for b_data in all_buff_data.values():
             if b_data.get('name') == buff_name:
-                # 効果データ(effect)のコピーを作成
-                eff = b_data.get('effect', {}).copy()
-                # フレーバーテキストがあれば追加
-                if b_data.get('flavor'):
-                    eff['flavor'] = b_data['flavor']
-                # 説明文もあれば追加
-                if b_data.get('description'):
-                    eff['description'] = b_data['description']
-                return eff
+                return _catalog_effect(b_data)
     except ImportError:
         pass
 
@@ -401,5 +409,8 @@ def get_buff_effect(buff_name):
 
 def get_buff_by_id(buff_id):
     """公開・廃止・復元後の現在の共有辞書からバフを取得する。"""
+    if isinstance(buff_id, str) and buff_id.startswith("HBu-"):
+        from manager.hollow.runtime import get_reward
+        return get_reward("hollow_buff", buff_id)
     from extensions import all_buff_data
     return all_buff_data.get(buff_id)

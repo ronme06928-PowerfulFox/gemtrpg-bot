@@ -49,7 +49,7 @@ def load_preset_store_from_path(path: str | None) -> dict:
         from flask import has_app_context
 
         if has_app_context():
-            return deployment_store()
+            return deployment_store(include_hollow_rewards=True)
         os.environ.setdefault("GEMTRPG_DISABLE_DEFAULT_APP", "1")
         os.environ.setdefault("GEMTRPG_SKIP_IMPORT_STARTUP", "1")
         from app import create_app
@@ -63,13 +63,13 @@ def load_preset_store_from_path(path: str | None) -> dict:
             from manager.catalog.kinds import KINDS
             from manager.catalog.repository import load_kind_into_memory
 
-            store = deployment_store()
+            store = deployment_store(include_hollow_rewards=True)
             for kind in KINDS:
                 load_kind_into_memory(kind)
             return store
     with Path(path).open("r", encoding="utf-8") as fh:
         payload = json.load(fh)
-    return deployment_store(package_entries(payload))
+    return deployment_store(package_entries(payload), include_hollow_rewards=True)
 
 
 def _preset_map(store: dict) -> dict:
@@ -159,8 +159,10 @@ def build_room_state_from_presets(
     anchor: dict | None = None,
     masters: dict | None = None,
 ) -> dict:
-    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store()
+    store = copy.deepcopy(store) if isinstance(store, dict) else deployment_store(include_hollow_rewards=True)
     state = empty_room_state_for_presets()
+    if "hollow_rewards" in store:
+        state["hollow_rewards"] = store["hollow_rewards"]
 
     if stage_id:
         stage = _stage_map(store).get(str(stage_id).strip())

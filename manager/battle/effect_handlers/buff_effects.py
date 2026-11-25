@@ -151,7 +151,11 @@ def handle_apply_buff(effect, target_obj, sim_target, session):
                             effect_data["stat_mods"] = {}
                         effect_data["stat_mods"][stat_name] = mod_value
 
-        catalog_effect_data = get_buff_effect(buff_name)
+        catalog_effect_data = (
+            get_buff_effect(buff_name, buff_id)
+            if str(buff_id).startswith("HBu-")
+            else get_buff_effect(buff_name)
+        )
         if isinstance(catalog_effect_data, dict):
             for k, v in catalog_effect_data.items():
                 if k not in effect_data:

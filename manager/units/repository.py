@@ -58,7 +58,8 @@ def check(kind, payload, visibility="public", *, entry_id=None, pattern_addition
     except CatalogConflictError as exc:
         return exc.errors, {}
     previous = current.get((kind, entry_id), {}).get("payload")
-    errors, warnings, normalized = inspect_payload(kind, payload, visibility, current, previous=previous)
+    errors, warnings, normalized = inspect_payload(kind, payload, visibility, current, previous=previous,
+                                                   entry_id=entry_id)
     if not errors and entry_id:
         errors = dependent_errors(kind, entry_id, normalized, current)
     return errors, warnings
@@ -138,7 +139,8 @@ def _formation_pattern_updates(kind, payload, additions, resources):
 def _validate(kind, key, payload, visibility, *, resources=None):
     resources = entries() if resources is None else resources
     previous = resources.get((kind, key), {}).get("payload")
-    errors, warnings, normalized = inspect_payload(kind, payload, visibility, resources, previous=previous)
+    errors, warnings, normalized = inspect_payload(kind, payload, visibility, resources, previous=previous,
+                                                   entry_id=key)
     if not errors and key:
         errors = dependent_errors(kind, key, normalized, resources)
     if errors:
@@ -184,11 +186,13 @@ def save(kind, entry_id, payload, *, visibility="public", base_revision=None, ac
     updates = _formation_pattern_updates(kind, payload, pattern_additions, resources)
     if resources is not None:
         resources.update(updates)
-    payload, warnings = _validate(kind, entry_id, payload, visibility, resources=resources)
+    if kind not in IDS:
+        raise CatalogValidationError({"kind": "未対応の種類です"})
+    key = entry_id or next_id(kind)
+    payload, warnings = _validate(kind, key, payload, visibility, resources=resources)
     for (_, unit_id), unit in updates.items():
         write("unit", unit_id, unit["payload"], unit["visibility"], unit["deprecated"],
               "publish", actor_user_id, row=get("unit", unit_id))
-    key = entry_id or next_id(kind)
     row = write(kind, key, payload, visibility, row.deprecated if row else False,
                 "publish", actor_user_id, row=row)
     db.session.commit()
@@ -207,6 +211,8 @@ def duplicate_to_hollow(entry_id, *, actor_user_id=None):
     payload = {**source.payload, "domain": "hollow", "collection_id": None}
     errors, warnings, payload = inspect_payload("unit", payload, source.visibility, entries(), previous=source.payload)
     if errors:
+        if "tags" in errors:
+            errors["tags"] += "。複製元のユニットに等級タグを付けてください"
         raise CatalogValidationError(errors)
     row = write("unit", next_id("unit"), payload, source.visibility, False,
                 "publish", actor_user_id)

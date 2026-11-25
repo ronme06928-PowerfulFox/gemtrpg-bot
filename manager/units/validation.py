@@ -8,9 +8,11 @@ from manager.battle.enemy_behavior import BEHAVIOR_NO_ACTION_TOKEN, normalize_be
 from manager.battle.pve_intent_planner import _is_random_usable_skill_token
 from manager.battle.hidden_passives import validate_hidden_passives
 from manager.json_rule_v2 import JsonRuleV2Error, normalize_skill_constraints_rows
+from manager.hollow import resources as hollow
 
-IDS = {"unit": ("U", 3), "formation": ("F", 3),
-       "stage": ("ST", 3), "unit_collection": ("SC", 2)}
+UNIT_IDS = {"unit": ("U", 3), "formation": ("F", 3),
+            "stage": ("ST", 3), "unit_collection": ("SC", 2)}
+IDS = UNIT_IDS | hollow.HOLLOW_IDS
 SIDES = ("enemy", "ally")
 DOMAINS = ("session", "hollow")
 MASTER_FIELDS = {"skills": "skill", "passives": "passive", "radiance": "radiance", "items": "item"}
@@ -31,8 +33,23 @@ def valid_id(kind, entry_id):
 
 
 def links(kind, payload):
+    if kind in hollow.HOLLOW_IDS:
+        yield from hollow.links(kind, payload)
+        return
     if kind != "unit_collection" and payload.get("collection_id"):
         yield "unit_collection", payload["collection_id"], "collection_id"
+    if kind == "unit":
+        for index, item in enumerate(payload.get("items", [])):
+            if isinstance(item, dict) and hollow.reward_kind("item", item.get("id")) == "hollow_item":
+                yield "hollow_item", item["id"], f"items[{index}]"
+        for index, buff in enumerate(payload.get("special_buffs", [])):
+            if not isinstance(buff, dict):
+                continue
+            key = buff.get("buff_id")
+            if not key and isinstance(buff.get("data"), dict):
+                key = buff["data"].get("buff_id")
+            if isinstance(key, str) and key.startswith("HBu-"):
+                yield "hollow_buff", key, f"special_buffs[{index}].buff_id"
     if kind == "formation":
         for index, row in enumerate(payload.get("members", [])):
             yield "unit", row["unit_id"], f"members[{index}].unit_id"
@@ -50,6 +67,8 @@ def master_links(payload):
         for index, value in enumerate(payload.get(field, [])):
             if field in ("skills", "items"):
                 value = value.get("id") if isinstance(value, dict) else None
+            if field == "items" and hollow.reward_kind("item", value) == "hollow_item":
+                continue
             yield kind, value, f"{field}[{index}]"
 
 
@@ -136,7 +155,7 @@ def _check_unit(unit, errors, previous):
         errors["default_pattern_id"] = "パターンがある場合は既定を1つ指定してください"
 
 
-def inspect_payload(kind, payload, visibility, resources, *, previous=None):
+def inspect_payload(kind, payload, visibility, resources, *, previous=None, entry_id=None):
     errors, warnings = {}, {}
     if kind not in IDS:
         return {"kind": "未対応の種類です"}, warnings, payload
@@ -146,8 +165,15 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
         errors["name"] = "名前が必要です"
         return errors, warnings, payload
     payload = deepcopy(payload)
+    if kind in hollow.HOLLOW_IDS:
+        hollow.inspect_payload(kind, payload, entry_id, errors, warnings)
+        if not errors:
+            _inspect_links(kind, payload, visibility, resources, errors, warnings)
+        return errors, warnings, payload
     if kind == "unit":
         _check_unit(payload, errors, previous)
+        if "tags" not in errors:
+            hollow.inspect_grade(payload, errors)
     if payload.get("domain") not in DOMAINS:
         errors["domain"] = "session または hollow を指定してください"
     if kind in ("formation", "stage"):
@@ -190,20 +216,7 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
             if not _text(key) or masters.get((target_kind, key), True):
                 errors[path] = f"存在しないか廃止済みのマスターIDです: {key}"
         payload = {key: value for key, value in payload.items() if key in UNIT_FIELDS}
-    for target_kind, key, path in links(kind, payload):
-        target = resources.get((target_kind, key))
-        if target is None:
-            errors[path] = f"参照先がありません: {key}"
-            continue
-        if target["payload"].get("domain") != payload["domain"]:
-            errors[path] = f"区分の異なる資源は参照できません: {key}"
-            continue
-        if target["deprecated"]:
-            warnings[path + ".deprecated"] = f"参照先が廃止済みです: {key}"
-        if kind in ("formation", "stage") and visibility == "public" and target["visibility"] == "staff":
-            warnings[path + ".visibility"] = f"参照先が非公開です: {key}"
-        if kind == "stage" and target_kind == "formation" and target["payload"].get("type") != path.split("_")[0]:
-            errors[path] = f"編成の陣営が異なります: {key}"
+    _inspect_links(kind, payload, visibility, resources, errors, warnings)
     if kind == "formation":
         for index, member in enumerate(payload["members"]):
             target = resources.get(("unit", member["unit_id"]))
@@ -223,3 +236,31 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None):
             if side == "enemy" and not (pattern or unit.get("default_pattern_id")):
                 warnings[path + ".pattern_id"] = "行動パターンが未設定です"
     return errors, warnings, payload
+
+
+def _inspect_links(kind, payload, visibility, resources, errors, warnings):
+    for target_kind, key, path in links(kind, payload):
+        if target_kind in ("buff", "item"):
+            master = CatalogEntry.query.filter_by(kind=target_kind, entry_id=key).first()
+            if master is None or master.deprecated:
+                errors[path] = f"存在しないか廃止済みのマスターIDです: {key}"
+            continue
+        if target_kind is None or not valid_id(target_kind, key):
+            errors[path] = f"参照IDの種類が不正です: {key}"
+            continue
+        target = resources.get((target_kind, key))
+        if target is None:
+            errors[path] = f"参照先がありません: {key}"
+            continue
+        target_domain = "hollow" if target_kind in hollow.HOLLOW_IDS else target["payload"].get("domain")
+        if target_domain != payload["domain"]:
+            errors[path] = f"区分の異なる資源は参照できません: {key}"
+            continue
+        if target["deprecated"]:
+            warnings[path + ".deprecated"] = f"参照先が廃止済みです: {key}"
+        if kind != "unit" and visibility == "public" and target["visibility"] == "staff":
+            warnings[path + ".visibility"] = f"参照先が非公開です: {key}"
+        if target_kind == "formation":
+            side = path.split("_")[0] if kind == "stage" else "enemy"
+            if target["payload"].get("type") != side:
+                errors[path] = f"編成の陣営が異なります: {key}"

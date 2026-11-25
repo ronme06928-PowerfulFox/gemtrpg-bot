@@ -136,6 +136,7 @@ def test_duplicate_session_unit_with_independent_patterns(app):
     }}).json["entry"]
     source = author.post(root + "/unit", json={"visibility": "staff", "payload": {
         "name": "Original", "domain": "session", "collection_id": collection["entry_id"],
+        "tags": ["等級:鉄級"],
         "patterns": [{"id": "BP-1", "name": "Original pattern", "profile": {}}],
         "default_pattern_id": "BP-1",
     }}).json["entry"]
@@ -164,4 +165,23 @@ def test_duplicate_session_unit_with_independent_patterns(app):
         "character": {"name": "Import"}, "domain": "hollow",
     })
     assert imported.json["payload"]["domain"] == "hollow"
-    assert imported.json["errors"] == {}
+    assert "tags" in imported.json["errors"]
+
+
+@pytest.mark.parametrize("actor,visible", [("reader", False), ("author", True), ("admin", True)])
+def test_encyclopedia_hollow_rewards_use_author_permissions(app, actor, visible):
+    buff, _ = repository.save("hollow_buff", None, {"name": "Hollow buff"})
+    item, _ = repository.save("hollow_item", None, {"name": "Hollow item"})
+    db.session.add_all([CatalogEncounter(user_id=actor, kind=kind, entry_id=key,
+                                        first_seen_at=datetime(2026, 11, 18), room_name="normal")
+                        for kind, key in [("buff", buff.entry_id), ("item", item.entry_id)]])
+    db.session.commit()
+    reader = client(app, actor)
+    response = reader.get("/api/encyclopedia").json
+    assert [row["entry_id"] for row in response["hollow_buffs"]] == ([buff.entry_id] if visible else [])
+    assert [row["entry_id"] for row in response["hollow_items"]] == ([item.entry_id] if visible else [])
+    assert (item.entry_id in {row["entry_id"] for row in response["encounters"]}) == visible
+    assert reader.get(f"/api/units/hollow_buff/{buff.entry_id}").status_code == (200 if visible else 404)
+    assert all(row["kind"] != "hollow_buff" for row in reader.get("/api/units?domain=session").json["entries"])
+    assert buff.entry_id not in reader.get("/api/get_buff_data").json
+    assert item.entry_id not in reader.get("/api/get_item_data").json

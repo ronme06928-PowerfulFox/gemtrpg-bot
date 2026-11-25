@@ -21,6 +21,8 @@ def export_package(collection_id=None, *, include_deprecated=True, domain=None):
     while pending:
         key = pending.pop()
         for kind, entry_id, _ in links(key[0], resources[key]["payload"]):
+            if kind in ("buff", "item"):
+                continue
             target = (kind, entry_id)
             if target not in selected:
                 if target not in resources:
@@ -64,7 +66,8 @@ def _prepare(package):
                 continue
             previous = current.get(key, {})
             errors, warnings, payload = inspect_payload(
-                kind, row["payload"], row["visibility"], combined, previous=previous.get("payload"))
+                kind, row["payload"], row["visibility"], combined, previous=previous.get("payload"),
+                entry_id=key[1])
             row["payload"] = payload
             if not previous and repository.history(*key):
                 errors["entry_id"] = "このIDは削除済みです"

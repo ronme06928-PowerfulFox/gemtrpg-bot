@@ -250,6 +250,8 @@ def test_catalog_units_build_for_deployment_and_simulator(unit_app, domain):
 
     unit, _ = read_character({"name": "Test", "commands": "1d6 【E-23 固有名】"})
     unit["domain"] = domain
+    if domain == "hollow":
+        unit["tags"] = ["等級:鉄級"]
     unit["patterns"] = [
         {"id": "BP-1", "name": "usual", "profile": {"enabled": False}},
         {"id": "BP-2", "name": "alternate", "profile": {"enabled": True,

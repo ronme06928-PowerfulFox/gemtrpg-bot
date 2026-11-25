@@ -92,6 +92,10 @@ def create_in_workspace(page, kind, name):
     if kind in ("unit", "formation"):
         click(page, "空のユニット" if kind == "unit" else "敵編成")
     page.locator('.unit-section [data-path="name"]').fill(name)
+    if kind == "unit":
+        tag = page.locator("[data-unit-tag-input]")
+        tag.fill("等級:鉄級")
+        tag.press("Enter")
     with page.expect_response(lambda response: response.request.method == "POST"
                               and urlsplit(response.url).path == f"{UNITS}/{kind}") as save:
         click(page, "保存")
@@ -107,14 +111,14 @@ def verify(browser):
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))
     session_unit = api(page, "POST", f"{UNITS}/unit", payload={
-        "domain": "session", "name": "街道の番兵", "hp": 45,
+        "domain": "session", "name": "街道の番兵", "hp": 45, "tags": ["等級:鉄級"],
     })["entry"]["entry_id"]
     hollow_unit = api(page, "POST", f"{UNITS}/unit", payload={
-        "domain": "hollow", "name": "晶牙の人狼", "hp": 56,
+        "domain": "hollow", "name": "晶牙の人狼", "hp": 56, "tags": ["等級:銀級"],
         "skills": [{"id": "Ps-01", "name": ""}],
     })["entry"]["entry_id"]
     staff_unit = api(page, "POST", f"{UNITS}/unit", visibility="staff", payload={
-        "domain": "hollow", "name": "伏せた守衛",
+        "domain": "hollow", "name": "伏せた守衛", "tags": ["等級:銅級"],
     })["entry"]["entry_id"]
     refs = api(page, "GET", "/api/catalog/skill/Ps-01/references")["references"]
     assert any(ref["entry_id"] == hollow_unit and ref.get("domain") == "hollow" for ref in refs)
