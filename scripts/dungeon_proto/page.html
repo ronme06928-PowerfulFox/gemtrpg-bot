@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ダンジョン｜ホロウの部屋</title>
+  <!--STYLE-->
+</head>
+<body>
+  <div id="menu-portal" data-theme="paper">
+    <div id="menu">
+      <header class="menu-head">
+        <span class="menu-head__brand">ジェムリアTRPG</span>
+        <button type="button" class="menu-account__toggle" aria-disabled="true">エルナ ▾</button>
+      </header>
+      <main class="main-menu">
+        <h1>メインメニュー</h1>
+        <nav class="menu-grid" aria-label="移動先"></nav>
+        <nav class="menu-data" aria-label="データ管理">
+          <h2>データ管理</h2>
+          <button type="button" class="menu-data-button" data-gem="emerald" aria-disabled="true">ユニット管理</button>
+          <button type="button" class="menu-data-button" data-gem="amethyst" aria-disabled="true">マスターデータ</button>
+          <button type="button" class="menu-data-button" data-gem="emerald" data-theme="abyss" aria-disabled="true">ホロウデータ</button>
+        </nav>
+      </main>
+    </div>
+    <div id="dungeon" hidden>
+      <div class="screen-back-bar"><button type="button" class="screen-back" data-screen-back="menu">← メインメニュー</button></div>
+      <header class="dungeon-hero" hidden>
+        <h1 tabindex="-1">アヌッサ・ホロウ</h1>
+      </header>
+      <main class="main-menu paper-panel dungeon-panel">
+        <header class="dungeon-heading">
+          <div><h1 id="dungeon-title" tabindex="-1">ダンジョン</h1><h2>参加中の部屋</h2></div>
+          <div class="room-controls" id="dungeon-actions"></div>
+        </header>
+        <div id="rooms"></div>
+        <p class="dungeon-notice" role="status"></p>
+        <dialog class="paper-dialog" id="room-dialog" aria-labelledby="room-dialog-title">
+          <header class="user-settings-panel-header"><h2 class="user-settings-panel-title" id="room-dialog-title"></h2></header>
+          <form class="user-settings-panel-body auth-form">
+            <div class="auth-pane">
+              <label for="room-value"></label>
+              <input id="room-value" name="value" type="text" required autocomplete="off">
+              <p class="screen-error" id="room-error" role="alert" hidden></p>
+            </div>
+            <div class="paper-dialog__actions room-list-buttons">
+              <button type="button" data-action="cancel">戻る</button>
+              <button type="submit" class="dungeon-primary"></button>
+            </div>
+          </form>
+        </dialog>
+      </main>
+      <aside class="menu-head prototype-dock" aria-label="表示比較">
+        <div id="comparisons"></div>
+        <details class="contrast-panel">
+          <summary id="contrast-summary"></summary>
+          <table id="contrast-results" aria-label="コントラスト"><tbody></tbody></table>
+        </details>
+      </aside>
+    </div>
+  </div>
+  <!--SCRIPT-->
+</body>
+</html>

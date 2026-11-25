@@ -712,6 +712,7 @@ def get_user_info_from_sid(sid):
     # roleを解決できない場合は、移行期のGM PIN直後などを考慮してキャッシュ値を保つ。
     from flask import has_app_context
     from manager.room_access import get_membership_role, GM_ROLES
+    from manager.hollow.rooms import is_hollow_room
     from manager.user_manager import is_user_management_admin
     room = info.get('room')
     uid = info.get('user_id')
@@ -719,7 +720,9 @@ def get_user_info_from_sid(sid):
     # from the account record before each privileged lobby/catalog operation.
     if has_app_context():
         info['is_app_admin'] = is_user_management_admin(uid)
-    if info['is_app_admin']:
+    if is_hollow_room(room):
+        info['attribute'] = 'Player'
+    elif info['is_app_admin']:
         info['attribute'] = 'GM'
     elif room and uid:
         role = get_membership_role(uid, room)

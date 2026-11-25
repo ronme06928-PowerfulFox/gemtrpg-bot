@@ -51,7 +51,8 @@ def verify_master_key(key):
 
 
 def verify_room_gm_key(room, key):
-    return verify_gm_pin(room, key) or verify_master_key(key)
+    from manager.hollow.rooms import is_hollow
+    return not is_hollow(room) and (verify_gm_pin(room, key) or verify_master_key(key))
 
 
 def resolve_room_attribute(room_name, requested_role=PLAYER_ATTRIBUTE, gm_key=None):

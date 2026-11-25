@@ -3,7 +3,7 @@ from functools import wraps
 
 from flask import Blueprint, abort, g, jsonify, request
 
-from manager.room_access import GM_ROLES, resolve_room_role
+from manager.room_access import resolve_room_role, role_can_gm
 from manager.catalog.kinds import MARK_LABELS
 from manager.encyclopedia import can_view_hollow
 from manager.hollow.resources import HOLLOW_IDS
@@ -27,7 +27,7 @@ def endpoint(*, author_only=False):
             if author_only and not author:
                 return jsonify(error="制作者権限が必要です"), 403
             room = request.args.get("room", "").strip()
-            g.units_staff = author or bool(room and not is_practice(room) and resolve_room_role(user.id, room) in GM_ROLES)
+            g.units_staff = author or bool(room and not is_practice(room) and role_can_gm(room, resolve_room_role(user.id, room)))
             g.units_author = author
             kind = kwargs.get("kind")
             if kind is not None and (kind not in IDS or (kind in HOLLOW_IDS and not author)):

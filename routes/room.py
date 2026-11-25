@@ -22,6 +22,7 @@ from manager.auth import (
 from manager.room_manager import get_room_state
 from manager.battle.combat_session import ensure_combat_session_defaults
 from manager.data_manager import save_room_to_db, delete_room_from_db
+from manager.hollow.rooms import MODE as HOLLOW_MODE, is_hollow, is_hollow_room, is_open
 from manager.user_manager import is_user_management_admin
 from manager.utils import session_required
 
@@ -45,8 +46,12 @@ def enter_room():
             return jsonify(error='この練習用のルームには入れません。'),403
         session['attribute']=GM_ATTRIBUTE
         return jsonify(room_name=room_name,attribute=GM_ATTRIBUTE)
-    if not Room.query.filter_by(name=room_name).first():
+    room = Room.query.filter_by(name=room_name).first()
+    if not room:
         return jsonify({"error": "Room not found"}), 404
+    hollow = is_hollow(room)
+    if hollow and not is_open(room):
+        return jsonify({"error": "この遠征は終了しました"}), 403
 
     from manager.room_access import (
         resolve_room_role, ensure_join_membership_by_name, GM_ROLES,
@@ -64,7 +69,7 @@ def enter_room():
         else:
             return jsonify({"error": "このルームに参加していません。参加コードで参加してください"}), 403
 
-    attribute = GM_ATTRIBUTE if role in GM_ROLES else PLAYER_ATTRIBUTE
+    attribute = GM_ATTRIBUTE if role in GM_ROLES and not hollow else PLAYER_ATTRIBUTE
     # player メンバーが GM PIN を入力した場合は GM へ昇格（移行期の取得手段）。
     if attribute != GM_ATTRIBUTE and gm_key:
         if resolve_room_attribute(room_name, 'GM', gm_key) == GM_ATTRIBUTE:
@@ -81,6 +86,7 @@ def enter_room():
         "message": "Room entry accepted",
         "room_name": room_name,
         "attribute": attribute,
+        **({"play_mode": HOLLOW_MODE, "room_role": role} if hollow else {}),
     })
 
 
@@ -123,11 +129,12 @@ def load_room():
     entered = session.get('entered_rooms') or []
     user_id = session.get('user_id')
     role = resolve_room_role(user_id, room_name, app_admin=is_user_management_admin(user_id))
-    if room_name not in entered and role is None:
+    hollow = is_hollow_room(room_name)
+    if role is None and (hollow or room_name not in entered):
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
     state = get_room_state(room_name)
     from manager.room_manager import build_participant_state
-    return jsonify(build_participant_state(state, include_hidden_passives=role in GM_ROLES and not is_practice(room_name)))
+    return jsonify(build_participant_state(state, include_hidden_passives=role in GM_ROLES and not hollow and not is_practice(room_name)))
 
 
 @room_bp.route('/create_room', methods=['POST'])
@@ -198,7 +205,7 @@ def delete_room():
         return owner_error
 
     # オーナーはPIN/マスターキーも必須。アプリ管理者は全ルームを管理できる。
-    if not is_user_management_admin(session.get('user_id')) and not verify_room_gm_key(room, gm_key):
+    if not is_hollow(room) and not is_user_management_admin(session.get('user_id')) and not verify_room_gm_key(room, gm_key):
         return jsonify({"error": "GM PINまたはマスターキーが正しくありません"}), 403
 
     # DB削除の前に保留中の自動保存を破棄しメモリからも除去する。
@@ -237,7 +244,7 @@ def save_room_route():
         return jsonify({"error": "Room state required"}), 400
     from manager.room_manager import PRIVATE_ROOM_FIELDS
     current = get_room_state(room_name) or {}
-    for field in PRIVATE_ROOM_FIELDS:
+    for field in (*PRIVATE_ROOM_FIELDS, "play_mode", "party", "hollow"):
         state.pop(field, None)
         if field in current:
             state[field] = current[field]
@@ -256,14 +263,9 @@ def room_export_logs():
     if export_format not in ('json', 'text'):
         return jsonify({"error": "format は json または text を指定してください"}), 400
 
-    from manager.room_access import has_room_role, GM_ROLES
+    from manager.room_access import resolve_room_role, role_can_gm
     user_id = session.get('user_id')
-    if not has_room_role(
-        user_id,
-        room_name,
-        GM_ROLES,
-        app_admin=is_user_management_admin(user_id),
-    ):
+    if not role_can_gm(room_name, resolve_room_role(user_id, room_name, app_admin=is_user_management_admin(user_id))):
         return jsonify({"error": "GM権限が必要です"}), 403
 
     state = get_room_state(room_name)
@@ -298,11 +300,12 @@ def _sync_room_member_session(room_name, target_user_id):
     from manager.room_access import resolve_room_role, GM_ROLES
     from extensions import user_sids
     role = resolve_room_role(target_user_id, room_name)
+    hollow = is_hollow_room(room_name)
     for info in user_sids.values():
         if info.get('user_id') == target_user_id and info.get('room') == room_name:
             info['attribute'] = (
                 GM_ATTRIBUTE
-                if info.get('is_app_admin') or role in GM_ROLES
+                if not hollow and (info.get('is_app_admin') or role in GM_ROLES)
                 else PLAYER_ATTRIBUTE
             )
     try:
@@ -329,6 +332,8 @@ def room_grant_gm():
     denied = _require_room_owner(room_name)
     if denied:
         return denied
+    if is_hollow_room(room_name):
+        return jsonify({"error": "ホロウの部屋ではGMを付与できません"}), 403
     if db.session.get(User, target_user_id) is None:
         return jsonify({"error": "User not found"}), 404
     set_room_role(room_name, target_user_id, GM, granted_by=session.get('user_id'))
@@ -346,6 +351,8 @@ def room_revoke_gm():
     denied = _require_room_owner(room_name)
     if denied:
         return denied
+    if is_hollow_room(room_name):
+        return jsonify({"error": "ホロウの部屋ではGMを付与できません"}), 403
     set_room_role(room_name, target_user_id, PLAYER, granted_by=session.get('user_id'))
     _sync_room_member_session(room_name, target_user_id)
     return jsonify({"message": "GMを解除しました", "user_id": target_user_id, "role": PLAYER})
@@ -409,10 +416,15 @@ def join_room_by_code():
     room = Room.query.filter_by(name=room_name).first()
     if room is None:
         return jsonify({"error": "Room not found"}), 404
+    hollow = is_hollow(room)
+    if data.get('play_mode') == HOLLOW_MODE and not hollow:
+        return jsonify({"error": "ホロウの部屋が見つかりません"}), 404
+    if hollow and not is_open(room):
+        return jsonify({"error": "この遠征は終了しました"}), 403
 
     # アプリ管理者は公開状態・参加コード・membershipに関係なく入室できる。
     # 実際のowner/memberデータは変更せず、権限解決時だけ仮想ownerとして扱う。
-    if is_user_management_admin(user_id):
+    if not hollow and is_user_management_admin(user_id):
         return jsonify({
             "message": "管理者権限でルームへ参加します",
             "role": "owner",
@@ -427,6 +439,8 @@ def join_room_by_code():
 
     if (room.lobby_visibility or 'hidden') != VIS_LISTED:
         return jsonify({"error": "このルームは新規参加を受け付けていません"}), 403
+    if hollow and not room.join_code_hash:
+        return jsonify({"error": "参加コードが失効しています"}), 403
 
     if join_code.has_join_code(room_name):
         key = f"{room_name}:{user_id}"
@@ -501,8 +515,11 @@ def room_update_settings():
     app_admin = is_user_management_admin(user_id)
     is_owner = has_room_role(user_id, room_name, {OWNER}, app_admin=app_admin)
     is_gm = has_room_role(user_id, room_name, GM_ROLES, app_admin=app_admin)
-    if not is_gm:
-        return jsonify({"error": "GM権限が必要です"}), 403
+    hollow = is_hollow(room)
+    if not (is_owner if hollow else is_gm):
+        return jsonify({"error": "オーナー権限が必要です" if hollow else "GM権限が必要です"}), 403
+    if hollow and data.get('lobby_visibility', VIS_LISTED) != VIS_LISTED:
+        return jsonify({"error": "ホロウの部屋は参加コードで参加できます"}), 400
 
     # gm は募集状態のみ編集可。owner はそれに加え可視性・説明を編集可。
     if 'recruitment_status' in data:
@@ -510,7 +527,7 @@ def room_update_settings():
     if is_owner:
         if 'description' in data:
             room.description = (str(data.get('description') or '').strip() or None)
-        if 'lobby_visibility' in data:
+        if 'lobby_visibility' in data and not hollow:
             vis = str(data.get('lobby_visibility') or '').strip().lower()
             if vis not in (VIS_HIDDEN, VIS_LISTED, VIS_CLOSED):
                 return jsonify({"error": "不正な可視性です"}), 400
@@ -536,6 +553,10 @@ def get_room_users():
     room_name = request.args.get('room')
     if not room_name:
         return jsonify({"error": "Room name required"}), 400
+    if is_hollow_room(room_name):
+        from manager.room_access import get_membership_role
+        if not get_membership_role(session.get('user_id'), room_name):
+            return jsonify({"error": "このルームに参加していません"}), 403
 
     # user_sidsから該当ルームのユーザーを抽出
     room_users = []

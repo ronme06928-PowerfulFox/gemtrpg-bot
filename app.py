@@ -409,6 +409,7 @@ def register_http_routes(flask_app):
     # 分割している（app.py は薄い入出力変換に留める方針）。
     from routes.account import account_bp
     from routes.room import room_bp
+    from routes.hollow import hollow_bp
     from routes.admin import admin_bp
     from routes.catalog import catalog_bp
     from routes.units import units_bp
@@ -442,6 +443,7 @@ def register_http_routes(flask_app):
 
     flask_app.register_blueprint(account_bp)
     flask_app.register_blueprint(room_bp)
+    flask_app.register_blueprint(hollow_bp)
     flask_app.register_blueprint(admin_bp)
     flask_app.register_blueprint(catalog_bp)
     flask_app.register_blueprint(units_bp)

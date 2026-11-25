@@ -12,6 +12,7 @@ from manager.room_manager import (
 )
 from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
 from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, resolve_room_role, GM_ROLES
+from manager.hollow.rooms import is_hollow_room, room_accepts_entry
 from manager.user_manager import is_user_management_admin
 
 logger = logging.getLogger(__name__)
@@ -111,7 +112,14 @@ def handle_join_room(data):
     try:
         # Keep the previous presence until authorization and the snapshot are ready.
         app_admin = is_user_management_admin(user_id)
-        if resolve_room_role(user_id, room, app_admin=app_admin) in GM_ROLES:
+        hollow = is_hollow_room(room)
+        role = resolve_room_role(user_id, room, app_admin=app_admin)
+        if hollow:
+            if role is None or not room_accepts_entry(room):
+                emit('join_room_error', {'error': 'このホロウの部屋には入れません'}, to=request.sid)
+                return
+            attribute = PLAYER_ATTRIBUTE
+        elif role in GM_ROLES:
             attribute = GM_ATTRIBUTE
         else:
             attribute = resolve_room_attribute(room, requested_role, gm_key)
@@ -120,7 +128,7 @@ def handle_join_room(data):
             return
 
         preparation_stage = 'membership'
-        if not app_admin:
+        if not app_admin and not hollow:
             ensure_join_membership_by_name(room, user_id, attribute == GM_ATTRIBUTE)
         preparation_stage = 'state'
         state = get_room_state(room)

@@ -588,10 +588,11 @@ function renderRoomPortal(rooms, currentUserId, isGm) {
 }
 
 // ルーム内ヘッダー⚙️: まず「ユーザー設定 / ルーム設定」の2択を出す。
-// ルーム設定は GM 相当（owner/gm = currentUserAttribute==='GM'）のみ表示。
+// 通常ルームの GM またはホロウのオーナーにルーム設定を表示する。
 function openInRoomSettingsChooser() {
     document.getElementById('settings-chooser-backdrop')?.remove();
-    const isGm = currentUserAttribute === 'GM';
+    const canManageRoom = currentUserAttribute === 'GM' ||
+        (window.currentRoomPlayMode === 'hollow' && window.currentRoomRole === 'owner');
     const backdrop = document.createElement('div');
     backdrop.id = 'settings-chooser-backdrop';
     backdrop.className = 'modal-backdrop room-settings-backdrop';
@@ -599,7 +600,7 @@ function openInRoomSettingsChooser() {
         <div class="modal-content settings-chooser-modal">
             <h3 style="margin:0 0 14px;">設定</h3>
             <button id="chooser-user" class="btn-set" style="display:block; width:100%; margin-bottom:10px;">⚙️ ユーザー設定</button>
-            ${isGm ? '<button id="chooser-room" class="btn-set" style="display:block; width:100%; margin-bottom:10px;">🏠 ルーム設定</button>' : ''}
+            ${canManageRoom ? '<button id="chooser-room" class="btn-set" style="display:block; width:100%; margin-bottom:10px;">🏠 ルーム設定</button>' : ''}
             <button id="chooser-cancel" class="btn-set" style="display:block; width:100%;">閉じる</button>
         </div>`;
     applySystemWindow(backdrop.querySelector('.settings-chooser-modal'));
@@ -616,11 +617,12 @@ function openInRoomSettingsChooser() {
 async function openCurrentRoomSettings() {
     if (!currentRoomName) { window.showAppNotice('ルーム情報を取得できませんでした。', {kind: 'error'}); return; }
     try {
-        const response = await fetchWithSession('/list_rooms');
+        const hollow = window.currentRoomPlayMode === 'hollow';
+        const response = await fetchWithSession(hollow ? '/api/hollow/rooms' : '/list_rooms');
         const data = await response.json();
         const info = (data.rooms || []).find(r => r.name === currentRoomName);
         if (!info) { window.showAppNotice('ルーム情報が見つかりませんでした。', {kind: 'error'}); return; }
-        openRoomSettingsModal(info, { refreshLobby: false });
+        openRoomSettingsModal(info, { refreshLobby: false, codeOnly: hollow });
     } catch (error) {
         window.showAppNotice(error.message, {kind: 'error'});
     }
@@ -646,12 +648,12 @@ function openRoomSettingsModal(info, opts = {}) {
     backdrop.innerHTML = `
         <div class="modal-content room-settings-modal">
             <h3 style="margin:0 0 12px;">ルーム情報: ${esc(info.name)}</h3>
-            <label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
+            ${opts.codeOnly ? '' : `<label style="display:block; font-weight:bold; margin:8px 0 2px;">説明</label>
             <textarea id="rs-description" rows="3" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${esc(info.description)}</textarea>
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">募集状態</label>
             <input id="rs-recruitment" type="text" maxlength="20" style="width:100%; box-sizing:border-box;" value="${esc(info.recruitment_status)}" placeholder="例: 募集中 / 締切">
             <label style="display:block; font-weight:bold; margin:10px 0 2px;">公開設定 ${isOwner ? '' : '(オーナー・管理者のみ変更可)'}</label>
-            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>
+            <select id="rs-visibility" style="width:100%; box-sizing:border-box;" ${isOwner ? '' : 'disabled'}>${visOptions}</select>`}
             ${isOwner ? `
             <div class="clasp" aria-hidden="true"><i></i></div>
             <div>
@@ -662,7 +664,7 @@ function openRoomSettingsModal(info, opts = {}) {
             <div id="rs-message" class="auth-message" style="margin-top:10px;"></div>
             <div style="margin-top:14px; text-align:right;">
                 <button id="rs-cancel" class="btn-set" type="button" style="margin-right:6px;">閉じる</button>
-                <button id="rs-save" class="btn-set is-primary" type="button">保存</button>
+                ${opts.codeOnly ? '' : '<button id="rs-save" class="btn-set is-primary" type="button">保存</button>'}
             </div>
         </div>`;
     applySystemWindow(backdrop.querySelector('.room-settings-modal'));
@@ -674,7 +676,7 @@ function openRoomSettingsModal(info, opts = {}) {
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
     backdrop.querySelector('#rs-cancel').addEventListener('click', close);
 
-    backdrop.querySelector('#rs-save').addEventListener('click', async () => {
+    backdrop.querySelector('#rs-save')?.addEventListener('click', async () => {
         const payload = { room_name: info.name };
         payload.recruitment_status = backdrop.querySelector('#rs-recruitment').value.trim();
         if (isOwner) {
@@ -710,7 +712,7 @@ function openRoomSettingsModal(info, opts = {}) {
                 const d = await r.json();
                 if (!r.ok) { setMsg(d.error || 'コード設定に失敗しました'); return; }
                 info.requires_code = true;
-                await showAppConfirm(`参加コードを設定しました。\n\n${d.join_code}\n\nこのコードを参加者へ共有してください。`, { title: '参加コード', confirmText: 'OK' });
+                await showRoomJoinCode(d.join_code);
                 setMsg('参加コードを設定しました', true);
             } catch (e) { setMsg(e.message); }
         });
@@ -727,6 +729,10 @@ function openRoomSettingsModal(info, opts = {}) {
             } catch (e) { setMsg(e.message); }
         });
     }
+}
+
+function showRoomJoinCode(code) {
+    return showAppConfirm(`参加コードを設定しました。\n\n${code}\n\nこのコードを参加者へ共有してください。`, { title: '参加コード', confirmText: 'OK' });
 }
 
 // 非メンバーが参加コードで参加 → membership作成 → 入室
@@ -801,7 +807,7 @@ async function createNewRoom() {
     }
 }
 
-async function deleteRoom(roomName) {
+async function deleteRoom(roomName, { hollow = false, refresh = showRoomPortal } = {}) {
     const ok = await showAppConfirm(`本当にルーム「${roomName}」を削除しますか？\nこの操作は取り消せません。`, {
         defaultFocus: 'cancel',
         title: 'ルーム削除',
@@ -811,7 +817,7 @@ async function deleteRoom(roomName) {
         return;
     }
     let gmPin = '';
-    if (!currentUserIsAppAdmin) {
+    if (!hollow && !currentUserIsAppAdmin) {
         gmPin = await showAppPrompt('このルームのGM PIN、または8桁のマスターキーを入力してください。', {
             title: '削除認証',
             placeholder: '4桁PIN / 8桁マスターキー',
@@ -830,7 +836,7 @@ async function deleteRoom(roomName) {
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || '不明なエラー');
         window.showAppNotice(`ルーム「${roomName}」を削除しました。`, {kind: 'success'});
-        showRoomPortal();
+        await refresh();
     } catch (error) {
         console.error('Error deleting room:', error);
         window.showAppNotice(`ルームの削除に失敗しました: ${error.message}`, {kind: 'error'});
@@ -843,6 +849,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
     window.actionDockInitialized = false;
     // Debug log removed for production
 
+    const fromDungeon = location.hash === '#dungeon' || initialState?.play_mode === 'hollow';
     try {
         let roomEntry = entryOptions;
         if (!roomEntry && (knownRole === 'owner' || knownRole === 'gm' || knownRole === 'admin')) {
@@ -885,6 +892,8 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         }
         currentUserAttribute = entryResult.attribute || 'Player';
         window.currentUserAttribute = currentUserAttribute;
+        window.currentRoomPlayMode = entryResult.play_mode || 'normal';
+        window.currentRoomRole = entryResult.room_role || null;
 
         if (!initialState) {
             const response = await fetchWithSession(`/load_room?name=${encodeURIComponent(roomName)}`);
@@ -910,11 +919,14 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         entryPortal.style.display = 'none';
         roomPortal.style.display = 'none';
         hideMenuScreens();
+        if (window.currentRoomPlayMode === 'hollow' && !location.hash) history.replaceState(null,'','#dungeon');
         enterRoomHistory();
         // 前のルームの盤面を見せないよう、中身を消してから表示し、新しい盤面を組み立てる。
         mainContent.innerHTML = '';
         setRoomVisible(true);
         document.getElementById('current-room-name').textContent = `現在のルーム: ${currentRoomName}`;
+        const home = document.getElementById('home-portal-btn');
+        if (home) home.title = window.currentRoomPlayMode === 'hollow' ? 'ダンジョンに戻る' : 'ルーム一覧に戻る';
         updateHeaderUserInfo();
         await loadTabContent('visual');
         window.PracticeRoom?.sync(battleState);
@@ -924,7 +936,8 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         window.AppLoading.end();
         console.error('Error joining room:', error);
         window.showAppNotice(`ルーム「${roomName}」への参加に失敗しました: ${error.message}`, {kind: 'error'});
-        showRoomPortal();
+        if (fromDungeon) window.goScreen('dungeon');
+        else showRoomPortal();
     }
 }
 

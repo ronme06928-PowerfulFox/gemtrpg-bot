@@ -12,6 +12,7 @@ from datetime import datetime
 
 from extensions import db, user_sids
 from models import Room, RoomMember
+from manager.hollow.rooms import is_hollow, is_hollow_room
 
 OWNER = "owner"
 GM = "gm"
@@ -102,8 +103,14 @@ def resolve_room_role(user_id, room_name, *, app_admin=False):
     from manager.practice_rooms import is_practice, owner
     if is_practice(room_name):
         return GM if user_id and owner(room_name)==user_id else None
-    if not user_id or _get_room(room_name) is None:
+    if not user_id:
         return None
+    room = _get_room(room_name)
+    if room is None:
+        return None
+    if is_hollow(room):
+        role = get_membership_role(user_id, room_name)
+        return PLAYER if role == GM else role
     if app_admin:
         return OWNER
     role = get_membership_role(user_id, room_name)
@@ -122,16 +129,21 @@ def has_room_role(user_id, room_name, allowed_roles, *, app_admin=False):
     return resolve_room_role(user_id, room_name, app_admin=app_admin) in allowed_roles
 
 
+def role_can_gm(room_name, role):
+    return role in GM_ROLES and not is_hollow_room(room_name)
+
+
 def sid_has_room_role(sid, room_name, allowed_roles):
     """Socketイベント用: SID が当該ルームに在室し、role が allowed_roles か。"""
     info = user_sids.get(sid) or {}
     if info.get("room") != room_name:
         return False
-    return resolve_room_role(
+    role = resolve_room_role(
         info.get("user_id"),
         room_name,
         app_admin=bool(info.get("is_app_admin")),
-    ) in allowed_roles
+    )
+    return role_can_gm(room_name, role) if allowed_roles == GM_ROLES else role in allowed_roles
 
 
 def user_can_access_room(user_id, room_name, *, app_admin=False):
@@ -148,6 +160,8 @@ def ensure_membership(room_id, user_id, role, *, granted_by=None, commit=True):
     """有効 membership を作成または role 変更する（冪等）。"""
     if not user_id:
         return None
+    if role == GM and is_hollow(db.session.get(Room, room_id)):
+        raise ValueError("ホロウの部屋ではGMを付与できません")
     now = datetime.utcnow()
     m = RoomMember.query.filter_by(room_id=room_id, user_id=user_id, revoked_at=None).first()
     if m is None:
@@ -167,6 +181,8 @@ def ensure_join_membership(room_id, user_id, is_gm, *, commit=True):
     """入室時に membership を整える。owner は降格しない。player→gm の昇格のみ行う。"""
     if not user_id:
         return None
+    if is_gm and is_hollow(db.session.get(Room, room_id)):
+        is_gm = False
     m = RoomMember.query.filter_by(room_id=room_id, user_id=user_id, revoked_at=None).first()
     target = GM if is_gm else PLAYER
     now = datetime.utcnow()
@@ -248,7 +264,7 @@ def build_lobby_cards(user_id):
     cards = []
     from manager.practice_rooms import is_practice
     for room in Room.query.order_by(Room.name).all():
-        if is_practice(room.name):
+        if is_practice(room.name) or is_hollow(room):
             continue
         role = _lobby_role(user_id, room)
         is_member = role is not None
@@ -292,7 +308,7 @@ def transfer_owner(room_name, new_owner_id, *, acting_user_id=None, commit=True)
     owners = RoomMember.query.filter_by(room_id=room.id, role=OWNER, revoked_at=None).all()
     for o in owners:
         if o.user_id != new_owner_id:
-            o.role = GM
+            o.role = PLAYER if is_hollow(room) else GM
             o.updated_at = now
             o.granted_by_user_id = acting_user_id
     # 新 owner の membership を owner に。

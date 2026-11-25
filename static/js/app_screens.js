@@ -3,7 +3,7 @@
 // main.js のグローバル（showRoomPortal・leaveCurrentSocketRoom など）を使う。
 
 (function () {
-  const SCREENS = ['menu', 'sessions', 'help', 'characters', 'units', 'master', 'hollow-data', 'users', 'encyclopedia', 'drill'];
+  const SCREENS = ['menu', 'sessions', 'dungeon', 'help', 'characters', 'units', 'master', 'hollow-data', 'users', 'encyclopedia', 'drill'];
   const unitScreen = domain => domain === 'hollow' ? 'hollow-data' : 'units';
   const mountUnits = domain => (host, options) => mountUnitManagement(host, {...options, domain});
   // 全幅の画面に描く部品。戻り値は {destroy, allowLeave?}。
@@ -13,6 +13,7 @@
     characters: host => mountOwnedCharacters(host),
     units: mountUnits('session'),
     'hollow-data': mountUnits('hollow'),
+    dungeon: host => mountDungeon(host),
     master: (host, options) => mountCatalogWorkspace(host, { onOpenUnit: openReferencedUnit, ...options }),
   };
   const HELP_LINKS = [
@@ -22,7 +23,7 @@
   ];
   const MENU_CARDS = [
     ['sessions', 'sapphire', 'セッション', 'ルーム一覧'],
-    ['dungeon', 'ruby', 'ダンジョン', '準備中'],
+    ['dungeon', 'ruby', 'ダンジョン', 'ホロウの部屋'],
     ['characters', 'topaz', 'マイキャラクター', '作成・管理'],
     ['encyclopedia', 'emerald', '図鑑', '世界の理・技能と魔物'],
     ['drill', 'citrine', '演習場', '模擬戦闘'],
@@ -48,10 +49,9 @@
 
   function menuHtml({name, isAppAdmin} = {}) {
     const cards = MENU_CARDS.map(([key, gem, title, summary]) => {
-      const disabled = key === 'dungeon';
-      return `<button type="button" class="menu-card" data-screen-card="${key}" data-gem="${gem}"${disabled ? ' disabled' : ''}>
+      return `<button type="button" class="menu-card" data-screen-card="${key}" data-gem="${gem}">
         <span class="menu-card__copy"><strong>${title}</strong><span>${summary}</span></span>
-        ${disabled ? '' : '<span class="menu-card__arrow" aria-hidden="true">›</span>'}</button>`;
+        <span class="menu-card__arrow" aria-hidden="true">›</span></button>`;
     }).join('');
     const data = DATA_CARDS.map(([key, gem, title, theme]) =>
       `<button type="button" class="menu-data-button" data-screen-card="${key}" data-gem="${gem}"${theme ? ` data-theme="${theme}"` : ''}>${title}</button>`).join('');
@@ -120,7 +120,7 @@
 
   function showWorkspace(name, options) {
     showPortal(`${backBar()}<div class="screen-workspace" data-screen="${name}"></div>`,
-      name === 'hollow-data' ? 'abyss' : 'paper');
+      ['hollow-data','dungeon'].includes(name) ? 'abyss' : 'paper');
     mounted = {name, controller: WORKSPACES[name](portal().querySelector('.screen-workspace'), options)};
   }
 
@@ -191,8 +191,11 @@
 
   async function leaveRoomTo(name) {
     if (window.PracticeRoom?.active) return window.PracticeRoom.leave(name==='sessions'?'menu':name);
-    const ok = await showAppConfirm('ルーム一覧に戻りますか？\n（保存していない変更は失われます）', {
-      defaultFocus: 'cancel', title: 'ルーム一覧へ戻る', confirmText: '戻る',
+    const hollow = window.currentRoomPlayMode === 'hollow';
+    if (hollow) name = 'dungeon';
+    const destination = hollow ? 'ダンジョン' : 'ルーム一覧';
+    const ok = await showAppConfirm(`${destination}に戻りますか？\n（保存していない変更は失われます）`, {
+      defaultFocus: 'cancel', title: `${destination}へ戻る`, confirmText: '戻る',
     });
     if (!ok) return false;
     window.AppLoading.begin({title: typeof currentRoomName === 'string' ? currentRoomName : '', step: 'ルームを出ています'});
@@ -209,6 +212,8 @@
 
   function exitRoomTo(name) {
     window.resetRoomEncyclopedia?.();
+    window.currentRoomPlayMode = null;
+    window.currentRoomRole = null;
     setRoomVisible(false);
     goScreen(name);
   }

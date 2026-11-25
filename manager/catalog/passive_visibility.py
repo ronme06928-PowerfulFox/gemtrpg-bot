@@ -3,7 +3,7 @@ from flask import request, session
 
 import extensions
 from extensions import active_room_states, db
-from manager.room_access import GM_ROLES, resolve_room_role
+from manager.room_access import resolve_room_role, role_can_gm
 from models import CatalogEncounter, CatalogEntry, User
 
 
@@ -15,7 +15,7 @@ def request_catalog_reader():
     room = request.args.get("room", "").strip()
     from manager.practice_rooms import is_practice
     role = resolve_room_role(user.id, room) if room else None
-    full = user.is_catalog_author or user.is_app_admin or (role in GM_ROLES and not is_practice(room))
+    full = user.is_catalog_author or user.is_app_admin or (role_can_gm(room, role) and not is_practice(room))
     return user, full, room if role else None
 
 

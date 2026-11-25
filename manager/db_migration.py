@@ -51,12 +51,14 @@ def _remove_unit_initial_states(inspector):
 
 
 _RETIRED_ROOM_MODE = "battle_only"
+_ROOM_MODES = ("normal", "hollow")
 
 
 def normalize_room_play_mode(state):
     if state.get("play_mode") == _RETIRED_ROOM_MODE:
         state.setdefault("combat_phase", "ready")
-    state["play_mode"] = "normal"
+    if state.get("play_mode") not in _ROOM_MODES:
+        state["play_mode"] = "normal"
     state.pop(_RETIRED_ROOM_MODE, None)
 
 
@@ -65,7 +67,7 @@ def _migrate_room_play_modes():
 
     for room in Room.query.yield_per(100):
         state = room.data
-        if isinstance(state, dict) and (state.get("play_mode") != "normal" or _RETIRED_ROOM_MODE in state):
+        if isinstance(state, dict) and (state.get("play_mode") not in _ROOM_MODES or _RETIRED_ROOM_MODE in state):
             normalized = state.copy()
             normalize_room_play_mode(normalized)
             room.data = normalized

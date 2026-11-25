@@ -7,7 +7,7 @@ from manager.utils import session_required
 from manager.catalog.kinds import MARK_LABELS
 from manager.encyclopedia import can_view_hollow, hollow_reward_entries, unit_entries
 from manager.units.repository import entry_json
-from manager.room_access import GM_ROLES, resolve_room_role
+from manager.room_access import resolve_room_role, role_can_gm
 from models import CatalogEncounter, CatalogEntry
 
 encyclopedia_bp = Blueprint("encyclopedia", __name__)
@@ -26,7 +26,7 @@ def get_encyclopedia():
     from manager.practice_rooms import is_practice
     from manager.battle.hidden_passives import redact_hidden_passives
 
-    room_gm = bool(room and not is_practice(room) and resolve_room_role(user.id, room) in GM_ROLES)
+    room_gm = bool(room and not is_practice(room) and role_can_gm(room, resolve_room_role(user.id, room)))
     can_view_all = bool(user.is_catalog_author or user.is_app_admin or room_gm)
     encounters = CatalogEncounter.query.filter_by(user_id=user.id).order_by(
         CatalogEncounter.kind, CatalogEncounter.entry_id).all()

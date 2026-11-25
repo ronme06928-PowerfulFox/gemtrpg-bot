@@ -4,6 +4,7 @@ import pytest
 
 from manager.battle import duel_solver
 from manager.game_logic import compute_damage_multipliers
+from manager.room_manager import active_room_states
 from tests.test_d22_confusion_recovery import CATALOG
 from tests.test_select_resolve_timing_normalization import _make_char, _clash_skill, _patch_deterministic_clash
 
@@ -18,6 +19,7 @@ def test_legacy_incapacitated_match_uses_active_catalog_multiplier(monkeypatch, 
     target["special_buffs"] = [{"name": CATALOG[buff_id]["name"], "buff_id": buff_id,
                                 "delay": delay, "lasting": 2}]
     state = {"characters": actors, "timeline": [], "active_match": {}}
+    monkeypatch.setitem(active_room_states, "room_t", state)
     _patch_deterministic_clash(monkeypatch)
     catalog = deepcopy(CATALOG)
     catalog[buff_id]["effect"]["damage_multiplier"] = multiplier
