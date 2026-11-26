@@ -274,7 +274,7 @@ def create_owned_character():
         return jsonify({"error": error}), 400
 
     character = OwnedCharacter(
-        id=f"owned_{uuid.uuid4().hex}",
+        id=str(uuid.uuid4()),
         user_id=user_id,
         name=str(data.get('name') or '').strip(),
         data=data,

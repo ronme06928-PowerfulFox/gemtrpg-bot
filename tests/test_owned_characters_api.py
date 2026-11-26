@@ -74,6 +74,8 @@ def test_create_and_list(client):
     assert body["character"]["name"] == "テストキャラ"
     assert body["character"]["exp_total"] == 0
     assert body["character"]["growth_log"] == []
+    # PostgreSQL enforces VARCHAR(36); SQLite would silently accept a longer id.
+    assert len(body["character"]["id"]) <= OwnedCharacter.__table__.c.id.type.length
 
     resp = client.get("/api/owned_characters")
     assert resp.status_code == 200

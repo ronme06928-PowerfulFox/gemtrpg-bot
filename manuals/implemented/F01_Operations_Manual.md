@@ -1039,7 +1039,7 @@ GET /api/room/export_logs?room_name=<room>&format=text
 
 | カラム | 内容 |
 |---|---|
-| `id` | UUID文字列主キー（`owned_<uuid4().hex>`） |
+| `id` | UUID文字列主キー（`str(uuid4())`、36文字。列の長さに収める） |
 | `user_id` | 所有者（`users.id` FK） |
 | `name` | 表示用。`data.name`のコピー |
 | `data` | キャラJSON本体（CharaCreator出力の`data`部をそのまま格納。スキーマの細分化はしない） |
