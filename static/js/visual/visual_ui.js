@@ -1079,7 +1079,7 @@ window.setupVisualSidebarControls = function () {
     }
     if (resetBtn) {
         const hollow = battleState?.play_mode === 'hollow';
-        resetBtn.style.display = (hollow ? window.HollowParty.canProgress() : isGM) ? 'inline-block' : 'none';
+        resetBtn.style.display = (hollow ? window.HollowParty.canReset() : isGM) ? 'inline-block' : 'none';
         resetBtn.onclick = async () => {
             if (battleState?.play_mode === 'hollow' ? window.HollowParty.canProgress() : resolveIsGM()) {
                 if (typeof openResetTypeModal === 'function') {

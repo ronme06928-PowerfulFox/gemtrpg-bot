@@ -266,9 +266,8 @@
   function renderRibbon(root, state) {
     const party = currentParty(state);
     const run = state.hollow.run;
-    const tier = run.map?.tier || (run.floor ? Math.ceil(run.floor / 10) : 0);
-    const position = tier && run.floor > (tier - 1) * 10 ? `${run.floor}F` : '入口';
-    const status = run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${position}`
+    const tier = run.map?.tier;
+    const status = run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
       : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';
     root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">
@@ -285,6 +284,10 @@
 
   function isOwner() {
     return battleState?.hollow?.members ? currentParty().owner : window.currentRoomRole === 'owner';
+  }
+
+  function canReset(state = battleState) {
+    return canProgress(state) && state?.combat_phase === 'active';
   }
 
   function canProgress(state = battleState) {
@@ -310,6 +313,6 @@
   }
 
   window.HollowParty = {
-    render, mountDock, renderRibbon, showCode, reviewCode, close, isOwner, revoked, canProgress, canControlCharacter
+    render, mountDock, renderRibbon, showCode, reviewCode, close, isOwner, revoked, canProgress, canReset, canControlCharacter
   };
 })();

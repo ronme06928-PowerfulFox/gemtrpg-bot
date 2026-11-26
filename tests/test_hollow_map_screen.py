@@ -12,7 +12,9 @@ def test_map_has_prototype_widths_non_crossing_paths_and_shifts():
         layout = build_map(tier(1), {}, seed)
         assert layout == build_map(tier(1), {}, seed)
         rows = layout["rows"]
-        widths.update(map(len, rows[:-1]))
+        assert rows[0] == [{"id": "n0s", "floor": 0, "type": "start", "shift": 0,
+                            "next": [node["id"] for node in rows[1]]}]
+        widths.update(map(len, rows[1:-1]))
         assert rows[-1][0]["shift"] == 0
         for row, following in zip(rows, rows[1:]):
             targets = {node["id"]: i for i, node in enumerate(following)}
@@ -39,17 +41,17 @@ def test_map_visibility_through_load_and_broadcast(dungeon, monkeypatch):
     monkeypatch.setattr(room_manager, "_safe_emit", lambda event, payload, **_: sent.append((event, payload)))
     for floor in (0, 4, 9):
         run["floor"] = floor
-        layout["current"] = layout["rows"][floor - 1][0]["id"] if floor else None
+        layout["current"] = layout["rows"][floor][0]["id"]
         snapshot = clients["guest"].get("/load_room", query_string={"name": ROOM}).json
         room_manager.broadcast_participant_state(ROOM, state)
         assert sent[-1][0] == "state_updated"
         assert snapshot["hollow"]["run"] == sent[-1][1]["hollow"]["run"]
         public = snapshot["hollow"]["run"]["map"]
         assert "seed" not in public and public["last_floor"] == 10
-        assert len(public["rows"]) == min(floor + 2, 10)
+        assert len(public["rows"]) == min(floor + 2, 10) + 1
         allowed = {node["id"] for row in public["rows"] for node in row}
         assert all(set(node["next"]) <= allowed for row in public["rows"] for node in row)
-        assert len(layout["rows"]) == 10 and layout["seed"] == 34
+        assert len(layout["rows"]) == 11 and layout["seed"] == 34
     run.update(status="finished", result={"floor": 9, "outcome": "RETREAT"})
     room_manager.broadcast_participant_state(ROOM, state)
     assert "map" not in sent[-1][1]["hollow"]["run"]

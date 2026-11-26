@@ -73,7 +73,7 @@ def verify(browser):
     click(host, "ランを始める")
     expect(host_map.get_by_role("heading", name="入穴")).to_be_visible()
     expect(player_map).to_contain_text("ホストが次のマスを選ぶ")
-    assert len(state()["hollow"]["run"]["map"]["rows"]) == 2
+    assert len(state()["hollow"]["run"]["map"]["rows"]) == 3
     expect(player_map.get_by_role("button", name="撤退")).to_have_count(0)
     expect(player.locator(".hollow-node.is-next").first).to_have_attribute("aria-disabled", "true")
     host.locator('[data-chip="ally-0"]').click()

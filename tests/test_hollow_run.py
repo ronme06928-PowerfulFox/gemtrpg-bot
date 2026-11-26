@@ -46,15 +46,19 @@ def test_map_is_reproducible_and_connected():
 
     plan = build_map(tier(1), {4: {"type": "camp"}}, 34)
     assert plan == build_map(tier(1), {4: {"type": "camp"}}, 34)
-    assert len(plan["rows"]) == 10
-    assert len(plan["rows"][3]) == len(plan["rows"][9]) == 1
-    assert len(next_nodes(plan)) == len(plan["rows"][0])
+    assert len(plan["rows"]) == 11
+    start = plan["rows"][0]
+    assert start == [{"id": "n0s", "floor": 0, "type": "start", "shift": 0,
+                      "next": [node["id"] for node in plan["rows"][1]]}]
+    assert plan["current"] == "n0s" and plan["visited"] == ["n0s"]
+    assert len(plan["rows"][4]) == len(plan["rows"][10]) == 1
+    assert next_nodes(plan) == start[0]["next"]
     assert plan["rows"][-1][0]["type"] == "boss"
     for rows, next_row in zip(plan["rows"], plan["rows"][1:]):
         ids = {node["id"] for node in next_row}
         assert all(node["next"] and set(node["next"]) <= ids for node in rows)
         assert {target for node in rows for target in node["next"]} == ids
-    assert {node["type"] for row in plan["rows"][:-1] for node in row} == {"battle", "elite"}
+    assert {node["type"] for row in plan["rows"][1:-1] for node in row} == {"battle", "elite"}
     assert [weighted_choice([("A", 1), ("B", 3)], Random(seed)) for seed in range(5)] == ["B", "B", "A", "B", "B"]
 
 
@@ -90,7 +94,7 @@ def test_runtime_battle_and_scaling(dungeon, size, expected_hp):
     start_run(ROOM, "owner", seed=12)
     run = state["hollow"]["run"]
     with pytest.raises(ValueError):
-        select_node(ROOM, "owner", run["map"]["rows"][3][0]["id"], 1)
+        select_node(ROOM, "owner", run["map"]["rows"][4][0]["id"], 1)
     select_node(ROOM, "owner", next_nodes(run["map"])[0], 1)
     assert state["hollow"]["run"]["floor"] == 1 and state["round"] == 1
     assert state["play_mode"] == "hollow"
@@ -222,7 +226,8 @@ def test_boss_victory_and_last_departure(dungeon, number, floor):
     assert _resolve_complete(state, "owner", 1)
     run = state["hollow"]["run"]
     if number == 1:
-        assert run["map"]["tier"] == 2 and run["map"]["current"] is None
+        assert run["map"]["tier"] == 2 and run["map"]["current"] == "n10s"
+        assert run["map"]["rows"][0][0]["floor"] == 10
         select_node(ROOM, "owner", "n11a", 2)
         assert state["hollow"]["run"]["floor"] == 11
     else:

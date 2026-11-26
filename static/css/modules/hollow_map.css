@@ -84,7 +84,9 @@
 }
 .hollow-map-row:nth-child(odd) { background: color-mix(in srgb, var(--ui-soft) 25%, transparent); }
 .hollow-map-floor { position: absolute; inset-inline-start: 6px; color: var(--ui-sub); font: 700 .8rem var(--ui-head-font); }
+.hollow-map-row.is-fog { min-height: 44px; }
 .hollow-map-fog { color: var(--ui-sub); letter-spacing: .22em; }
+.hollow-node.type-start { min-height: 40px; }
 .hollow-node {
   position: relative;
   display: grid;
@@ -124,7 +126,9 @@
   pointer-events: none;
 }
 .hollow-map-tip span { color: var(--ui-sub); }
-.hollow-map-entry { width: min(340px, calc(100% - 28px)); text-align: center; }
+.hollow-window.hollow-map-entry { width: min(340px, calc(100% - 28px)); text-align: center; }
+.hollow-window.hollow-map-entry > header { display: block; text-align: center; background: none; border-bottom: 0; padding: 22px 16px 4px; }
+.hollow-window.hollow-map-entry > header h2 { font-size: 1.5rem; }
 .hollow-map-entry form { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; padding: 14px; }
 .hollow-map-tray {
   display: flex;

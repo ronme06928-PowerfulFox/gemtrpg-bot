@@ -1,5 +1,6 @@
 (function () {
   const TYPES = {battle: '通常戦闘', elite: '精鋭戦闘', boss: 'ボス'};
+  const typeName = node => node.type === 'start' ? (node.floor ? '降り口' : '地上') : TYPES[node.type];
   const TIERS = ['入穴', '浅層上部', '浅層中部', '浅層下部', '深層境界'];
   const ICONS = {
     battle: 'M20 3h-5l-9 9-2-2-1.5 1.5 3 3L3 17l1.5 1.5L7 16l3 3 1.5-1.5-2-2 9-9z',
@@ -58,8 +59,7 @@
 
   function nextIds(run) {
     const {map} = run;
-    const node = map.current && map.rows.flat().find(item => item.id === map.current);
-    return new Set(node ? node.next : (map.rows[0] || []).map(item => item.id));
+    return new Set(map.rows.flat().find(item => item.id === map.current)?.next || []);
   }
 
   function nodeButton(node, run, next, manage) {
@@ -68,13 +68,13 @@
     const offered = next.has(node.id);
     const cls = ['hollow-node', `type-${node.type}`, now && 'is-now', done && 'is-done',
       offered && 'is-next', !now && !done && node.floor <= run.floor && 'is-skipped'].filter(Boolean).join(' ');
-    const label = `${node.floor}F ${TYPES[node.type]}、${chooseLabel(node, next, run, manage)}`;
+    const label = `${node.floor}F ${typeName(node)}、${chooseLabel(node, next, run, manage)}`;
     const shift = Math.max(-20, Math.min(20, Number(node.shift) || 0));
     return `<button type="button" class="${cls}" data-node="${esc(node.id)}" aria-label="${label}"
       ${offered && manage ? '' : 'aria-disabled="true" tabindex="-1"'}
       ${now ? 'aria-current="location"' : ''} style="--shift:${shift}px">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[node.type] || ICONS.battle}"/></svg>
-      <span>${TYPES[node.type] || '戦闘'}</span></button>`;
+      ${ICONS[node.type] ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[node.type]}"/></svg>` : ''}
+      <span>${typeName(node)}</span></button>`;
   }
 
   function chip(char, enabled) {
@@ -89,16 +89,16 @@
 
   function renderMap(run, manage) {
     const {map} = run;
-    const first = (map.tier - 1) * 10 + 1;
-    const last = map.last_floor || first + 9;
-    const floor = run.floor >= first ? `${run.floor}F` : '入口';
+    const last = map.last_floor;
+    const first = last - 9;
+    const floor = `${run.floor}F`;
     const next = nextIds(run);
     const player = parties(run, state);
     const canSwap = manage && player.active.length && player.reserve.some(char => char.hp > 0);
     const chosen = player.order.find(char => char.id === picked);
-    const rows = Array.from({length: last - first + 1}, (_, index) => {
+    const rows = Array.from({length: last - first + 2}, (_, index) => {
       const row = map.rows[index];
-      return `<div class="hollow-map-row${row ? '' : ' is-fog'}"><span class="hollow-map-floor">${first + index}F</span>
+      return `<div class="hollow-map-row${row ? '' : ' is-fog'}"><span class="hollow-map-floor">${first - 1 + index}F</span>
         ${row ? row.map(node => nodeButton(node, run, next, manage)).join('') : '<span class="hollow-map-fog">未踏</span>'}</div>`;
     }).join('');
     return `<header class="hollow-map-head"><div><small>T${map.tier} · ${first}〜${last}F</small><h2>${esc(tierName(map))}</h2></div>
@@ -205,7 +205,7 @@
     const node = run.map?.rows.flat().find(el => el.id === key);
     float.hidden = !node;
     if (!node) return;
-    float.innerHTML = `<b>${node.floor}F ${TYPES[node.type]}</b><span>${chooseLabel(node, nextIds(run), run, window.HollowParty.canProgress(state))}</span>`;
+    float.innerHTML = `<b>${node.floor}F ${typeName(node)}</b><span>${chooseLabel(node, nextIds(run), run, window.HollowParty.canProgress(state))}</span>`;
     float.style.left = `${Math.max(4, Math.min(event.clientX + 16, innerWidth - float.offsetWidth - 6))}px`;
     float.style.top = `${Math.max(4, Math.min(event.clientY + 16, innerHeight - float.offsetHeight - 6))}px`;
   }

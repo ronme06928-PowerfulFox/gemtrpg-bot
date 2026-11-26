@@ -1073,7 +1073,7 @@ function initializeSocketIO() {
         window.HollowMap?.sync(newState);
         if (newState?.play_mode === 'hollow') {
             const reset = document.getElementById('visual-reset-btn');
-            if (reset) reset.style.display = window.HollowParty.canProgress(newState) ? 'inline-block' : 'none';
+            if (reset) reset.style.display = window.HollowParty.canReset(newState) ? 'inline-block' : 'none';
             window.refreshHollowTokenControls?.();
         }
         window.PracticeRoom?.sync(newState);

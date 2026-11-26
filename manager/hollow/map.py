@@ -1,4 +1,4 @@
-"""Deterministic ten-floor maps and weighted draws for an expedition."""
+"""Deterministic ten-floor maps, topped by a start node, and weighted draws for an expedition."""
 
 from math import floor
 
@@ -56,6 +56,7 @@ def build_map(tier, fixed_floors, seed):
         raise ValueError("抽選できる重みがありません")
     # The prototype draws elite below its threshold.
     elite_ratio = weights[1][1] / total
+    entry = {"id": f"n{start}s", "floor": start, "type": "start", "shift": 0, "next": []}
     rows = []
     for index in range(1, FLOORS_PER_TIER + 1):
         floor_number = start + index
@@ -70,15 +71,15 @@ def build_map(tier, fixed_floors, seed):
         if rows:
             _connect(rows[-1], row, rng)
         rows.append(row)
+    entry["next"] = [node["id"] for node in rows[0]]
     return {"tier": number, "name": tier.get("name", ""), "seed": seed,
-            "rows": rows, "current": None, "visited": []}
+            "rows": [[entry], *rows], "current": entry["id"], "visited": [entry["id"]]}
 
 
 def project_map(layout, current_floor):
     """Remove unseen nodes, links to them, and the seed from a room payload."""
-    first = (layout["tier"] - 1) * FLOORS_PER_TIER + 1
-    last = first + FLOORS_PER_TIER - 1
-    visible_through = max(first - 1, current_floor) + SIGHT
+    last = layout["tier"] * FLOORS_PER_TIER
+    visible_through = current_floor + SIGHT
     rows = [row for row in layout["rows"] if row[0]["floor"] <= visible_through]
     visible_ids = {node["id"] for row in rows for node in row}
     return {"tier": layout["tier"], "name": layout.get("name", ""), "last_floor": last,
@@ -88,10 +89,7 @@ def project_map(layout, current_floor):
 
 
 def next_nodes(layout):
-    current = layout["current"]
-    if current is None:
-        return [node["id"] for node in layout["rows"][0]]
-    return node_at(layout, current)["next"]
+    return node_at(layout, layout["current"])["next"]
 
 
 def node_at(layout, node_id):
