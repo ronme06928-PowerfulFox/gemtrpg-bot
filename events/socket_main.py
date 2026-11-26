@@ -12,7 +12,7 @@ from manager.room_manager import (
 )
 from manager.auth import GM_ATTRIBUTE, PLAYER_ATTRIBUTE, resolve_room_attribute
 from manager.room_access import is_sid_in_room, ensure_join_membership_by_name, resolve_room_role, GM_ROLES
-from manager.hollow.rooms import is_hollow_room, room_accepts_entry
+from manager.hollow.rooms import cleanup_finished_room, is_hollow_room, room_accepts_entry
 from manager.user_manager import is_user_management_admin
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,8 @@ def handle_disconnect():
             return
         if not room:
             return
+        if cleanup_finished_room(room):
+            return
         username = user_info.get('username', '不明なユーザー')
         try:
             broadcast_log(room, f"{username} がルームから切断しました。", 'info')
@@ -84,6 +86,8 @@ def handle_leave_room(_data=None):
     if not user_info.get('is_app_admin', False):
         user_info['attribute'] = PLAYER_ATTRIBUTE
 
+    if cleanup_finished_room(room):
+        return {'ok': True, 'room': room, 'already_left': False}
     broadcast_log(room, f"{username} が退室しました。", 'system')
     broadcast_user_list(room)
     emit_select_resolve_events(room, include_round_started=False)
@@ -190,7 +194,7 @@ def handle_join_room(data):
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
     emit('state_updated', participant_state, to=request.sid)
     emit_select_resolve_events(room, to_sid=None if hollow else request.sid, include_round_started=False)
-    if prev_room and is_hollow_room(prev_room):
+    if prev_room and not cleanup_finished_room(prev_room) and is_hollow_room(prev_room):
         emit_select_resolve_events(prev_room, include_round_started=False)
 
     # ★ その後、入室ログを全員に送信

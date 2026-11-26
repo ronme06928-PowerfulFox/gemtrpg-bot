@@ -36,6 +36,37 @@ def room_accepts_entry(name):
     return room is not None and is_open(room)
 
 
+def _has_finished_result(state):
+    run = state.get("hollow", {}).get("run", {})
+    return state.get("play_mode") == MODE and run.get("status") == "finished" and bool(run.get("result"))
+
+
+def cleanup_finished_room(name):
+    """The last connection may leave after seeing the closed expedition's result."""
+    from manager.battle.common_manager import _get_round_transition_lock
+    from manager.data_manager import delete_room_from_db
+    from manager.room_manager import discard_pending_save, get_users_in_room
+
+    if not _has_finished_result(active_room_states.get(name) or {}):
+        return False
+    with _get_round_transition_lock(name):
+        if get_users_in_room(name) or not _has_finished_result(active_room_states.get(name) or {}):
+            return False
+        discard_pending_save(name)
+        if not delete_room_from_db(name):
+            return False
+        active_room_states.pop(name, None)
+        return True
+
+
+def cleanup_closed_rooms_at_startup():
+    rooms = Room.query.filter(Room.data["play_mode"].as_string() == MODE).all()
+    for room in rooms:
+        if _has_finished_result(room.data or {}):
+            db.session.delete(room)
+    db.session.commit()
+
+
 def initial_state(owner_id):
     return {
         "play_mode": MODE,

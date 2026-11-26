@@ -838,6 +838,11 @@ def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None, *, 
         next_y = float(y)
     except (TypeError, ValueError):
         return
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.run import can_place_character
+        if not can_place_character(state, target_char, next_x, next_y):
+            emit('move_denied', {'message': '遠征中は配置を変更できません。'})
+            return
 
     try:
         next_ts = float(move_ts) if move_ts is not None else float(int(time.time() * 1000))
@@ -855,6 +860,9 @@ def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None, *, 
         was_placed = False
     target_char["x"] = next_x
     target_char["y"] = next_y
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.run import remember_position
+        remember_position(state, target_char)
     target_char['last_move_ts'] = next_ts
 
     save_specific_room_state(room)

@@ -22,7 +22,7 @@ from manager.auth import (
 from manager.room_manager import get_room_state
 from manager.battle.combat_session import ensure_combat_session_defaults
 from manager.data_manager import save_room_to_db, delete_room_from_db
-from manager.hollow.rooms import MODE as HOLLOW_MODE, is_hollow, is_hollow_room, is_open
+from manager.hollow.rooms import MODE as HOLLOW_MODE, is_hollow, is_hollow_room, is_open, room_accepts_entry
 from manager.user_manager import is_user_management_admin
 from manager.utils import session_required
 
@@ -132,6 +132,10 @@ def load_room():
     hollow = is_hollow_room(room_name)
     if role is None and (hollow or room_name not in entered):
         return jsonify({"error": "このルームにアクセスする権限がありません"}), 403
+    if hollow and not room_accepts_entry(room_name):
+        from manager.room_access import is_user_in_room
+        if not is_user_in_room(user_id, room_name):
+            return jsonify({"error": "この遠征は終了しました"}), 403
     state = get_room_state(room_name)
     from manager.room_manager import build_participant_state
     return jsonify(build_participant_state(
@@ -247,6 +251,9 @@ def save_room_route():
         from manager.battle.progress_authority import can_progress_battle
         if not can_progress_battle(room_name, {"user_id": user_id}):
             return jsonify({"error": "ホストかオーナーだけが部屋の全状態を保存できます"}), 403
+        from manager.hollow.run import expedition_run
+        if expedition_run(get_room_state(room_name)):
+            return jsonify({"error": "遠征中は部屋の全状態を上書きできません"}), 403
     if not isinstance(state, dict):
         return jsonify({"error": "Room state required"}), 400
     from manager.room_manager import PRIVATE_ROOM_FIELDS

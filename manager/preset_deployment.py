@@ -740,7 +740,8 @@ def build_deployment_candidate(state, resolved, store, *, gm_user=None, active_u
             logs = process_battle_start(None, arriving, state=candidate)
     except ValueError as ex:
         raise PresetDeploymentError("initialization_failed", str(ex)) from ex
-    candidate["play_mode"] = "normal"
+    if candidate.get("play_mode") != "hollow":
+        candidate["play_mode"] = "normal"
     if resolved["formations"].get("enemy"):
         candidate["battle_mode"] = "pve"
     return DeploymentBuild(candidate, summary, logs, buff_encounters)

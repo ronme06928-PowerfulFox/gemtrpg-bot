@@ -290,6 +290,9 @@ def get_room_state(room_name):
         state['_log_seq'] = len(state.get('logs', []))
 
     normalize_room_play_mode(state)
+    if state["play_mode"] == "hollow" and room_db is not None:
+        from manager.hollow.runtime import prepare_rewards
+        prepare_rewards()
 
 
     if room_db is not None:
@@ -838,6 +841,10 @@ def _update_char_stat(
             )
         log_message = f"{username}: {char['name']}: HP ({old_value}) -> ({char['hp']})"
         if char['hp'] <= 0:
+            state = active_room_states.get(room_name) or {}
+            if state.get("play_mode") == "hollow":
+                from manager.hollow.run import remember_position
+                remember_position(state, char)
             char['x'] = -1; char['y'] = -1
             log_message += " [戦闘不能/未配置へ移動]"
             _handle_character_death_transition(

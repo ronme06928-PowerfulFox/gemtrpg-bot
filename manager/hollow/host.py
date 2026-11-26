@@ -59,5 +59,7 @@ def member_departed(room_name, user_id):
                 socketio.server.leave_room(sid, room_name, namespace="/")
                 info["room"] = None
                 socketio.emit("hollow_membership_revoked", {"room": room_name}, to=sid)
-    broadcast_state_update(room_name)
-    broadcast_user_list(room_name)
+    from manager.hollow.rooms import cleanup_finished_room
+    if not cleanup_finished_room(room_name):
+        broadcast_state_update(room_name)
+        broadcast_user_list(room_name)

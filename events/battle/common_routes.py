@@ -102,7 +102,11 @@ def _complete_round_after_resolve(room, username, expected_round):
         end_result = process_full_round_end(room, username)
         if before_state.get('play_mode') == 'hollow':
             if end_result:
-                process_round_start(room, username)
+                from manager.hollow.run import after_round, expedition_run
+                if expedition_run(before_state):
+                    after_round(room, username)
+                if before_state.get('combat_phase') != 'ready':
+                    process_round_start(room, username)
             flush_room_state_now(room)
         else:
             flush_room_state_now(room)
@@ -234,6 +238,10 @@ def on_request_reset_battle(data):
     with _get_round_transition_lock(room):
         if not can_progress_battle(room, user_info):
             print(f"[Security] Player {username} tried to reset battle. Denied.")
+            return
+        from manager.hollow.run import expedition_run
+        if mode != "logs" and is_hollow_room(room) and expedition_run(get_room_state(room)):
+            emit('battle_error', {'message': '遠征中は戦闘をリセットできません'}, to=request.sid)
             return
         reset_battle_logic(room, mode, username, options)
         flush_room_state_now(room)

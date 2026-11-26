@@ -196,6 +196,8 @@ def run_startup_tasks(flask_app):
         buff_registry.auto_discover()
 
         init_app_data(create_db_tables=False)
+        from manager.hollow.rooms import cleanup_closed_rooms_at_startup
+        cleanup_closed_rooms_at_startup()
         read_saved_rooms_with_owners()
 
 

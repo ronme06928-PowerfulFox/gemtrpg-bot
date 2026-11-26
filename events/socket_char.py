@@ -95,6 +95,14 @@ def handle_add_character(data):
     state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
     type = char_data.setdefault('type', 'enemy')
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.run import expedition_run
+        run = expedition_run(state)
+        if run:
+            if run["status"] == "finished" or type != "ally":
+                emit('character_operation_denied', {'message': '遠征中の敵はマスの選択で配置します'}, to=request.sid)
+                return
+            char_data.update(x=-1, y=-1)
     char_data.pop('source_unit_id', None)
     type_jp = "味方" if type == "ally" else "敵"
 
@@ -318,6 +326,11 @@ def handle_move_character(data):
     ):
         emit('move_denied', {'message': '権限がありません。'})
         return
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.run import can_place_character
+        if not can_place_character(state, char, x, y):
+            emit('move_denied', {'message': '遠征中は配置を変更できません。'})
+            return
 
     # ★ Server-Side Sync Check
     current_ts = char.get('last_move_ts', 0)
@@ -332,6 +345,9 @@ def handle_move_character(data):
     old_y = char.get('y', -1)
     char['x'] = x
     char['y'] = y
+    if state.get("play_mode") == "hollow":
+        from manager.hollow.run import remember_position
+        remember_position(state, char)
     char['active_round'] = 0 # reset active state
 
     if ts:
@@ -476,6 +492,11 @@ def handle_delete_character(data):
         ):
             emit('character_operation_denied', {'message': 'このキャラクターを操作する権限がありません。'}, to=request.sid)
             return
+        if state.get("play_mode") == "hollow":
+            from manager.hollow.run import can_delete_character
+            if not can_delete_character(state, char):
+                emit('character_operation_denied', {'message': '遠征中はこのキャラを削除できません。'}, to=request.sid)
+                return
 
         print(f"User {username} deleting character from room '{room}': {char.get('name')}")
         state["characters"] = [c for c in state["characters"] if c.get('id') != char_id]
