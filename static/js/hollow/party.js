@@ -283,6 +283,21 @@
     return battleState?.hollow?.members ? currentParty().owner : window.currentRoomRole === 'owner';
   }
 
+  function canProgress(state = battleState) {
+    return state?.play_mode === 'hollow' && !!currentUserId && (
+      state.hollow?.host_user_id === currentUserId ||
+      state.hollow?.members?.some(member => member.id === currentUserId && member.role === 'owner')
+    );
+  }
+
+  function canControlCharacter(charId, state = battleState) {
+    if (canProgress(state)) return true;
+    const char = state?.characters?.find(row => row.id === charId);
+    if (!char) return false;
+    if (char.owner_id) return !!currentUserId && char.owner_id === currentUserId;
+    return (char.owner || state.character_owners?.[charId]) === currentUsername;
+  }
+
   function revoked({room}) {
     if (room === currentRoomName && window.currentRoomPlayMode === 'hollow') {
       close();
@@ -290,5 +305,7 @@
     }
   }
 
-  window.HollowParty = {render, mountDock, renderRibbon, showCode, reviewCode, close, isOwner, revoked};
+  window.HollowParty = {
+    render, mountDock, renderRibbon, showCode, reviewCode, close, isOwner, revoked, canProgress, canControlCharacter
+  };
 })();

@@ -314,7 +314,7 @@ def handle_move_character(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     if not is_authorized_for_character(
-        room, char_id, username, user_info.get("attribute", "Player")
+        room, char_id, username, user_info.get("attribute", "Player"), user_id=user_info.get("user_id") or ""
     ):
         emit('move_denied', {'message': '権限がありません。'})
         return
@@ -472,7 +472,7 @@ def handle_delete_character(data):
 
     if char:
         if not is_authorized_for_character(
-            room, char_id, username, user_info.get("attribute", "Player")
+            room, char_id, username, user_info.get("attribute", "Player"), user_id=user_info.get("user_id") or ""
         ):
             emit('character_operation_denied', {'message': 'このキャラクターを操作する権限がありません。'}, to=request.sid)
             return
@@ -580,7 +580,7 @@ def handle_update_token_scale(data):
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
     if not is_authorized_for_character(
-        room, char_id, username, user_info.get("attribute", "Player")
+        room, char_id, username, user_info.get("attribute", "Player"), user_id=user_info.get("user_id") or ""
     ):
         emit('character_operation_denied', {'message': 'このキャラクターを操作する権限がありません。'}, to=request.sid)
         return

@@ -819,7 +819,7 @@ def force_end_match_logic(room, username):
 
     broadcast_log(room, f"[Force End] GM {username} force-ended the current match.", "match-end")
 
-def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
+def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None, *, user_id=None):
     from manager.practice_rooms import is_practice
     if is_practice(room):
         return
@@ -829,7 +829,7 @@ def move_token_logic(room, char_id, x, y, username, attribute, move_ts=None):
     target_char = next((c for c in state["characters"] if c.get('id') == char_id), None)
     if not target_char: return
 
-    if not is_authorized_for_character(room, char_id, username, attribute):
+    if not is_authorized_for_character(room, char_id, username, attribute, user_id=user_id or ""):
         emit('move_denied', {'message': '権限がありません。'})
         return
 

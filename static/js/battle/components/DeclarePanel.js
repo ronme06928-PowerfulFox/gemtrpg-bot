@@ -908,6 +908,9 @@ class DeclarePanel {
 
         const sourceActorId = sourceSlot.actor_id || null;
         if (!sourceActorId) return false;
+        if (state.play_mode === 'hollow') {
+            return !!window.HollowParty?.canControlCharacter(sourceActorId, state);
+        }
 
         if (typeof window !== 'undefined' && typeof window.canControlCharacter === 'function') {
             try {

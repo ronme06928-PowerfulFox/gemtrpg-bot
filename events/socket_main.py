@@ -189,7 +189,9 @@ def handle_join_room(data):
     # ★ 修正: まず状態を送信してDOMを初期化させる
     print(f"[JOIN] Sending state_updated to {username} with {len(state.get('logs', []))} logs")
     emit('state_updated', participant_state, to=request.sid)
-    emit_select_resolve_events(room, to_sid=request.sid, include_round_started=False)
+    emit_select_resolve_events(room, to_sid=None if hollow else request.sid, include_round_started=False)
+    if prev_room and is_hollow_room(prev_room):
+        emit_select_resolve_events(prev_room, include_round_started=False)
 
     # ★ その後、入室ログを全員に送信
     print(f"[JOIN] Broadcasting join log for {username}")

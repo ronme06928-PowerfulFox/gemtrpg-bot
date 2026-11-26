@@ -86,9 +86,8 @@ class ActionDock {
             );
         }
 
-        // 解決開始はサーバー側で ready 判定されるため、
-        // 表示は GM 限定にせず、select フェーズ中の参加者全員に許可する。
-        const show = mode === 'battle' && phase === 'select';
+        const canStart = state.play_mode !== 'hollow' || window.HollowParty?.canProgress(state);
+        const show = mode === 'battle' && phase === 'select' && canStart;
         let panel = document.getElementById(this._dockPanelId);
 
         if (!show) {
@@ -111,8 +110,8 @@ class ActionDock {
             <button
                 id="sr-resolve-confirm-btn"
                 class="dock-icon dock-button ${resolveReady ? 'active' : 'disabled'}"
-                title="戦闘開始"
-                aria-label="戦闘開始"
+                title="${state.play_mode === 'hollow' ? '解決開始' : '戦闘開始'}"
+                aria-label="${state.play_mode === 'hollow' ? '解決開始' : '戦闘開始'}"
                 ${resolveReady ? '' : 'disabled'}
             >⚔️</button>
         `;

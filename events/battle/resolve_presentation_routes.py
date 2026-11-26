@@ -1,11 +1,18 @@
 import time
 
+from manager.battle.progress_authority import can_claim_resolve
+
+
+def room_name(data):
+    data = data or {}
+    return data.get('room_id') or data.get('room') or data.get('room_name')
+
 
 def handle_advance(data, ctx):
     data = data or {}
     request = ctx['request']
     emit = ctx['emit']
-    room_id = data.get('room_id') or data.get('room') or data.get('room_name')
+    room_id = room_name(data)
     if not room_id:
         emit('battle_error', {'message': 'room is required'}, to=request.sid)
         return
@@ -72,7 +79,7 @@ def handle_claim(data, ctx):
     data = data or {}
     request = ctx['request']
     emit = ctx['emit']
-    room_id = data.get('room_id') or data.get('room') or data.get('room_name')
+    room_id = room_name(data)
     if not room_id or not ctx['is_sid_in_room'](request.sid, room_id):
         emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return
@@ -85,9 +92,7 @@ def handle_claim(data, ctx):
     user_info = ctx['get_user_info_from_sid'](request.sid) or {}
     user_id = str(user_info.get('user_id') or '').strip()
     username = user_info.get('username', 'System')
-    is_gm = str(user_info.get('attribute') or '').strip().upper() == 'GM'
-    controller_user_id = str(presentation.get('controller_user_id') or '').strip()
-    if not user_id or (user_id != controller_user_id and not is_gm):
+    if not can_claim_resolve(room_id, user_info, presentation):
         ctx['_emit_resolve_presentation'](room_id, battle_id, battle_state, to=request.sid)
         return
 

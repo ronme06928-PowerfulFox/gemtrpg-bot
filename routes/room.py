@@ -243,6 +243,10 @@ def save_room_route():
         app_admin=is_user_management_admin(user_id),
     ):
         return jsonify({"error": "このルームを更新する権限がありません"}), 403
+    if is_hollow_room(room_name):
+        from manager.battle.progress_authority import can_progress_battle
+        if not can_progress_battle(room_name, {"user_id": user_id}):
+            return jsonify({"error": "ホストかオーナーだけが部屋の全状態を保存できます"}), 403
     if not isinstance(state, dict):
         return jsonify({"error": "Room state required"}), 400
     from manager.room_manager import PRIVATE_ROOM_FIELDS

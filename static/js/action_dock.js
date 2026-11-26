@@ -1652,6 +1652,10 @@ function renderStagingOverlayList(container) {
 
         // 配置ボタン
         const placeBtn = document.createElement('button');
+        if (battleState.play_mode === 'hollow' && !window.HollowParty.canControlCharacter(char.id)) {
+            deleteBtn.disabled = true;
+            placeBtn.disabled = true;
+        }
         placeBtn.textContent = '配置';
         placeBtn.style.padding = '8px 16px';
         placeBtn.style.background = isDead ? '#95a5a6' : '#3498db';

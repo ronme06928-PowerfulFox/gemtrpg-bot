@@ -284,11 +284,8 @@ def build_select_resolve_state_payload(room, battle_id=None):
             slot['inactive_reason'] = reason
     presentation = copy.deepcopy(battle_state.get('resolve', {}).get('presentation', {}))
     if isinstance(presentation, dict):
-        from manager.room_access import is_user_in_room
-        controller_user_id = presentation.get('controller_user_id')
-        presentation['controller_present'] = bool(
-            controller_user_id and is_user_in_room(controller_user_id, room)
-        )
+        from manager.battle.progress_authority import add_resolve_presence
+        add_resolve_presence(room, presentation)
     return {
         'room_id': room,
         'play_mode': (room_state or {}).get('play_mode', 'normal'),

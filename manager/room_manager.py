@@ -740,14 +740,10 @@ def get_user_info_from_sid(sid):
             info['attribute'] = 'GM' if role in GM_ROLES else 'Player'
     return info
 
-def is_authorized_for_character(room_name, char_id, username, attribute):
+def is_authorized_for_character(room_name, char_id, username, attribute, *, user_id=None):
     """Return whether a user can control a character in the given room."""
-    if attribute == 'GM':
-        return True
-
-    state = get_room_state(room_name)
-    owners = state.get('character_owners', {})
-    return owners.get(char_id) == username
+    from manager.battle.progress_authority import can_control_character
+    return can_control_character(room_name, char_id, username, attribute, user_id=user_id)
 
 def set_character_owner(room_name, char_id, username):
     """Set ownership of a character."""

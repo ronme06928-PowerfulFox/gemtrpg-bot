@@ -1385,6 +1385,10 @@ function createSettingsContextMenu(triggerEl, char) {
 
     document.body.insertAdjacentHTML('beforeend', menuHtml);
     const menu = document.getElementById('char-settings-context-menu');
+    if (battleState.play_mode === 'hollow' && window.HollowParty) {
+        menu.dataset.characterId = char.id;
+        window.refreshHollowTokenControls();
+    }
 
     // Positioning (Near the trigger button)
     const rect = triggerEl.getBoundingClientRect();
@@ -1586,6 +1590,15 @@ function createSettingsContextMenu(triggerEl, char) {
         });
     }
 }
+
+window.refreshHollowTokenControls = function () {
+    const menu = document.getElementById('char-settings-context-menu');
+    if (!menu) return;
+    const disabled = !window.HollowParty.canControlCharacter(menu.dataset.characterId);
+    menu.querySelectorAll('#ctx-scale-slider, #ctx-return-btn, #ctx-delete-btn').forEach(control => {
+        control.disabled = disabled;
+    });
+};
 
 // Helper to close modal by ID (if not exists in global scope, defined here just in case)
 function closeGameModal(id) {

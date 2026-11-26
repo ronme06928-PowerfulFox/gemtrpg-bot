@@ -1070,6 +1070,11 @@ function initializeSocketIO() {
         if (newState && !Array.isArray(newState.logs)) newState.logs = Array.isArray(previousState?.logs) ? previousState.logs : [];
         battleState = newState;
         window.HollowParty?.render(newState);
+        if (newState?.play_mode === 'hollow') {
+            const reset = document.getElementById('visual-reset-btn');
+            if (reset) reset.style.display = window.HollowParty.canProgress(newState) ? 'inline-block' : 'none';
+            window.refreshHollowTokenControls?.();
+        }
         window.PracticeRoom?.sync(newState);
         refreshOpenCharacterSkills(previousState, newState);
         refreshOpenCharacterPassives(previousState, newState);

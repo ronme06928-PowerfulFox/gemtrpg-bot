@@ -7,7 +7,7 @@ from flask import request
 from flask_socketio import emit, rooms
 from extensions import socketio, all_skill_data, active_room_states
 from manager.logs import setup_logger
-from manager.room_access import is_sid_in_room, is_user_in_room
+from manager.room_access import is_sid_in_room
 from manager.room_manager import (
     get_user_info_from_sid, get_room_state, broadcast_log, broadcast_state_update,
     is_authorized_for_character, flush_room_state_now, save_specific_room_state,
@@ -35,7 +35,10 @@ from manager.battle.resolve_presentation import (
 from manager.battle.skill_rules import _extract_rule_data_from_skill as _extract_rule_data_from_skill_v2
 from manager.battle.system_skills import ensure_system_skills_registered
 from manager.battle.combat_session import is_combat_progression_allowed
+from manager.battle.progress_authority import add_resolve_presence, can_progress_battle
+from manager.hollow.rooms import is_hollow_room
 from manager.battle.common_manager import (
+    _get_round_transition_lock,
     process_full_round_end, reset_battle_logic, force_end_match_logic,
     move_token_logic, open_match_modal_logic, close_match_modal_logic,
     sync_match_data_logic, process_round_start,
@@ -79,10 +82,7 @@ def _start_resolve_presentation_for_request(_room_id, battle_state):
 
 def _emit_resolve_presentation(room_id, battle_id, battle_state, *, to=None):
     presentation = copy.deepcopy(ensure_resolve_presentation(battle_state) or {})
-    controller_user_id = presentation.get('controller_user_id')
-    presentation['controller_present'] = bool(
-        controller_user_id and is_user_in_room(controller_user_id, room_id)
-    )
+    add_resolve_presence(room_id, presentation)
     payload = {
         'room_id': room_id,
         'battle_id': battle_id,
@@ -94,17 +94,21 @@ def _emit_resolve_presentation(room_id, battle_id, battle_state, *, to=None):
 
 
 def _complete_round_after_resolve(room, username, expected_round):
-    before_state = get_room_state(room)
-    before_round = int((before_state or {}).get('round', 0) or 0)
-    if int(expected_round) != before_round:
-        return False
-
-    end_result = process_full_round_end(room, username)
-    flush_room_state_now(room)
     from manager.practice_rooms import is_practice
-    if end_result and is_practice(room):
-        process_round_start(room,username)
-    return bool(end_result)
+    with _get_round_transition_lock(room):
+        before_state = get_room_state(room) or {}
+        if int(expected_round) != int(before_state.get('round', 0) or 0):
+            return False
+        end_result = process_full_round_end(room, username)
+        if before_state.get('play_mode') == 'hollow':
+            if end_result:
+                process_round_start(room, username)
+            flush_room_state_now(room)
+        else:
+            flush_room_state_now(room)
+            if end_result and is_practice(room):
+                process_round_start(room, username)
+        return bool(end_result)
 
 
 def _complete_empty_resolve(room_id, battle_state):
@@ -155,7 +159,8 @@ def on_request_next_turn(data):
     room = data.get('room')
     if not room: return
     if not _require_in_room(room): return
-    if not is_combat_progression_allowed(get_room_state(room)): return
+    state = get_room_state(room)
+    if not is_combat_progression_allowed(state) or (state or {}).get('play_mode') == 'hollow': return
     proceed_next_turn(room)
 
 @socketio.on('request_new_round')
@@ -167,7 +172,7 @@ def on_request_new_round(data):
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    if attribute != 'GM':
+    if attribute != 'GM' or is_hollow_room(room):
         emit('new_log', {'message': 'ラウンド開始はGMのみ可能です。', 'type': 'error'})
         return
 
@@ -197,7 +202,7 @@ def on_request_end_round(data):
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    if attribute != 'GM':
+    if attribute != 'GM' or is_hollow_room(room):
         print(f"[Security] Player {username} tried to end round. Denied.")
         return
 
@@ -226,14 +231,12 @@ def on_request_reset_battle(data):
     options = data.get('options') # get dictionary or None
     user_info = get_user_info_from_sid(request.sid)
     username = user_info.get("username", "System")
-    attribute = user_info.get("attribute", "Player")
-
-    if attribute != 'GM':
-        print(f"[Security] Player {username} tried to reset battle. Denied.")
-        return
-
-    reset_battle_logic(room, mode, username, options)
-    flush_room_state_now(room)
+    with _get_round_transition_lock(room):
+        if not can_progress_battle(room, user_info):
+            print(f"[Security] Player {username} tried to reset battle. Denied.")
+            return
+        reset_battle_logic(room, mode, username, options)
+        flush_room_state_now(room)
 
 @socketio.on('request_force_end_match')
 def on_request_force_end_match(data):
@@ -263,7 +266,7 @@ def on_request_move_token(data):
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    move_token_logic(room, char_id, x, y, username, attribute, move_ts=data.get('ts'))
+    move_token_logic(room, char_id, x, y, username, attribute, move_ts=data.get('ts'), user_id=user_info.get("user_id"))
 
 @socketio.on('open_match_modal')
 def on_open_match_modal(data):
@@ -592,7 +595,8 @@ def _authorize_intent_slot_control(room_id, battle_id, state, slot_id, event_nam
     username = user_info.get("username", "System")
     attribute = user_info.get("attribute", "Player")
 
-    allowed = is_authorized_for_character(room_id, actor_id, username, attribute)
+    identity = {"user_id": user_info.get("user_id") or ""} if room_state.get("play_mode") == "hollow" else {}
+    allowed = is_authorized_for_character(room_id, actor_id, username, attribute, **identity)
     if not allowed:
         logger.warning(
             "[FLOW] %s_denied room=%s battle=%s slot=%s actor=%s user=%s attribute=%s",
@@ -781,6 +785,15 @@ def _start_select_resolve_if_ready(room_id, battle_id, source_event):
     )
 
 
+def _can_start_resolve(room_id, battle_id, source_event, user):
+    if can_progress_battle(room_id, user, normalize_gm=source_event == 'battle_resolve_start'):
+        return True
+    logger.info("[FLOW] %s_denied room=%s battle=%s user=%s", source_event, room_id, battle_id, user.get('username'))
+    message = 'ホストかオーナーだけが解決を開始できます' if is_hollow_room(room_id) else f'{source_event} is GM only'
+    emit('battle_error', {'message': message}, to=request.sid)
+    return False
+
+
 @measure_stage("ready_ms")
 def _refresh_resolve_ready(room_id, state):
     return _phase_flow._refresh_resolve_ready(
@@ -922,6 +935,9 @@ def on_battle_round_request_start(data):
         return
 
     room_id, battle_id, _ = room_battle_slot
+    if is_hollow_room(room_id):
+        emit('battle_error', {'message': 'ホロウではラウンドを直接開始できません'}, to=request.sid)
+        return
     print(f"[battle_round_request_start] room_id={room_id} battle_id={battle_id} slot_id=None")
 
     round_value = data.get('round')
@@ -1151,34 +1167,28 @@ def on_battle_resolve_confirm(data):
         return
 
     room_id, battle_id, _ = room_battle_slot
-    state = get_or_create_select_resolve_state(room_id, battle_id=battle_id)
-    if not state:
-        emit('battle_error', {'message': 'room state not found'}, to=request.sid)
-        return
-    if not _is_select_phase(state):
-        emit('battle_error', {'message': 'battle_resolve_confirm is only allowed in select phase'}, to=request.sid)
-        return
+    with _get_round_transition_lock(room_id):
+        state = get_or_create_select_resolve_state(room_id, battle_id=battle_id)
+        if not state:
+            emit('battle_error', {'message': 'room state not found'}, to=request.sid)
+            return
+        if not _is_select_phase(state):
+            emit('battle_error', {'message': 'battle_resolve_confirm is only allowed in select phase'}, to=request.sid)
+            return
+        user = get_user_info_from_sid(request.sid) or {}
+        if not _can_start_resolve(room_id, battle_id, 'battle_resolve_confirm', user):
+            return
 
-    user_info = get_user_info_from_sid(request.sid)
-    username = user_info.get("username", "System")
-    attribute = user_info.get("attribute", "Player")
-    if attribute != 'GM':
-        logger.info("[FLOW] resolve_confirm_denied room=%s battle=%s user=%s attribute=%s", room_id, battle_id, username, attribute)
-        emit('battle_error', {'message': 'battle_resolve_confirm is GM only'}, to=request.sid)
-        return
-
-    ready, required, committed_count, waiting_slots = _refresh_resolve_ready(room_id, state)
-    logger.info(
-        "[FLOW] resolve_confirm_attempt room=%s battle=%s user=%s required=%d committed=%d waiting=%s",
-        room_id, battle_id, username, len(required), committed_count, waiting_slots[:8]
-    )
-    if not ready:
-        emit('battle_error', {'message': 'not all required slots are committed'}, to=request.sid)
-        _emit_battle_state_updated(room_id, battle_id)
-        return
-
-    logger.info("[FLOW] resolve_confirm room=%s battle=%s by=%s", room_id, battle_id, username)
-    _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_confirm')
+        ready, required, committed_count, waiting_slots = _refresh_resolve_ready(room_id, state)
+        logger.info(
+            "[FLOW] resolve_confirm_attempt room=%s battle=%s user=%s required=%d committed=%d waiting=%s",
+            room_id, battle_id, user.get('username'), len(required), committed_count, waiting_slots[:8]
+        )
+        if not ready:
+            emit('battle_error', {'message': 'not all required slots are committed'}, to=request.sid)
+            _emit_battle_state_updated(room_id, battle_id)
+            return
+        _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_confirm')
 
 
 @socketio.on('battle_resolve_start')
@@ -1194,26 +1204,32 @@ def on_battle_resolve_start(data):
         emit('battle_error', {'message': 'Not in this room'}, to=request.sid)
         return
     battle_id = _resolve_battle_id_for_room(room_id, data)
-    user_info = get_user_info_from_sid(request.sid) or {}
-    if str(user_info.get('attribute') or '').strip().upper() != 'GM':
-        emit('battle_error', {'message': 'battle_resolve_start is GM only'}, to=request.sid)
-        return
-
     logger.info(
         "[FLOW] resolve_start_request sid=%s room=%s battle=%s",
         request.sid, room_id, battle_id
     )
-    _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_start')
+    with _get_round_transition_lock(room_id):
+        user = get_user_info_from_sid(request.sid) or {}
+        if _can_start_resolve(room_id, battle_id, 'battle_resolve_start', user):
+            _start_select_resolve_if_ready(room_id, battle_id, source_event='battle_resolve_start')
 
 
 @socketio.on('battle_resolve_flow_advance_request')
 def on_battle_resolve_flow_advance_request(data):
-    _resolve_presentation_routes.handle_advance(data, globals())
+    _run_resolve_flow_request(data, _resolve_presentation_routes.handle_advance)
 
 
 @socketio.on('battle_resolve_flow_claim_request')
 def on_battle_resolve_flow_claim_request(data):
-    _resolve_presentation_routes.handle_claim(data, globals())
+    _run_resolve_flow_request(data, _resolve_presentation_routes.handle_claim)
+
+
+def _run_resolve_flow_request(data, handler):
+    room = _resolve_presentation_routes.room_name(data)
+    if room and is_sid_in_room(request.sid, room):
+        with _get_round_transition_lock(room):
+            return handler(data, globals())
+    return handler(data, globals())
 
 
 @socketio.on('battle_intent_uncommit')
@@ -1278,6 +1294,8 @@ def on_battle_intent_change_skill(data):
         return
     if not _is_select_phase(state):
         emit('battle_error', {'message': 'battle_intent_change_skill is only allowed in select phase'}, to=request.sid)
+        return
+    if is_hollow_room(room_id) and not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_change_skill'):
         return
 
     if slot_id not in state.get('slots', {}):
@@ -1355,6 +1373,8 @@ def on_battle_intent_change_target(data):
         return
     if not _is_select_phase(state):
         emit('battle_error', {'message': 'battle_intent_change_target is only allowed in select phase'}, to=request.sid)
+        return
+    if is_hollow_room(room_id) and not _authorize_intent_slot_control(room_id, battle_id, state, slot_id, 'battle_intent_change_target'):
         return
 
     if slot_id not in state.get('slots', {}):

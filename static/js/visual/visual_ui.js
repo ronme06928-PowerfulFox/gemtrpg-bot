@@ -1014,7 +1014,7 @@ window.setupVisualSidebarControls = function () {
 
     const actionContainer = document.getElementById('visual-room-actions');
     if (roomPresetBtn) {
-        roomPresetBtn.style.display = isGM ? 'inline-flex' : 'none';
+        roomPresetBtn.style.display = isGM && battleState?.play_mode !== 'hollow' ? 'inline-flex' : 'none';
     }
     if (actionContainer && !document.getElementById('visual-pve-btn')) {
         // PvE/PvP切替はGMのみ表示
@@ -1078,9 +1078,10 @@ window.setupVisualSidebarControls = function () {
         if (saveBtn) saveBtn.style.display = 'none';
     }
     if (resetBtn) {
-        if (isGM) {
-            resetBtn.style.display = 'inline-block';
-            resetBtn.onclick = async () => {
+        const hollow = battleState?.play_mode === 'hollow';
+        resetBtn.style.display = (hollow ? window.HollowParty.canProgress() : isGM) ? 'inline-block' : 'none';
+        resetBtn.onclick = async () => {
+            if (battleState?.play_mode === 'hollow' ? window.HollowParty.canProgress() : resolveIsGM()) {
                 if (typeof openResetTypeModal === 'function') {
                     openResetTypeModal((type, options) => { socket.emit('request_reset_battle', { room: currentRoomName, mode: type, options: options }); });
                 } else if (await window.showAppConfirm("戦闘をリセットしますか？", {
@@ -1090,10 +1091,8 @@ window.setupVisualSidebarControls = function () {
                 })) {
                     socket.emit('request_reset_battle', { room: currentRoomName, mode: 'full' });
                 }
-            };
-        } else {
-            resetBtn.style.display = 'none';
-        }
+            }
+        };
     }
 }
 

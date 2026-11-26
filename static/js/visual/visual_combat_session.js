@@ -16,7 +16,7 @@
 
     // ラウンド開始・終了操作を出せるのは、GMが通常ルームの戦闘中にいるときだけ。
     window.canShowRoundControls = function (state, isGm) {
-        return !!isGm && getPhase(state) === 'active';
+        return state?.play_mode !== 'hollow' && !!isGm && getPhase(state) === 'active';
     };
 
     function currentBattleState() {
@@ -364,7 +364,7 @@
         historyButton.addEventListener('click', () => window.openCombatHistoryModal());
         actions.appendChild(historyButton);
 
-        if (!isGmUser()) {
+        if (roomState?.play_mode === 'hollow' || !isGmUser()) {
             root.appendChild(actions);
             return;
         }

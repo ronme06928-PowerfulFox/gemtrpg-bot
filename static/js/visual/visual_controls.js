@@ -171,9 +171,10 @@ window.setupBattleTokenDrag = function () {
 
         const char = battleState.characters.find(c => c.id === dragCharId);
         if (!char) return;
-        const isOwner = char.owner === currentUsername;
-        const isGM = (typeof currentUserAttribute !== 'undefined' && currentUserAttribute === 'GM');
-        if (!isOwner && !isGM) {
+        const canMove = battleState.play_mode === 'hollow'
+            ? window.HollowParty.canControlCharacter(char.id)
+            : char.owner === currentUsername || currentUserAttribute === 'GM';
+        if (!canMove) {
             dragTarget = null;
             return;
         }

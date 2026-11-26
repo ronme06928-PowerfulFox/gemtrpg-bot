@@ -373,6 +373,9 @@ class ResolveFlowPanel {
     }
 
     _canClaimResolveFlow(state) {
+        if (state?.play_mode === 'hollow') {
+            return state.resolvePresentation?.claim_user_ids?.includes(window.currentUserId) === true;
+        }
         return !this._canDriveResolveFlow(state) && this._detectIsGM(state);
     }
 
