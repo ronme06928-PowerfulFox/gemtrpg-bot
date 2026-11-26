@@ -1,9 +1,11 @@
 """Deterministic ten-floor maps and weighted draws for an expedition."""
 
-from random import Random
+from math import floor
 
-WIDTHS = (1, 2, 3, 2, 3, 1, 2, 3, 2, 1)
+FLOORS_PER_TIER = 10
+SIGHT = 2
 EVENT_WEIGHTS = (("battle", "normal"), ("elite", "elite"))
+_MASK = 0xffffffff
 
 
 def weighted_choice(options, rng):
@@ -17,39 +19,72 @@ def weighted_choice(options, rng):
         roll -= weight
 
 
-def _connect(rows, following):
-    # Evenly space the rows in the same column range regardless of width.
-    def distance(left, i, right, j):
-        return abs((2 * i + 1) * len(right) - (2 * j + 1) * len(left))
+def _map_random(seed):
+    # Match the prototype's 32-bit Mulberry32 stream.
+    while True:
+        seed = (seed + 0x6D2B79F5) & _MASK
+        value = ((seed ^ (seed >> 15)) * (1 | seed)) & _MASK
+        value = ((value + (value ^ (value >> 7)) * (61 | value)) ^ value) & _MASK
+        yield (value ^ (value >> 14)) / (1 << 32)
 
-    incoming = set()
-    for i, source in enumerate(rows):
-        choices = sorted(range(len(following)), key=lambda j: (distance(rows, i, following, j), j))
-        targets = choices[:1 if len(rows) == len(following) else 2]
-        source["next"] = [following[j]["id"] for j in sorted(targets)]
-        incoming.update(targets)
-    for j in set(range(len(following))) - incoming:
-        i = min(range(len(rows)), key=lambda i: distance(rows, i, following, j))
-        rows[i]["next"].append(following[j]["id"])
+
+def _connect(rows, following, rng):
+    left = right = 0
+    rows[left]["next"].append(following[right]["id"])
+    while left < len(rows) - 1 or right < len(following) - 1:
+        can_left = left < len(rows) - 1
+        can_right = right < len(following) - 1
+        lag = left / max(len(rows) - 1, 1) - right / max(len(following) - 1, 1)
+        roll = next(rng)
+        if can_left and can_right and abs(lag) <= .34 and roll < .55:
+            left += 1
+            right += 1
+        elif can_left and (not can_right or lag < -.34 or (abs(lag) <= .34 and roll < .775)):
+            left += 1
+        else:
+            right += 1
+        rows[left]["next"].append(following[right]["id"])
 
 
 def build_map(tier, fixed_floors, seed):
-    rng = Random(seed)
+    rng = _map_random(seed)
     number = tier["tier"]
-    start = 10 * (number - 1)
+    start = FLOORS_PER_TIER * (number - 1)
     weights = [(kind, tier["event_weights"].get(key, 0)) for kind, key in EVENT_WEIGHTS]
+    total = sum(weight for _, weight in weights)
+    if total <= 0:
+        raise ValueError("抽選できる重みがありません")
+    # The prototype draws elite below its threshold.
+    elite_ratio = weights[1][1] / total
     rows = []
-    for index, width in enumerate(WIDTHS, 1):
-        floor = start + index
-        fixed = fixed_floors.get(floor)
-        boss = index == len(WIDTHS) or (fixed and fixed["type"] == "boss")
-        row = [{"id": f"n{floor}{chr(97 + column)}", "floor": floor,
-                "type": "boss" if boss else weighted_choice(weights, rng), "next": []}
-               for column in range(1 if fixed or boss else width)]
+    for index in range(1, FLOORS_PER_TIER + 1):
+        floor_number = start + index
+        fixed = fixed_floors.get(floor_number)
+        boss = index == FLOORS_PER_TIER or (fixed and fixed["type"] == "boss")
+        roll = next(rng)
+        width = 1 if fixed or boss or roll < .06 else 2 if roll < .5 else 3
+        row = [{"id": f"n{floor_number}{chr(97 + column)}", "floor": floor_number,
+                "type": "boss" if boss else "elite" if next(rng) < elite_ratio else "battle",
+                "shift": 0 if boss else floor((next(rng) - .5) * 40 + .5), "next": []}
+               for column in range(width)]
         if rows:
-            _connect(rows[-1], row)
+            _connect(rows[-1], row, rng)
         rows.append(row)
-    return {"tier": number, "seed": seed, "rows": rows, "current": None, "visited": []}
+    return {"tier": number, "name": tier.get("name", ""), "seed": seed,
+            "rows": rows, "current": None, "visited": []}
+
+
+def project_map(layout, current_floor):
+    """Remove unseen nodes, links to them, and the seed from a room payload."""
+    first = (layout["tier"] - 1) * FLOORS_PER_TIER + 1
+    last = first + FLOORS_PER_TIER - 1
+    visible_through = max(first - 1, current_floor) + SIGHT
+    rows = [row for row in layout["rows"] if row[0]["floor"] <= visible_through]
+    visible_ids = {node["id"] for row in rows for node in row}
+    return {"tier": layout["tier"], "name": layout.get("name", ""), "last_floor": last,
+            "current": layout["current"], "visited": [key for key in layout["visited"] if key in visible_ids],
+            "rows": [[{**node, "next": [key for key in node["next"] if key in visible_ids]}
+                      for node in row] for row in rows]}
 
 
 def next_nodes(layout):

@@ -833,7 +833,7 @@ window.setupVisualSocketHandlers = function () {
         // ここで setTimeout 等により状態反映自体を遅らせると、その間に届いた行動宣言
         // (battle_state_updated の intents) が後続の setRoundStarted で消されてしまうため注意。
         const round = payload?.round;
-        if (round && typeof window.showRoundStartBanner === 'function') {
+        if (round && !window.HollowMap?.deferRoundBanner(round) && typeof window.showRoundStartBanner === 'function') {
             window.showRoundStartBanner(round);
         }
 

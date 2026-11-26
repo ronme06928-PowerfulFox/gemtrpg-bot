@@ -212,6 +212,7 @@
 
   function exitRoomTo(name) {
     window.HollowParty?.close();
+    window.HollowMap?.close();
     window.resetRoomEncyclopedia?.();
     window.currentRoomPlayMode = null;
     window.currentRoomRole = null;

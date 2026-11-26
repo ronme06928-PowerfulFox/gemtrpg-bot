@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ホロウの地図の画面 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="host">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+    <span class="room-home" aria-hidden="true">🏠</span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon dock-party" title="パーティ">👥</span>
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">📝</span>
+    <span class="dock-icon">📦</span>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+  </nav>
+
+  <main class="board" data-board>
+    <section class="screen map-screen" data-theme="abyss" data-screen="map" aria-label="地図">
+      <header class="map-head">
+        <div class="map-title">
+          <small data-tier-no></small>
+          <h2 data-tier-name></h2>
+        </div>
+        <div class="map-now">
+          <span class="map-floor" data-floor></span>
+          <span class="map-hint" data-map-hint></span>
+        </div>
+        <button type="button" class="ui-btn danger" data-retreat>撤退</button>
+      </header>
+      <div class="map-scroll" data-map-scroll>
+        <div class="map-canvas" data-map-canvas>
+          <svg class="map-paths" data-map-paths aria-hidden="true"></svg>
+          <div class="map-rows" data-map-rows></div>
+        </div>
+      </div>
+      <footer class="tray" data-tray aria-label="出撃と控え"></footer>
+      <div class="map-tip" data-tip hidden></div>
+    </section>
+
+    <section class="screen start-screen" data-theme="abyss" data-screen="forming" aria-label="出発前">
+      <div class="start-card">
+        <small>ホロウダンジョン</small>
+        <h2>虚夢の辺縁</h2>
+        <p class="start-party" data-start-party></p>
+        <button type="button" class="ui-btn primary big" data-start>ランを始める</button>
+        <p class="start-wait" data-start-wait>ホストがランを始めるのを待っています</p>
+      </div>
+    </section>
+
+    <section class="screen battle-screen" data-screen="battle" aria-label="戦闘">
+      <div class="battle-band" data-theme="abyss"><b data-battle-title></b><span>ラウンド 1</span></div>
+      <div class="tokens" data-tokens></div>
+      <div class="battle-proto">
+        <button type="button" class="proto-btn" data-win>勝つ（試作）</button>
+        <button type="button" class="proto-btn" data-lose>全滅（試作）</button>
+      </div>
+    </section>
+
+    <section class="screen end-screen" data-theme="abyss" data-screen="finished" aria-label="ランの結果">
+      <div class="start-card">
+        <small>ランの結果</small>
+        <h2 data-end-title></h2>
+        <dl class="end-pair"><dt>到達</dt><dd data-end-floor></dd><dt>パーティ</dt><dd data-end-party></dd></dl>
+        <button type="button" class="ui-btn primary big">ダンジョンへ戻る</button>
+      </div>
+    </section>
+
+    <div class="curtain" data-theme="abyss" data-curtain aria-hidden="true">
+      <div class="curtain-inner"><b data-curtain-main></b><span data-curtain-sub></span></div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line"><span class="strip-state" data-strip-state></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>パーティ <b>6 / 6</b></span><span>参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<dialog class="hollow-dialog enter-dialog" data-theme="abyss" data-enter aria-labelledby="enter-title">
+  <h2 id="enter-title"><span data-enter-floor></span> <span data-enter-type></span></h2>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn" data-close>キャンセル</button>
+    <button type="button" class="ui-btn primary" data-enter-ok autofocus>入場</button>
+  </div>
+</dialog>
+
+<dialog class="hollow-dialog" data-theme="abyss" data-confirm aria-labelledby="confirm-title">
+  <h2 id="confirm-title">撤退</h2>
+  <p>ランを終えて部屋を閉じます。持ち帰りはありません。</p>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn" data-close>やめる</button>
+    <button type="button" class="ui-btn primary" data-confirm-ok>撤退する</button>
+  </div>
+</dialog>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-set="viewer" data-value="host">ホスト</button>
+    <button type="button" data-set="viewer" data-value="player">プレイヤー</button></div>
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-scene="forming">出発前</button>
+    <button type="button" data-scene="map">3F の後</button>
+    <button type="button" data-scene="boss">9F の後</button></div>
+  <details class="contrast"><summary data-contrast-summary></summary><table data-contrast></table></details>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

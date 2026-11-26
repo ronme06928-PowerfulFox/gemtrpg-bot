@@ -265,7 +265,11 @@
 
   function renderRibbon(root, state) {
     const party = currentParty(state);
-    const status = {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[state.hollow.run.status] || '—';
+    const run = state.hollow.run;
+    const tier = run.map?.tier || (run.floor ? Math.ceil(run.floor / 10) : 0);
+    const position = tier && run.floor > (tier - 1) * 10 ? `${run.floor}F` : '入口';
+    const status = run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${position}`
+      : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';
     root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">
       <strong>${status}</strong><span>ホスト ${escape(host)}</span><span>${party.order.length} / ${capacity} 人</span>

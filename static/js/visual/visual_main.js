@@ -75,6 +75,7 @@ window.setupVisualBattleTab = async function () {
         if (typeof renderCombatSessionControls === 'function') {
             renderCombatSessionControls(battleState);
         }
+        window.HollowMap?.sync(battleState);
     }
 
     // 5. Action Dock Lazy Init

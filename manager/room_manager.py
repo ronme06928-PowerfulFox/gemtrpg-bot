@@ -660,9 +660,16 @@ def build_participant_state(state, include_logs=True, *, include_hidden_passives
     from manager.battle.hidden_passives import strip_hidden_passives
 
     result = copy.deepcopy({key: value for key, value in source.items() if key not in omit})
-    if room_name and result.get("play_mode") == "hollow":
-        from manager.hollow.host import member_rows
-        result["hollow"]["members"] = member_rows(room_name)
+    if result.get("play_mode") == "hollow" and "hollow" in result:
+        from manager.hollow.map import project_map
+        run = result["hollow"].get("run", {})
+        if run.get("status") == "in_progress" and run.get("map"):
+            run["map"] = project_map(run["map"], run.get("floor", 0))
+        else:
+            run.pop("map", None)
+        if room_name:
+            from manager.hollow.host import member_rows
+            result["hollow"]["members"] = member_rows(room_name)
     if not include_hidden_passives:
         strip_hidden_passives(result)
     return result
