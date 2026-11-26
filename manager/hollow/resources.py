@@ -7,13 +7,14 @@ import re
 from manager.catalog.kinds import get_kind, inspect_buff_effect, inspect_fields, inspect_marks
 
 HOLLOW_IDS = {
-    "tier": ("HT", 2), "fixed_floor": ("HF", 2), "relic": ("HR", 2),
+    "tier": ("HT", 2), "hollow_map": ("HM", 2), "fixed_floor": ("HF", 2), "relic": ("HR", 2),
     "hollow_event": ("HE", 2), "treasure_chest": ("HC", 2), "drop_table": ("HD", 2),
     "hollow_buff": ("HBu", 2), "hollow_item": ("HI", 2),
 }
 REWARD_KINDS = {"hollow_buff": "buff", "hollow_item": "item"}
 GRADES = ("鉄級", "銅級", "銀級", "金級", "特異級")
-EVENT_TYPES = ("normal", "elite", "chest", "miasma", "camp")
+EVENT_TYPES = ("normal", "elite", "chest", "miasma")
+RELIC_CATEGORIES = ("出血", "破裂", "亀裂", "戦慄", "荊棘", "蓄力", "凝魔", "斬撃", "打撃", "貫通", "汎用", "出身強化")
 ENCOUNTER_TYPES = ("normal", "elite")
 TARGET_PREFIXES = {
     "buff": (("buff", "Bu"), ("hollow_buff", "HBu")),
@@ -92,7 +93,8 @@ def _array(value, path, errors, *, maximum=None):
     return enumerate(value)
 
 
-def _inspect_tier(data, errors):
+def _inspect_map(data, errors):
+    _object(data["category_weights"], dict.fromkeys(RELIC_CATEGORIES, _integer), (), "category_weights", errors)
     _object(data["event_weights"], dict.fromkeys(EVENT_TYPES, _integer), (), "event_weights", errors)
     encounters = data["encounters"]
     if _object(encounters, dict.fromkeys(ENCOUNTER_TYPES, lambda value: isinstance(value, list)),
@@ -102,15 +104,6 @@ def _inspect_tier(data, errors):
             for index, row in _array(encounters.get(kind, []), path, errors):
                 _object(row, {"formation_id": _text, "weight": _integer},
                         ("formation_id", "weight"), f"{path}[{index}]", errors)
-
-
-def _inspect_fixed_floor(data, errors):
-    if data["type"] == "boss":
-        for field in ("formation_id", "stage_id"):
-            if not _text(data.get(field)):
-                errors[field] = "ボス階で指定してください"
-    elif "formation_id" in data:
-        errors["formation_id"] = "ボス階の項目です"
 
 
 def _condition(value):
@@ -159,15 +152,19 @@ def _inspect_drop_table(data, errors):
 SCHEMAS = {
     "tier": (
         {"tier": _tier_number, "description": lambda value: isinstance(value, str),
-         "event_weights": lambda value: isinstance(value, dict), "encounters": lambda value: isinstance(value, dict),
          "hp_multiplier": _multiplier, "attack_multiplier": _multiplier},
-        {"description": "", "event_weights": {}, "encounters": {}, "hp_multiplier": 1, "attack_multiplier": 1},
-        _inspect_tier,
+        {"description": "", "hp_multiplier": 1, "attack_multiplier": 1}, None,
+    ),
+    "hollow_map": (
+        {"tier": _tier_number, "description": lambda value: isinstance(value, str),
+         **dict.fromkeys(("event_weights", "encounters", "category_weights"), lambda value: isinstance(value, dict)),
+         "boss_formation_id": _text, "boss_stage_id": _text},
+        {"description": "", "event_weights": {}, "encounters": {}, "category_weights": {}}, _inspect_map,
     ),
     "fixed_floor": (
-        {"floor": _floor, "type": lambda value: value in ("boss", "town", "camp"),
-         "text": lambda value: isinstance(value, str), "formation_id": _text, "stage_id": _text},
-        {"text": ""}, _inspect_fixed_floor,
+        {"floor": _floor, "type": lambda value: value in ("town", "camp"),
+         "text": lambda value: isinstance(value, str)},
+        {"text": ""}, None,
     ),
     "relic": (
         {"rarity": lambda value: value in GRADES, "buff_id": _text,
@@ -186,7 +183,6 @@ SCHEMAS = {
     ),
     "drop_table": ({"rows": lambda value: isinstance(value, list)}, {}, _inspect_drop_table),
 }
-OPTIONAL = {"fixed_floor": {"formation_id", "stage_id"}}
 
 
 def inspect_payload(kind, payload, entry_id, errors, warnings):
@@ -215,7 +211,7 @@ def inspect_payload(kind, payload, entry_id, errors, warnings):
         return
 
     fields, defaults, inspect = SCHEMAS[kind]
-    required = fields.keys() - defaults.keys() - OPTIONAL.get(kind, set())
+    required = fields.keys() - defaults.keys()
     _object(data, {"name": _text, **fields}, required, "", errors)
     if not errors:
         payload.update(deepcopy(defaults) | data)
@@ -224,13 +220,12 @@ def inspect_payload(kind, payload, entry_id, errors, warnings):
 
 
 def links(kind, payload):
-    if kind == "tier":
+    if kind == "hollow_map":
         for encounter, rows in payload.get("encounters", {}).items():
             for index, row in enumerate(rows):
                 yield "formation", row["formation_id"], f"encounters.{encounter}[{index}].formation_id"
-    elif kind == "fixed_floor":
         for target in ("formation", "stage"):
-            field = target + "_id"
+            field = "boss_" + target + "_id"
             if payload.get(field):
                 yield target, payload[field], field
     elif kind == "relic":

@@ -1,4 +1,4 @@
-"""Verify PR35-4 in the app against the disposable agent database."""
+"""Verify the Tier and encounter editors in the app against the disposable agent database."""
 import argparse
 import sys
 from urllib.parse import urlsplit
@@ -54,6 +54,7 @@ def verify(browser):
         return request.value.json()["entry"]
 
     page.goto(BASE + "/#hollow-data")
+    expect(page.locator(".unit-workspace:not([aria-busy])")).to_be_visible()
     tab("tier")
     click(page, "＋ 新規")
     field("name").fill("入穴")
@@ -63,14 +64,21 @@ def verify(browser):
     field("description").fill("古坑道の先に鉄色の洞が開く。")
     field("hp_multiplier").fill("1.2")
     field("attack_multiplier").fill("1.1")
+    tier = save("tier")
+    assert tier["payload"]["tier"] == 1
+    tab("hollow_map")
+    click(page, "＋ 新規")
+    field("name").fill("淵門の坑道")
+    field("boss_formation_id").select_option(formations[1])
+    field("boss_stage_id").select_option(stage)
     section("events")
-    for key, weight in zip(("normal", "elite", "chest", "miasma", "camp"), ("40", "10", "15", "10", "5")):
+    for key, weight in zip(("normal", "elite", "chest", "miasma"), ("40", "10", "20", "10")):
         field(f"event_weights.{key}").fill(weight)
     expect(page.locator('[data-event-share="normal"]')).to_have_text("50%")
     measurements = page.evaluate(CONTRAST, [
-        [f'[data-event-share="{key}"]', None] for key in ("normal", "elite", "chest", "miasma", "camp")
+        [f'[data-event-share="{key}"]', None] for key in ("normal", "elite", "chest", "miasma")
     ] + [[".unit-event-strip", "borderTopColor"], [".unit-event-fields input", "borderTopColor"]])
-    shot("1280-tier-weights.png")
+    shot("1280-map-weights.png")
     section("encounters")
     click(page, "＋ 通常を追加")
     first = field("encounters.normal.0.formation_id")
@@ -86,10 +94,10 @@ def verify(browser):
     expect(page.locator("[data-encounter-share]").first).to_have_text("75%")
     expect(page.locator(".unit-encounter-members").first).to_contain_text("岩牙×3")
     expect(page.locator(".unit-check")).to_have_text("問題はありません。")
-    tier = save("tier")
-    assert tier["payload"]["tier"] == 1 and tier["payload"]["encounters"]["normal"][0]["weight"] == 30
+    area = save("hollow_map")
+    assert area["payload"]["encounters"]["normal"][0]["weight"] == 30
     expect(field("encounters.normal.0.weight")).to_have_value("30")
-    shot("1280-tier-encounters.png")
+    shot("1280-map-encounters.png")
 
     section("basic")
     field("name").fill("未保存の変更")
@@ -104,19 +112,16 @@ def verify(browser):
     field("floor").fill("10")
     field("type").select_option("camp")
     expect(field("stage_id")).to_have_count(0)
-    field("type").select_option("boss")
-    expect(page.locator('[data-unit-field-error="stage_id"]')).to_be_visible()
-    field("formation_id").select_option(formations[1])
-    field("stage_id").select_option(stage)
-    field("text").fill("降り口を巨影が塞ぐ。")
+    field("text").fill("焚き火が残っている。")
     expect(page.locator(".unit-check")).to_have_text("問題はありません。")
     fixed = save("fixed_floor")
     expect(page.locator(f'.unit-records [data-id="{fixed["entry_id"]}"]')).to_contain_text("T1 · 10F")
-    expect(field("stage_id")).to_have_value(stage)
     shot("1280-fixed-floor.png")
 
     tab("tier")
     expect(select_unit(page, tier["entry_id"])).to_have_value("入穴")
+    tab("hollow_map")
+    expect(select_unit(page, area["entry_id"])).to_have_value("淵門の坑道")
     section("encounters")
     expect(field("encounters.normal.0.weight")).to_have_value("30")
     measurements += page.evaluate(CONTRAST, [
@@ -130,14 +135,14 @@ def verify(browser):
     ])
     assert all(ratio >= minimum for _, ratio, minimum in measurements), measurements
     page.set_viewport_size({"width": 680, "height": 900})
-    shot("680-tier.png")
+    shot("680-map.png")
 
     tab("fixed_floor")
     expect(select_unit(page, fixed["entry_id"])).to_have_value("入穴の番人")
-    expect(field("formation_id")).to_have_value(formations[1])
+    expect(field("type")).to_have_value("camp")
     click(page, "← メインメニュー")
     click(page, "ユニット管理")
-    expect(page.locator('.unit-tabs [data-kind="tier"], .unit-tabs [data-kind="fixed_floor"]')).to_have_count(0)
+    expect(page.locator('.unit-tabs [data-kind="tier"], .unit-tabs [data-kind="hollow_map"], .unit-tabs [data-kind="fixed_floor"]')).to_have_count(0)
     assert not errors, errors
     print("Contrast: " + ", ".join(f"{label} {ratio:.2f}:1" for label, ratio, _ in measurements))
     return photos

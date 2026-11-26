@@ -132,7 +132,6 @@
 .unit-workspace [data-event="elite"] { --event-color: var(--gem-amethyst); }
 .unit-workspace [data-event="chest"] { --event-color: var(--gem-citrine); }
 .unit-workspace [data-event="miasma"] { --event-color: var(--gem-ruby); }
-.unit-workspace [data-event="camp"] { --event-color: var(--gem-sapphire); }
 .unit-event-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 144px), 1fr)); gap: 4px 8px; }
 .unit-event-fields > div { display: grid; grid-template-columns: 7px minmax(0, 1fr); gap: 4px; }
 .unit-event-fields > div::before { content: ""; width: 7px; height: 7px; margin-top: 9px; background: var(--event-color); }

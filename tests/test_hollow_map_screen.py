@@ -1,7 +1,7 @@
 from collections import Counter
 
 from extensions import socketio
-from tests.test_hollow_run import ROOM, dungeon, expedition, room_clients, tier  # noqa: F401
+from tests.test_hollow_run import ROOM, dungeon, expedition, room_clients, map_payload, tier  # noqa: F401
 
 
 def test_map_has_prototype_widths_non_crossing_paths_and_shifts():
@@ -9,8 +9,8 @@ def test_map_has_prototype_widths_non_crossing_paths_and_shifts():
 
     widths = Counter()
     for seed in range(500):
-        layout = build_map(tier(1), {}, seed)
-        assert layout == build_map(tier(1), {}, seed)
+        layout = build_map(tier(1), map_payload(1), {}, seed)
+        assert layout == build_map(tier(1), map_payload(1), {}, seed)
         rows = layout["rows"]
         assert rows[0] == [{"id": "n0s", "floor": 0, "type": "start", "shift": 0,
                             "next": [node["id"] for node in rows[1]]}]
@@ -31,10 +31,14 @@ def test_map_has_prototype_widths_non_crossing_paths_and_shifts():
 
 def test_map_visibility_through_load_and_broadcast(dungeon, monkeypatch):
     from manager import room_manager
-    from manager.hollow.run import start_run
+    from manager.hollow.run import choose_map, start_run
 
     _, clients, state, _ = dungeon
     start_run(ROOM, "owner", seed=34)
+    pending = clients["guest"].get("/load_room", query_string={"name": ROOM}).json["hollow"]["run"]
+    assert pending["map_candidates"]["maps"][0]["map_id"] == "HM-01" and "seed" not in pending
+    assert "map" not in pending
+    choose_map(ROOM, "owner", "HM-01", 1)
     run = state["hollow"]["run"]
     layout = run["map"]
     sent = []
@@ -47,11 +51,11 @@ def test_map_visibility_through_load_and_broadcast(dungeon, monkeypatch):
         assert sent[-1][0] == "state_updated"
         assert snapshot["hollow"]["run"] == sent[-1][1]["hollow"]["run"]
         public = snapshot["hollow"]["run"]["map"]
-        assert "seed" not in public and public["last_floor"] == 10
+        assert "seed" not in public and public["last_floor"] == 10 and public["map_id"] == "HM-01"
         assert len(public["rows"]) == min(floor + 2, 10) + 1
         allowed = {node["id"] for row in public["rows"] for node in row}
         assert all(set(node["next"]) <= allowed for row in public["rows"] for node in row)
-        assert len(layout["rows"]) == 11 and layout["seed"] == 34
+        assert len(layout["rows"]) == 11 and isinstance(layout["seed"], int)
     run.update(status="finished", result={"floor": 9, "outcome": "RETREAT"})
     room_manager.broadcast_participant_state(ROOM, state)
     assert "map" not in sent[-1][1]["hollow"]["run"]
@@ -64,6 +68,7 @@ def test_player_cannot_send_hollow_run_commands(dungeon):
     app, clients, _, _ = dungeon
     events = {
         "hollow_run_start": (socket_hollow.handle_run_start, {}),
+        "hollow_choose_map": (socket_hollow.handle_choose_map, {"map_id": "HM-01", "tier": 1}),
         "hollow_select_node": (socket_hollow.handle_select_node, {"node_id": "n1a", "tier": 1}),
         "hollow_swap_party": (socket_hollow.handle_swap_party, {"active_id": "0", "reserve_id": "4"}),
         "hollow_retreat": (socket_hollow.handle_retreat, {}),

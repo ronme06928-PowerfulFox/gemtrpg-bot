@@ -6,7 +6,8 @@
     formation: [['basic','基本情報'], ['members','メンバー'], ['history','履歴']],
     stage: [['basic','基本情報'], ['battle','編成'], ['field','フィールド効果'], ['avatar','ステージアバター'], ['history','履歴']],
     unit_collection: [['basic','基本情報'], ['history','履歴']],
-    tier: [['basic','基本情報'], ['events','イベント'], ['encounters','遭遇表'], ['history','履歴']],
+    tier: [['basic','基本情報'], ['history','履歴']],
+    hollow_map: [['basic','基本情報'], ['events','イベント'], ['encounters','遭遇表'], ['categories','カテゴリ'], ['history','履歴']],
     fixed_floor: [['basic','基本情報'], ['history','履歴']],
   };
   const rules = {SPEED_ROLL_MOD:'速度ロール補正', DAMAGE_DEALT_MOD:'与ダメージ補正', APPLY_STATE_ON_CONDITION:'条件付き状態異常付与'};

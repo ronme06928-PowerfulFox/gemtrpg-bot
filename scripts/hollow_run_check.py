@@ -8,6 +8,7 @@ from urllib.parse import urlencode
 from uuid import uuid4
 
 from scripts.hollow_data_proto.check_app import BASE, api, launch_and_verify, register
+from scripts.hollow_seed import PREFIX
 
 
 def socket_call(page, event, data=None):
@@ -50,22 +51,22 @@ def library(author, suffix):
     def upsert(kind, key, **fields):
         existing = api(author, "GET", f"/api/units/{kind}?domain=hollow")["entries"]
         entry = next((r for r in existing if r["payload"].get(key) == fields[key]
-                      and (kind != "fixed_floor" or r["payload"].get("type") == "boss")), None)
+                      and not r["deprecated"]), None)
         if entry is None:
             return save(kind, **fields)
         return api(author, "PUT", f"/api/units/{kind}/{entry['entry_id']}",
                    visibility=entry["visibility"], base_revision=entry["revision"],
                    payload={**entry["payload"], **fields})["entry"]
 
-    for number, hp, attack in ((1, 1.2, 1.25), (2, 1.4, 1.4)):
-        upsert("tier", "tier", tier=number, name=f"確認 T{number}",
-               hp_multiplier=hp, attack_multiplier=attack,
-               event_weights={"normal": 3, "elite": 2},
-               encounters={"normal": [{"formation_id": normal, "weight": 1}],
-                           "elite": [{"formation_id": elite, "weight": 1}]})
     stage = save("stage", name=f"確認舞台 {suffix}", enemy_formation_id=elite)
-    upsert("fixed_floor", "floor", floor=10, type="boss", name="10F 確認ボス",
-           formation_id=elite, stage_id=stage["entry_id"])
+    for number, hp, attack in ((1, 1.2, 1.25), (2, 1.4, 1.4)):
+        upsert("tier", "tier", tier=number, name=f"確認 T{number}", hp_multiplier=hp, attack_multiplier=attack)
+        for index in range(2 if number == 1 else 1):
+            save("hollow_map", tier=number, name=f"確認マップ {number}-{index + 1} {suffix}",
+                 event_weights={"normal": 3, "elite": 2},
+                 encounters={"normal": [{"formation_id": [normal, elite][index], "weight": 1}],
+                             "elite": [{"formation_id": elite, "weight": 1}]},
+                 boss_formation_id=[elite, normal][index], boss_stage_id=stage["entry_id"])
     return foes
 
 
@@ -89,6 +90,17 @@ def expedition(page, title, count, hp, strength):
         command(page, "hollow_party_change", action="add", char_id=actor["id"])
     command(page, "hollow_run_start")
     return lambda: api(page, "GET", "/load_room?" + urlencode({"name": title}))
+
+
+def choose_map(page, get_state, tier, expected_count, *, name=None):
+    waiting = wait_for(get_state, lambda state: state["hollow"]["run"].get("map_candidates"))
+    candidates = waiting["hollow"]["run"]["map_candidates"]
+    assert candidates["tier"] == tier and len(candidates["maps"]) == expected_count, candidates
+    selected = next(row for row in candidates["maps"] if name is None or row["name"] == name)
+    command(page, "hollow_choose_map", map_id=selected["map_id"], tier=tier)
+    layout = get_state()["hollow"]["run"]["map"]
+    assert layout["tier"] == tier and layout["map_id"] == selected["map_id"]
+    return selected
 
 
 def choose(page, state, floor):
@@ -137,28 +149,53 @@ def resolve_round(page, get_state, room):
     raise AssertionError("解決表示が完了しません")
 
 
-def verify(browser):
+def verify(browser, *, seeded=False):
     suffix = uuid4().hex[:6]
     author = register(browser, "RunAuthor" + suffix, author=True)
-    foes = library(author, suffix)
+    if seeded:
+        foes = [row for row in api(author, "GET", "/api/units/unit?domain=hollow")["entries"]
+                if row["payload"]["name"].startswith(PREFIX + " ")]
+    else:
+        foes = library(author, suffix)
+    definitions = {row["entry_id"]: row["payload"] for row in api(author, "GET", "/api/units/hollow_map?domain=hollow")["entries"]}
     winner = register(browser, "RunWinner" + suffix)
     win_room = "階の確認 " + suffix
     get_win = expedition(winner, win_room, 5, 150, 100)
+    selected = choose_map(winner, get_win, 1, 2, name=f"{PREFIX} 青晶洞" if seeded else None)
+    maps = [selected]
     floors = []
     for floor in range(1, 12):
         choose(winner, get_win(), floor)
         battle_seed = get_win()
         assert battle_seed["round"] == 1 and battle_seed["combat_phase"] == "active"
-        state = resolve_round(winner, get_win, win_room)
+        for _ in range(5):
+            state = resolve_round(winner, get_win, win_room)
+            if state["combat_phase"] == "ready":
+                break
         run = state["hollow"]["run"]
         assert run["log"][-1]["outcome"] == "VICTORY", run["current_event"]
-        assert run["map"]["tier"] == (1 if floor < 10 else 2)
+        assert run["map"]["tier"] == (1 if floor <= 10 else 2)
         floor_result = run["log"][-1]
-        floors.append({key: floor_result[key] for key in ("floor", "type", "hp_multiplier", "attack_percent", "outcome")})
+        definition = definitions[selected["map_id"]]
+        if floor == 10:
+            assert floor_result["type"] == "boss"
+            assert floor_result["formation_id"] == definition["boss_formation_id"]
+            assert floor_result["stage_id"] == definition["boss_stage_id"]
+        else:
+            kind = "normal" if floor_result["type"] == "battle" else "elite"
+            assert floor_result["formation_id"] in [row["formation_id"] for row in definition["encounters"][kind]]
+        floors.append({"map_id": selected["map_id"], **{key: floor_result[key] for key in
+                       ("floor", "type", "formation_id", "stage_id", "hp_multiplier", "attack_percent", "outcome")}})
+        if floor == 10:
+            selected = choose_map(winner, get_win, 2, 1)
+            maps.append(selected)
     command(winner, "hollow_retreat")
     retreat = get_win()["hollow"]["run"]["result"]
     assert retreat == {"floor": 11, "outcome": "RETREAT"}
     assert not api(winner, "GET", "/api/hollow/rooms")["rooms"]
+
+    if seeded:
+        return {"maps": maps, "floors": floors, "retreat": retreat}
 
     for foe in foes:
         definition = dict(foe["payload"], hp=999, params=[{"label": "物理補正", "value": 100}])
@@ -179,12 +216,14 @@ def verify(browser):
                 rotations.append({"round": state["round"], "out": outgoing, "in": incoming})
     assert run["result"] == {"floor": 1, "outcome": "DEFEAT"}
     assert len(rotations) == 2 and not api(loser, "GET", "/api/hollow/rooms")["rooms"]
-    return {"floors": floors, "rotations": rotations, "defeat": run["result"], "retreat": retreat,
+    return {"maps": maps, "floors": floors, "rotations": rotations, "defeat": run["result"], "retreat": retreat,
             "defeat_scaling": {k: run["current_event"][k] for k in ("type", "hp_multiplier", "attack_percent")}}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app-python", default=sys.executable)
-    result = launch_and_verify(parser.parse_args().app_python, exercise=verify)
+    parser.add_argument("--seeded", action="store_true", help="Use the library created by hollow_seed.py")
+    args = parser.parse_args()
+    result = launch_and_verify(args.app_python, exercise=lambda browser: verify(browser, seeded=args.seeded))
     print(json.dumps(result, ensure_ascii=False, indent=2))

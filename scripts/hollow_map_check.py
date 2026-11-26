@@ -8,7 +8,7 @@ from uuid import uuid4
 from playwright.sync_api import expect
 
 from scripts.hollow_data_proto.check_app import BASE, CONTRAST, ROOT, api, click, launch_and_verify, register
-from scripts.hollow_run_check import command, library, resolve_round
+from scripts.hollow_run_check import choose_map, command, library, resolve_round
 
 
 def verify(browser):
@@ -71,7 +71,10 @@ def verify(browser):
         [".hollow-route-card .primary", None], [".hollow-route-card .primary", "borderTopColor"],
     ])
     click(host, "ランを始める")
+    expect(player_map).to_contain_text("マップ選択待ち")
+    choose_map(host, state, 1, 2)
     expect(host_map.get_by_role("heading", name="入穴")).to_be_visible()
+    expect(host_curtain).to_be_hidden()
     expect(player_map).to_contain_text("ホストが次のマスを選ぶ")
     assert len(state()["hollow"]["run"]["map"]["rows"]) == 3
     expect(player_map.get_by_role("button", name="撤退")).to_have_count(0)
@@ -116,6 +119,8 @@ def verify(browser):
             expect(host_curtain).to_contain_text("制圧")
             expect(player_curtain).to_contain_text("制圧")
         if floor == 10:
+            expect(player_map).to_contain_text("マップ選択待ち")
+            choose_map(host, state, 2, 1)
             expect(host_curtain).to_contain_text("T2")
             expect(player_curtain).to_contain_text("浅層上部")
         expect(host_map).to_be_visible()

@@ -269,7 +269,8 @@
     }
 
     async function reload(id = state.selected, section = state.section, fromReference = false) {
-      const {entries, marks} = await api.list(domain);
+      const {entries, marks, relic_categories} = await api.list(domain);
+      floors.configureCategories(relic_categories || []);
       forms.configureMarks(marks || {});
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
       const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
@@ -883,13 +884,8 @@
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
-      const floorType = state.kind === 'fixed_floor' && path === 'type';
-      if (floorType && value !== 'boss') {
-        delete payload().formation_id;
-        delete payload().stage_id;
-      }
-      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy' || floorType ||
-        (state.kind === 'tier' && path.endsWith('.formation_id'));
+      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy' ||
+        (state.kind === 'hollow_map' && path.endsWith('.formation_id'));
       update(refresh);
       if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});
       if (path.startsWith('patterns.') && path.endsWith('.name')) {

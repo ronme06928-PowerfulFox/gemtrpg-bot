@@ -4,7 +4,7 @@ Usage:
     python scripts/hollow_seed.py --db _local/agent_db/gemtrpg.db
     python app.py --db _local/agent_db/gemtrpg.db
 
-Running it again updates the same entries (matched by name, tier or floor).
+Running it again updates the same entries (matched by name or tier).
 """
 
 import argparse
@@ -27,8 +27,14 @@ FORMATIONS = {
     "normal_2": ("通常 ネズミとヤモリ", [("iron", 1), ("copper", 1)]),
     "elite": ("精鋭 ヤモリ2", [("copper", 2)]),
     "boss": ("ボス 坑道の主", [("silver", 1), ("iron", 1)]),
+    "boss_alt": ("ボス 晶殻の群れ", [("copper", 3)]),
 }
 TIERS = ((1, 1.0, 1.0), (2, 1.3, 1.2))
+MAPS = (
+    (1, "鉄の坑道", "ネズミの群れが住む坑道", "normal_1", "boss"),
+    (1, "青晶洞", "ヤモリの群れが潜む洞窟", "normal_2", "boss_alt"),
+    (2, "古い晶脈", "銅級の群れの先に坑道の主がいる", "normal_2", "boss"),
+)
 
 
 def parse_args():
@@ -91,22 +97,25 @@ def seed():
                                for unit, count in members]}
         formations[key] = upsert("formation", payload, by_name(payload))
 
-    stage = {"name": f"{PREFIX} 坑道の奥", "enemy_formation_id": formations["boss"]}
-    stage_id = upsert("stage", stage, by_name(stage))
+    stages = {}
+    for key, name in (("boss", "坑道の奥"), ("boss_alt", "青晶の広間")):
+        stage = {"name": f"{PREFIX} {name}", "enemy_formation_id": formations[key]}
+        stages[key] = upsert("stage", stage, by_name(stage))
 
     for number, hp, attack in TIERS:
         upsert("tier", {
             "name": f"{PREFIX} T{number}", "tier": number, "hp_multiplier": hp, "attack_multiplier": attack,
-            "event_weights": {"normal": 3, "elite": 1},
-            "encounters": {"normal": [{"formation_id": formations["normal_1"], "weight": 2},
-                                      {"formation_id": formations["normal_2"], "weight": 1}],
-                           "elite": [{"formation_id": formations["elite"], "weight": 1}]},
         }, lambda other, number=number: other.get("tier") == number)
-        floor = number * 10
-        upsert("fixed_floor", {
-            "name": f"{PREFIX} {floor}F 坑道の主", "floor": floor, "type": "boss",
-            "formation_id": formations["boss"], "stage_id": stage_id,
-        }, lambda other, floor=floor: other.get("floor") == floor and other.get("type") == "boss")
+
+    for number, name, description, normal, boss in MAPS:
+        payload = {
+            "name": f"{PREFIX} {name}", "description": description, "tier": number,
+            "event_weights": {"normal": 3, "elite": 1},
+            "encounters": {"normal": [{"formation_id": formations[normal], "weight": 1}],
+                           "elite": [{"formation_id": formations["elite"], "weight": 1}]},
+            "boss_formation_id": formations[boss], "boss_stage_id": stages[boss],
+        }
+        upsert("hollow_map", payload, by_name(payload))
 
 
 def main():

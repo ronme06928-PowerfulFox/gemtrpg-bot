@@ -663,6 +663,7 @@ def build_participant_state(state, include_logs=True, *, include_hidden_passives
     if result.get("play_mode") == "hollow" and "hollow" in result:
         from manager.hollow.map import project_map
         run = result["hollow"].get("run", {})
+        run.pop("seed", None)
         if run.get("status") == "in_progress" and run.get("map"):
             run["map"] = project_map(run["map"], run.get("floor", 0))
         else:

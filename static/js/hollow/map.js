@@ -25,6 +25,7 @@
     const run = value.hollow.run;
     if (run.status === 'finished') return 'finished';
     if (value.combat_phase === 'active') return 'battle';
+    if (run.map_candidates) return 'map-pending';
     return run.status === 'in_progress' ? 'map' : 'forming';
   }
 
@@ -44,6 +45,10 @@
   }
 
   function renderCard(run, screen, manage) {
+    if (screen === 'map-pending') {
+      return card(`T${esc(run.map_candidates.tier)} · マップ選択待ち`,
+        manage ? '<button class="hollow-route-btn danger" data-route-action="retreat">撤退</button>' : '');
+    }
     const roster = parties(run, state);
     if (screen === 'finished') {
       const result = run.result || {floor: run.floor || 0};
@@ -253,7 +258,8 @@
       const current = room;
       const confirmed = await window.showAppConfirm('遠征を終えて撤退しますか？',
         {title: '撤退', confirmText: '撤退', defaultFocus: 'cancel', danger: true});
-      if (confirmed && room === current && state && panelFor(state) === 'map' && window.HollowParty.canProgress(state)) {
+      if (confirmed && room === current && state && ['map', 'map-pending'].includes(panelFor(state))
+          && window.HollowParty.canProgress(state)) {
         send('hollow_retreat');
       }
       return;
@@ -338,7 +344,7 @@
       else if (result === 'VICTORY') announce(`${run.floor}F`, '制圧', false);
       else if (screen === 'finished') announce(`${run.floor}F`, OUTCOMES[run.result?.outcome], false);
       else paint();
-    } else if (previous?.screen === 'map' && screen === 'map' && previous.tier !== snapshot.tier) {
+    } else if (previous?.screen === 'map-pending' && screen === 'map' && previous.tier !== snapshot.tier) {
       announce(`T${snapshot.tier}`, tierName(run.map), false);
     } else if (!timer) paint();
   }

@@ -17,7 +17,8 @@ from uuid import uuid4
 from playwright.sync_api import expect, sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
-DB = ROOT / "_local/agent_db/gemtrpg.db"
+DB_DIR = ROOT / "_local/agent_db"
+DB = Path(os.environ.get("GEMTRPG_CHECK_DB", DB_DIR / "gemtrpg.db")).resolve()
 OUT = ROOT / "_local/pr35_2_shots"
 BASE = "http://127.0.0.1:5000"
 UNITS = "/api/units"
@@ -136,7 +137,7 @@ def verify(browser):
     click(page, "ホロウデータ")
     expect(page.locator('.unit-workspace')).to_have_attribute("data-theme", "abyss")
     expect(page.locator(".unit-tab-group h3")).to_have_text(["敵", "階", "報酬"])
-    expect(page.locator(".unit-tab-group button:not(:disabled)")).to_have_count(6)
+    expect(page.locator(".unit-tab-group button:not(:disabled)")).to_have_count(7)
     expect(page.locator(".unit-tab-group button:disabled")).to_have_count(6)
     expect(page.locator(f'.unit-records [data-id="{session_unit}"]')).to_have_count(0)
     expect(page.locator(f'.unit-records [data-id="{staff_unit}"]')).to_be_visible()
@@ -223,7 +224,7 @@ def verify(browser):
 
 
 def launch_and_verify(app_python, exercise=verify):
-    assert DB.is_file() and DB.resolve() == DB, "Prepare the disposable DB"
+    assert DB.is_file() and DB.is_relative_to(DB_DIR), "Prepare the disposable DB in _local/agent_db"
     with socket.socket() as probe:
         if os.name == "nt":
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)

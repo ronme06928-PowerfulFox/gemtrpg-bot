@@ -29,7 +29,7 @@
 
   function recordRow(row, selected) {
     const p = row.payload;
-    const caption = row.kind === 'tier' ? (p.tier ? `T${p.tier}` : '—')
+    const caption = ['tier','hollow_map'].includes(row.kind) ? (p.tier ? `T${p.tier}` : '—')
       : row.kind === 'fixed_floor' ? floors.floorLabel(p.floor) : row.entry_id;
     const summary = row.kind === 'fixed_floor' ? h(floors.types[p.type]) : badges(row);
     return `<button type="button" class="bo-workspace__record ${selected ? 'is-selected' : ''}"

@@ -6,7 +6,7 @@ from flask import Blueprint, abort, g, jsonify, request
 from manager.room_access import resolve_room_role, role_can_gm
 from manager.catalog.kinds import MARK_LABELS
 from manager.encyclopedia import can_view_hollow
-from manager.hollow.resources import HOLLOW_IDS
+from manager.hollow.resources import HOLLOW_IDS, RELIC_CATEGORIES
 from manager.units import repository, transfer
 from manager.units.characters import read_character
 from manager.units.validation import DOMAINS, IDS, master_links
@@ -64,10 +64,13 @@ def list_entries(kind=None):
     rows = repository.entries(include_staff=g.units_staff,
                               include_deprecated=request.args.get("include_deprecated") == "1",
                               domain=domain)
-    return jsonify(entries=[row if g.units_staff else redact_hidden_passives(row)
-                            for (row_kind, _), row in rows.items()
-                            if (kind is None or kind == row_kind) and (g.units_author or row_kind not in HOLLOW_IDS)],
-                   marks=MARK_LABELS)
+    result = {"entries": [row if g.units_staff else redact_hidden_passives(row)
+                          for (row_kind, _), row in rows.items()
+                          if (kind is None or kind == row_kind) and (g.units_author or row_kind not in HOLLOW_IDS)],
+              "marks": MARK_LABELS}
+    if domain == "hollow" and g.units_author:
+        result["relic_categories"] = RELIC_CATEGORIES
+    return jsonify(result)
 
 
 def _domain_arg():

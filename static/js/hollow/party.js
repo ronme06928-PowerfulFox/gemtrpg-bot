@@ -266,7 +266,7 @@
   function renderRibbon(root, state) {
     const party = currentParty(state);
     const run = state.hollow.run;
-    const tier = run.map?.tier;
+    const tier = run.map_candidates?.tier ?? run.map?.tier;
     const status = run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
       : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';

@@ -14,6 +14,7 @@
   font-size: .87rem;
 }
 [data-hollow-screen="forming"] #hollow-map-view,
+[data-hollow-screen="map-pending"] #hollow-map-view,
 [data-hollow-screen="finished"] #hollow-map-view { justify-content: center; align-items: center; }
 .hollow-route-card {
   max-width: calc(100% - 32px);

@@ -1,5 +1,6 @@
 """Load expedition data and prepare the next battle on an isolated state."""
 
+from dataclasses import dataclass
 from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
 from random import Random
 
@@ -7,65 +8,102 @@ from manager.battle.action_slot_mode import is_character_deployed
 from manager.battle.combat_session import mark_combat_arrival, start_combat_session
 from manager.hollow.map import build_map, weighted_choice
 from manager.units.repository import entries
-from manager.units.runtime import deployment_store
+from manager.units.runtime import deployment_store, get_record, valid_deployment_target
+
+
+@dataclass
+class FloorResources:
+    tiers: dict
+    maps: dict
+    fixed: dict
+    store: dict
 
 
 def floor_resources():
     resources = entries(domain="hollow", include_deprecated=False)
-    tiers = {row["payload"]["tier"]: row["payload"] for (kind, _), row in resources.items() if kind == "tier"}
-    fixed = {}
-    for (kind, _), row in resources.items():
-        if kind == "fixed_floor":
-            payload = row["payload"]
-            if payload["floor"] not in fixed or payload["type"] == "boss":
-                fixed[payload["floor"]] = payload
-    return tiers, fixed, deployment_store(resources, domain="hollow")
+    tiers, maps, fixed = {}, {}, {}
+    for (kind, key), row in resources.items():
+        payload = row["payload"]
+        if kind == "tier":
+            tiers[payload["tier"]] = payload
+        elif kind == "hollow_map":
+            maps[key] = payload
+        elif kind == "fixed_floor":
+            fixed.setdefault(payload["floor"], payload)
+    return FloorResources(tiers, maps, fixed, deployment_store(resources, domain="hollow"))
 
 
-def _encounters(tier, kind, store):
+def map_candidates(number, seed, resources):
+    if number not in resources.tiers:
+        raise ValueError(f"Tier {number} がありません")
+    pool = sorted(key for key, payload in resources.maps.items() if payload["tier"] == number)
+    if not pool:
+        raise ValueError(f"Tier {number} にマップがありません")
+    keys = Random(f"{seed}:{number}:candidates").sample(pool, min(3, len(pool)))
+    return {"tier": number, "maps": [
+        {"map_id": key, "name": resources.maps[key]["name"], "description": resources.maps[key]["description"]}
+        for key in keys
+    ]}
+
+
+def _formation_usable(store, key):
+    formation = get_record(store, "enemy_formation", key)
+    return bool(formation and formation.get("members")
+                and valid_deployment_target(store, "enemy_formation", formation))
+
+
+def _encounters(area, kind, store):
     result = []
-    for row in tier["encounters"].get(kind, []):
+    for row in area["encounters"].get(kind, []):
         if row["weight"] <= 0:
             continue
-        formation = store["enemy_formations"].get(row["formation_id"])
-        if not formation or not formation.get("members"):
-            raise ValueError(f"Tier {tier['tier']} の遭遇表に使えない敵編成があります: {row['formation_id']}")
+        if not _formation_usable(store, row["formation_id"]):
+            raise ValueError(f"{area['name']} の遭遇表に使えない敵編成があります: {row['formation_id']}")
         result.append((row["formation_id"], row["weight"]))
     if not result:
-        raise ValueError(f"Tier {tier['tier']} の{ '通常' if kind == 'normal' else '精鋭' }遭遇表が空です")
+        raise ValueError(f"{area['name']} の{'通常' if kind == 'normal' else '精鋭'}遭遇表が空です")
     return result
 
 
-def new_map(number, seed, resources):
-    tiers, fixed, store = resources
-    tier = tiers.get(number)
+def _selected_map(number, map_id, resources):
+    tier = resources.tiers.get(number)
+    area = resources.maps.get(map_id)
     if tier is None:
         raise ValueError(f"Tier {number} がありません")
-    kinds = [kind for kind in ("normal", "elite") if tier["event_weights"].get(kind, 0) > 0]
+    if area is None or area["tier"] != number:
+        raise ValueError(f"Tier {number} で使えないマップです: {map_id}")
+    return tier, area
+
+
+def _boss(area, store):
+    formation_id, stage_id = area["boss_formation_id"], area["boss_stage_id"]
+    if not _formation_usable(store, formation_id):
+        raise ValueError(f"{area['name']} に使えないボス編成があります: {formation_id}")
+    stage = get_record(store, "stage", stage_id)
+    if not stage or not valid_deployment_target(store, "stage", stage):
+        raise ValueError(f"{area['name']} に使えないボスステージがあります: {stage_id}")
+    return formation_id, stage_id
+
+
+def new_map(number, map_id, seed, resources):
+    tier, area = _selected_map(number, map_id, resources)
+    kinds = [kind for kind in ("normal", "elite") if area["event_weights"].get(kind, 0) > 0]
     if not kinds:
-        raise ValueError(f"Tier {number} に通常・精鋭戦闘の重みがありません")
+        raise ValueError(f"{area['name']} に通常・精鋭戦闘の重みがありません")
     for kind in kinds:
-        _encounters(tier, kind, store)
-    return build_map(tier, fixed, seed)
+        _encounters(area, kind, resources.store)
+    _boss(area, resources.store)
+    return {**build_map(tier, area, resources.fixed, seed), "map_id": map_id}
 
 
 def encounter_for(run, node, resources):
-    tiers, fixed, store = resources
-    tier_number = run["map"]["tier"]
-    tier = tiers.get(tier_number)
-    if tier is None:
-        raise ValueError(f"Tier {tier_number} がありません")
+    layout = run["map"]
+    tier, area = _selected_map(layout["tier"], layout["map_id"], resources)
     if node["type"] == "boss":
-        row = fixed.get(node["floor"], {})
-        if row.get("type") != "boss" or not row.get("formation_id") or not row.get("stage_id"):
-            raise ValueError(f"{node['floor']}F のボスの編成・ステージを設定してください")
-        formation = store["enemy_formations"].get(row["formation_id"])
-        if not formation or not formation.get("members"):
-            raise ValueError(f"{node['floor']}F のボス編成が空です")
-        return tier, row["formation_id"], row["stage_id"]
+        return tier, *_boss(area, resources.store)
     kind = "normal" if node["type"] == "battle" else "elite"
-    rng = Random(f"{run['map']['seed']}:{node['id']}")
-    return tier, weighted_choice(_encounters(tier, kind, store), rng), None
+    rng = Random(f"{layout['seed']}:{node['id']}")
+    return tier, weighted_choice(_encounters(area, kind, resources.store), rng), None
 
 
 def _roster(state):
@@ -179,7 +217,7 @@ def prepare_battle(state, run, node, resources, username):
     request = {"formations": {"enemy": {"id": formation_id, "mode": "replace"}}}
     if stage_id:
         request["stage"] = {"id": stage_id, "apply": {"enemy_formation": False}}
-    summary, logs = apply_deployment(state, request, resources[2], room_role="owner")
+    summary, logs = apply_deployment(state, request, resources.store, room_role="owner")
     if summary["placement"]["unplaced"]:
         raise ValueError("敵を配置する場所が足りません")
     line_up([char for char in state["characters"] if char.get("type") == "enemy" and is_character_deployed(char)],

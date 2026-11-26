@@ -6,7 +6,7 @@ from extensions import socketio, user_sids
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.hollow.host import transfer_host
 from manager.hollow.party import change_party
-from manager.hollow.run import retreat, select_node, start_run, swap_party
+from manager.hollow.run import choose_map, retreat, select_node, start_run, swap_party
 from manager.room_manager import broadcast_state_update
 
 
@@ -44,6 +44,12 @@ def handle_transfer_host(data):
 @socketio.on("hollow_run_start")
 def handle_run_start(_data=None):
     return _perform(start_run)
+
+
+@socketio.on("hollow_choose_map")
+def handle_choose_map(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(choose_map, payload.get("map_id"), payload.get("tier"))
 
 
 @socketio.on("hollow_select_node")

@@ -7,7 +7,7 @@ from secrets import randbits
 from manager.battle.common_manager import _get_round_transition_lock, process_round_start
 from manager.battle.progress_authority import can_progress_battle
 from manager.hollow.floors import (
-    alive, battle_outcome, floor_resources, new_map, prepare_battle, promote_survivors,
+    alive, battle_outcome, floor_resources, map_candidates, new_map, prepare_battle, promote_survivors,
     replace_fallen,
 )
 from manager.hollow.map import next_nodes, node_at
@@ -36,20 +36,21 @@ def start_run(room, user_id, *, seed=None):
         order = state["party"]["order"][:PARTY_SIZE]
         if not order:
             raise ValueError("パーティに味方を1人以上加えてください")
-        layout = new_map(1, randbits(53) if seed is None else seed, floor_resources())
+        seed = randbits(53) if seed is None else seed
+        candidates = map_candidates(1, seed, floor_resources())
         prepare_rewards()
         state["hollow"]["run"] = {
             "status": "in_progress", "floor": 0, "party_order": order, "active": order[:4],
-            "map": layout, "current_event": None, "positions": {}, "relics": [], "temp_buffs": [], "log": [],
+            "seed": seed, "map_candidates": candidates, "current_event": None,
+            "positions": {}, "relics": [], "temp_buffs": [], "log": [],
         }
         save_specific_room_state(room)
 
 
 def _next_map(run):
     layout = run["map"]
-    seed = Random(f"{layout['seed']}:next-tier").getrandbits(53)
     try:
-        run["map"] = new_map(layout["tier"] + 1, seed, floor_resources())
+        run["map_candidates"] = map_candidates(layout["tier"] + 1, run["seed"], floor_resources())
     except ValueError as exc:
         run["next_tier_error"] = str(exc)
         return False
@@ -57,9 +58,25 @@ def _next_map(run):
     return True
 
 
+def choose_map(room, user_id, map_id, tier):
+    with _get_round_transition_lock(room):
+        _, run = _managed_state(room, user_id, "in_progress")
+        candidates = run.get("map_candidates")
+        if not candidates or type(tier) is not int or tier != candidates["tier"]:
+            raise ValueError("選択待ちの区切りを指定してください")
+        if map_id not in [row["map_id"] for row in candidates["maps"]]:
+            raise ValueError("候補の中からマップを選んでください")
+        seed = Random(f"{run['seed']}:{tier}:layout").getrandbits(53)
+        run["map"] = new_map(tier, map_id, seed, floor_resources())
+        del run["map_candidates"]
+        save_specific_room_state(room)
+
+
 def select_node(room, user_id, node_id, tier, *, username=None):
     with _get_round_transition_lock(room):
         state, run = _managed_state(room, user_id, "in_progress")
+        if "map_candidates" in run:
+            raise ValueError("先にマップを選んでください")
         layout = run["map"]
         if not isinstance(node_id, str) or type(tier) is not int or tier != layout["tier"]:
             raise ValueError("現在の区切りのマスを指定してください")
@@ -106,6 +123,7 @@ def swap_party(room, user_id, active_id, reserve_id):
 
 
 def _finish(run, outcome):
+    run.pop("map_candidates", None)
     run["status"] = "finished"
     run["result"] = {"floor": run["floor"], "outcome": outcome}
 

@@ -9,10 +9,12 @@ from tests.test_units import unit_app
 
 
 PAYLOADS = {
-    "tier": ("HT-01", {"tier": 1, "encounters": {
-        "normal": [{"formation_id": "F-001", "weight": 1}],
-    }}),
-    "fixed_floor": ("HF-01", {"floor": 10, "type": "boss", "formation_id": "F-001", "stage_id": "ST-001"}),
+    "tier": ("HT-01", {"tier": 1}),
+    "hollow_map": ("HM-01", {"tier": 1, "event_weights": {"normal": 1, "chest": 2, "miasma": 3},
+                              "encounters": {"normal": [{"formation_id": "F-001", "weight": 1}]},
+                              "category_weights": {"出血": 3},
+                              "boss_formation_id": "F-001", "boss_stage_id": "ST-001"}),
+    "fixed_floor": ("HF-01", {"floor": 10, "type": "camp"}),
     "relic": ("HR-01", {"rarity": "鉄級", "target": {"type": "condition", "condition": "has_tag:前衛"},
                        "buff_id": "HBu-01"}),
     "hollow_event": ("HE-01", {"type": "miasma", "choices": [
@@ -46,7 +48,7 @@ def library(unit_app):
 @pytest.fixture
 def resource_set(library):
     for kind in ("hollow_buff", "hollow_item", "relic", "drop_table", "treasure_chest",
-                 "hollow_event", "tier", "fixed_floor"):
+                 "hollow_event", "tier", "hollow_map", "fixed_floor"):
         entry_id, payload = PAYLOADS[kind]
         assert save(kind, **payload).entry_id == entry_id
 
@@ -100,18 +102,30 @@ def test_transfer_includes_all_kinds_and_checks_references(resource_set):
 
 
 @pytest.mark.parametrize("kind,fields,error", [
-    ("tier", {"encounters": {"normal": [{"formation_id": "F-999", "weight": 1}]}}, "encounters.normal[0].formation_id"),
-    ("tier", {"encounters": {"normal": [{"formation_id": "F-002", "weight": 1}]}}, "encounters.normal[0].formation_id"),
-    ("tier", {"encounters": {"normal": [{"formation_id": "F-003", "weight": 1}]}}, "encounters.normal[0].formation_id"),
+    ("hollow_map", {"encounters": {"normal": [{"formation_id": "F-999", "weight": 1}]}}, "encounters.normal[0].formation_id"),
+    ("hollow_map", {"encounters": {"normal": [{"formation_id": "F-002", "weight": 1}]}}, "encounters.normal[0].formation_id"),
+    ("hollow_map", {"encounters": {"normal": [{"formation_id": "F-003", "weight": 1}]}}, "encounters.normal[0].formation_id"),
     ("tier", {"tier": 0}, "tier"),
     ("tier", {"tier": 6}, "tier"),
     ("tier", {"tier": True}, "tier"),
     ("tier", {"tier": 1.5}, "tier"),
     ("tier", {"tier": "1"}, "tier"),
-    ("fixed_floor", {"formation_id": ""}, "formation_id"),
-    ("fixed_floor", {"stage_id": ""}, "stage_id"),
-    ("fixed_floor", {"stage_id": "ST-002"}, "stage_id"),
-    ("fixed_floor", {"stage_id": "F-001"}, "stage_id"),
+    ("tier", {"event_weights": {}}, "event_weights"),
+    ("tier", {"encounters": {}}, "encounters"),
+    ("fixed_floor", {"type": "boss"}, "type"),
+    ("fixed_floor", {"formation_id": "F-001"}, "formation_id"),
+    ("fixed_floor", {"stage_id": "ST-001"}, "stage_id"),
+    ("hollow_map", {"tier": 0}, "tier"),
+    ("hollow_map", {"tier": 6}, "tier"),
+    ("hollow_map", {"tier": True}, "tier"),
+    ("hollow_map", {"event_weights": {"camp": 1}}, "event_weights.camp"),
+    ("hollow_map", {"category_weights": {"不明": 1}}, "category_weights.不明"),
+    ("hollow_map", {"category_weights": {"出血": -1}}, "category_weights.出血"),
+    ("hollow_map", {"category_weights": {"打撃": 1.5}}, "category_weights.打撃"),
+    ("hollow_map", {"boss_formation_id": "F-003"}, "boss_formation_id"),
+    ("hollow_map", {"boss_stage_id": ""}, "boss_stage_id"),
+    ("hollow_map", {"boss_stage_id": "ST-002"}, "boss_stage_id"),
+    ("hollow_map", {"boss_stage_id": "F-001"}, "boss_stage_id"),
     ("relic", {"buff_id": "HI-01"}, "buff_id"),
     ("relic", {"rarity": "伝説"}, "rarity"),
     ("relic", {"cost": 1}, "cost"),

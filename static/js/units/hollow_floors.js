@@ -1,20 +1,25 @@
 (function () {
   const {h} = window.CatalogWorkspaceParts;
   const {button, field, select, grid, card, remove} = window.UnitForms;
-  const labels = {tier:'Tier',fixed_floor:'固定階'};
-  const types = {boss:'ボス',town:'町',camp:'キャンプ'};
-  const events = {normal:'通常戦闘',elite:'精鋭戦闘',chest:'宝箱',miasma:'魔素だまり',camp:'ベースキャンプ'};
+  const labels = {tier:'Tier',hollow_map:'マップ',fixed_floor:'固定階'};
+  const types = {town:'町',camp:'キャンプ'};
+  const events = {normal:'通常戦闘',elite:'精鋭戦闘',chest:'宝箱',miasma:'魔素だまり'};
   const grades = {'鉄級':'iron','銅級':'copper','銀級':'silver','金級':'gold','特異級':'exceptional'};
   const supports = kind => Object.hasOwn(labels, kind);
   const tierOf = floor => Math.ceil(floor / 10);
   const floorLabel = floor => 'T' + tierOf(floor) + ' · ' + floor + 'F';
-  const number = row => row.payload[row.kind === 'tier' ? 'tier' : 'floor'] ?? Infinity;
+  const number = row => row.payload[row.kind === 'fixed_floor' ? 'floor' : 'tier'] ?? Infinity;
+
+  let categories = [];
+  const configureCategories = values => { categories = values; };
 
   function defaults(kind, records) {
-    if (kind === 'fixed_floor') return {name:'',floor:10,type:'boss',text:''};
+    if (kind === 'fixed_floor') return {name:'',floor:10,type:'town',text:''};
+    if (kind === 'hollow_map') return {name:'',tier:1,description:'',event_weights:{},
+      encounters:{normal:[],elite:[]},category_weights:{},boss_formation_id:'',boss_stage_id:''};
     const used = new Set(records.filter(row => row.kind === 'tier' && !row.deprecated).map(number));
     return {name:'',tier:[1,2,3,4,5].find(value => !used.has(value)) ?? 1,description:'',
-      hp_multiplier:1,attack_multiplier:1,event_weights:{},encounters:{normal:[],elite:[]}};
+      hp_multiplier:1,attack_multiplier:1};
   }
 
   function checked(path, control) {
@@ -64,8 +69,6 @@
     if (kind === 'fixed_floor') {
       return name + grid(numberField('階','floor',p.floor,'min="1" max="50" step="1"'),
         checked('type',select('種類','type',types,p.type))) +
-        (p.type === 'boss' ? grid(reference('敵編成','formation_id','formation',p.formation_id,records),
-          reference('ステージ','stage_id','stage',p.stage_id,records)) : '') +
         checked('text',field('文章','text',p.text,'area'));
     }
     if (section === 'events') {
@@ -79,10 +82,17 @@
       return encounterTable('normal','通常',p.encounters?.normal || [],records,edit) +
         encounterTable('elite','精鋭',p.encounters?.elite || [],records,edit);
     }
-    return name + grid(numberField('区切りの番号','tier',p.tier,'min="1" max="5" step="1"'),
-      numberField('HP係数','hp_multiplier',p.hp_multiplier,'step="any"'),
-      numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"')) +
-      checked('description',field('説明','description',p.description,'area'));
+    if (section === 'categories') {
+      return grid(...categories.map(label =>
+        numberField(label,`category_weights.${label}`,p.category_weights?.[label] ?? 0,'min="0" step="1"')));
+    }
+    const tier = numberField('区切りの番号','tier',p.tier,'min="1" max="5" step="1"');
+    const details = kind === 'hollow_map'
+      ? grid(tier, reference('ボス編成','boss_formation_id','formation',p.boss_formation_id,records),
+        reference('ボスステージ','boss_stage_id','stage',p.boss_stage_id,records))
+      : grid(tier, numberField('HP係数','hp_multiplier',p.hp_multiplier,'step="any"'),
+        numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"'));
+    return name + details + checked('description',field('説明','description',p.description,'area'));
   }
 
   const weight = value => Number.isInteger(value) && value >= 0 ? value : 0;
@@ -112,7 +122,7 @@
     section.querySelectorAll('[data-event-share]').forEach(segment => {
       const key = segment.dataset.eventShare;
       const ratio = share(eventWeights[key],eventTotal);
-      segment.style.setProperty('--unit-share', eventTotal ? percent(eventWeights[key],eventTotal) : 20);
+      segment.style.setProperty('--unit-share', eventTotal ? percent(eventWeights[key],eventTotal) : 100 / Object.keys(events).length);
       segment.toggleAttribute('data-empty',!eventTotal);
       segment.textContent = ratio;
       segment.title = `${events[key]} ${ratio}`;
@@ -132,9 +142,11 @@
     if (kind === 'fixed_floor') {
       return card('固定階',`<p>${payload.floor ? floorLabel(payload.floor) : '階未設定'} · ${h(types[payload.type])}</p>`);
     }
-    return card('Tier',`<p>T${h(payload.tier || '—')} · HP ×${h(payload.hp_multiplier)} · 攻撃 ×${h(payload.attack_multiplier)}</p>
-      <p>通常 ${payload.encounters?.normal?.length || 0}件 · 精鋭 ${payload.encounters?.elite?.length || 0}件</p>`);
+    if (kind === 'hollow_map') {
+      return card('マップ', `<p>T${h(payload.tier || '—')} · 通常 ${payload.encounters?.normal?.length || 0}件 · 精鋭 ${payload.encounters?.elite?.length || 0}件</p>`);
+    }
+    return card('Tier',`<p>T${h(payload.tier || '—')} · HP ×${h(payload.hp_multiplier)} · 攻撃 ×${h(payload.attack_multiplier)}</p>`);
   }
 
-  window.UnitHollowFloors = {labels,types,supports,floorLabel,number,defaults,render,update,preview};
+  window.UnitHollowFloors = {labels,types,supports,floorLabel,number,defaults,configureCategories,render,update,preview};
 })();

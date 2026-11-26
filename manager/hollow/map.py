@@ -46,11 +46,11 @@ def _connect(rows, following, rng):
         rows[left]["next"].append(following[right]["id"])
 
 
-def build_map(tier, fixed_floors, seed):
+def build_map(tier, area, fixed_floors, seed):
     rng = _map_random(seed)
     number = tier["tier"]
     start = FLOORS_PER_TIER * (number - 1)
-    weights = [(kind, tier["event_weights"].get(key, 0)) for kind, key in EVENT_WEIGHTS]
+    weights = [(kind, area["event_weights"].get(key, 0)) for kind, key in EVENT_WEIGHTS]
     total = sum(weight for _, weight in weights)
     if total <= 0:
         raise ValueError("抽選できる重みがありません")
@@ -61,7 +61,7 @@ def build_map(tier, fixed_floors, seed):
     for index in range(1, FLOORS_PER_TIER + 1):
         floor_number = start + index
         fixed = fixed_floors.get(floor_number)
-        boss = index == FLOORS_PER_TIER or (fixed and fixed["type"] == "boss")
+        boss = index == FLOORS_PER_TIER
         roll = next(rng)
         width = 1 if fixed or boss or roll < .06 else 2 if roll < .5 else 3
         row = [{"id": f"n{floor_number}{chr(97 + column)}", "floor": floor_number,
@@ -82,7 +82,7 @@ def project_map(layout, current_floor):
     visible_through = current_floor + SIGHT
     rows = [row for row in layout["rows"] if row[0]["floor"] <= visible_through]
     visible_ids = {node["id"] for row in rows for node in row}
-    return {"tier": layout["tier"], "name": layout.get("name", ""), "last_floor": last,
+    return {"tier": layout["tier"], "map_id": layout["map_id"], "name": layout.get("name", ""), "last_floor": last,
             "current": layout["current"], "visited": [key for key in layout["visited"] if key in visible_ids],
             "rows": [[{**node, "next": [key for key in node["next"] if key in visible_ids]}
                       for node in row] for row in rows]}
