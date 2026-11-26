@@ -488,6 +488,7 @@ def _trigger_skill_timing_effects(
     emit_source='select_resolve_timing',
     source_slot_id=None,
     fired_effects=None,
+    trigger_buffs=True,
 ):
     _sync_resolve_effect_runtime_deps()
     return _resolve_effect_runtime_mod._trigger_skill_timing_effects(
@@ -503,6 +504,7 @@ def _trigger_skill_timing_effects(
         emit_source=emit_source,
         source_slot_id=source_slot_id,
         fired_effects=fired_effects,
+        trigger_buffs=trigger_buffs,
     )
 
 

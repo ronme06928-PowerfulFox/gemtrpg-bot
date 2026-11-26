@@ -1257,6 +1257,12 @@ def execute_duel_match(room, data, username):
                             broadcast_log(room, res.get("message", "Grant skill applied"), "state-change", save=False)
                         else:
                             logger.warning("[draw grant_skill failed] %s", res.get("message"))
+                from manager.battle.timed_buffs import run_timed_buffs
+
+                own_skill = skill_data_a if actor is actor_a_char else skill_data_d
+                if own_skill:
+                    run_timed_buffs(room, state, actor, "END_MATCH", target=target,
+                                    skill=own_skill, target_skill=skill)
                 return l
 
             if not state.get('__sr_delegate_result_timings_applied__'):

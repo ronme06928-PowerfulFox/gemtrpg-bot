@@ -226,13 +226,14 @@ def handle_apply_buff_from_character_count(effect, target_obj, sim_target, sessi
     dynamic_effect.setdefault("delay", 0)
     data = dynamic_effect.get("data")
     data = copy.deepcopy(data) if isinstance(data, dict) else {}
-    data["power_bonus"] = [
-        {
-            "operation": "FIXED",
-            "value": value,
-            "apply_to": str(effect.get("apply_to") or "final"),
-        }
-    ]
+    if effect.get("apply_to") == "stack":
+        if value < 0:
+            return
+        dynamic_effect["count"] = data["count"] = value
+    else:
+        data["power_bonus"] = [{
+            "operation": "FIXED", "value": value, "apply_to": str(effect.get("apply_to") or "final"),
+        }]
     data["character_count"] = count
     data["value_per_character"] = value_per_character
     dynamic_effect["data"] = data
@@ -327,7 +328,8 @@ SCHEMAS = {
             "data.value": {"type": "int", "required": False, "label": "効果強度", "description": "Bu-32〜Bu-47で使用する整数値。"},
             "character_filter": {"type": "json", "required": False, "label": "キャラクターフィルター"},
             "value_per_character": {"type": "int", "required": False, "label": "1体あたりの威力", "description": "省略時1。0も1として扱う。"},
-            "apply_to": {"type": "string", "required": False, "label": "威力の適用先", "description": "省略時final。baseまたはfinal。"},
+            "apply_to": {"type": "string", "required": False, "label": "人数で変わる値",
+                         "description": "省略時final。baseとfinalは威力、stackは付与スタック数。"},
             "flavor": {"type": "string", "required": False, "label": "フレーバー文"},
             "count": {"type": "int", "required": False, "label": "付与スタック数"},
             "data.count": {"type": "int", "required": False, "label": "データ内スタック数"},

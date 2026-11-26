@@ -99,6 +99,7 @@ def _apply_match_timing(
     emit_source='select_resolve_match_timing',
     log_snippets=None,
     fired_effects=None,
+    trigger_buffs=True,
 ):
     if not isinstance(actor_char, dict) or not isinstance(skill_data, dict):
         return {'bonus_damage': 0, 'extra_primary_damage': 0, 'logs': []}
@@ -114,6 +115,7 @@ def _apply_match_timing(
         base_damage=base_damage,
         emit_source=emit_source,
         fired_effects=fired_effects,
+        trigger_buffs=trigger_buffs,
     )
     if isinstance(log_snippets, list) and isinstance(res, dict) and res.get('logs'):
         log_snippets.extend(res.get('logs') or [])
@@ -259,6 +261,7 @@ def _resolve_one_sided_by_existing_logic(room, state, attacker_char, defender_ch
             emit_source=source,
             log_snippets=log_snippets,
             fired_effects=fired_effects,
+            trigger_buffs=actor is attacker_char,
         )
         if actor is attacker_char:
             pre_damage_bonus += _timing_primary_damage(res)
@@ -677,7 +680,10 @@ def _resolve_clash_by_existing_logic(
         if callable(orig_roll_dice):
             duel_solver_mod.roll_dice = _capture_roll_dice
 
-        duel_solver_mod.execute_duel_match(room, exec_data, "[select_resolve_clash]")
+        from manager.battle.timed_buffs import collect_timed_buff_logs
+
+        with collect_timed_buff_logs() as timed_buff_logs:
+            duel_solver_mod.execute_duel_match(room, exec_data, "[select_resolve_clash]")
     except Exception as e:
         logger.exception("[clash_delegate] execute_duel_match failed: %s", e)
         return {'ok': False, 'reason': f'delegate_error:{e}'}
@@ -722,6 +728,9 @@ def _resolve_clash_by_existing_logic(
         attacker_char['hasActed'] = old_has_acted_a
         defender_char['hasActed'] = old_has_acted_d
 
+    from manager.battle.timed_buffs import log_timed_buff_effect
+
+    log_timed_buff_effect(room, timed_buff_logs)
     damage_to_attacker = max(0, _safe_int((before_a or {}).get('hp'), 0) - _safe_int(attacker_char.get('hp'), 0))
     damage_to_defender = max(0, _safe_int((before_d or {}).get('hp'), 0) - _safe_int(defender_char.get('hp'), 0))
 

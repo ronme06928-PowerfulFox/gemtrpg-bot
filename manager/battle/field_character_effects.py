@@ -65,6 +65,11 @@ def select_filtered_characters(actor, characters, character_filter=None):
             continue
         if excluded_tags.intersection(tags):
             continue
+        if filters.get("condition"):
+            from manager.battle.condition_eval import check_condition
+
+            if not check_condition(filters["condition"], actor, character):
+                continue
         result.append(character)
     return result
 

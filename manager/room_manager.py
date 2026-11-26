@@ -800,6 +800,10 @@ def _handle_character_death_transition(
         )
     except Exception as e:
         logger.error(f"[ERROR] process_on_death failed: {e}")
+    if isinstance(damage_context, dict) and isinstance(damage_context.get("actor"), dict):
+        from manager.battle.timed_buffs import process_kill
+
+        process_kill(room_name, get_room_state(room_name), char, damage_context)
     return True
 
 

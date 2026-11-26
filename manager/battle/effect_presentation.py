@@ -70,29 +70,32 @@ def recording_before(context, char, effect):
         return None
     kind, value = effect.get('type', 'CUSTOM_EFFECT'), effect.get('value')
     mapped_custom = kind == 'CUSTOM_EFFECT' and isinstance(value, str) and value in CUSTOM_EFFECT_TERMS
-    if not mapped_custom and kind not in {'USE_SKILL_AGAIN', 'CONVERT_STACK_RESOURCE_VARIANT'}:
+    if not effect.get("_buff_timing_name") and not mapped_custom and kind not in {'USE_SKILL_AGAIN', 'CONVERT_STACK_RESOURCE_VARIANT'}:
         return None
     return copy.deepcopy(char)
 
 
-def record_fired_effect(context, effect, actor, target, before, changes, converted_resource=None):
+def record_fired_effect(context, effect, actor, target, before, changes, converted_resource=None, bonus_damage=0):
     if before is None or not isinstance(context.get("fired_effects"), list):
         return
-    term = effect_term(effect, converted_resource)
-    if not term or (not changes and converted_resource is None):
+    buff_name = effect.get("_buff_timing_name")
+    term = (None, buff_name) if buff_name else effect_term(effect, converted_resource)
+    if not term or (not changes and converted_resource is None and not (buff_name and bonus_damage)):
         return
     from manager.utils import get_status_value
 
     values = {}
     results = []
     for char, kind, name, value in changes:
-        if not isinstance(char, dict) or str(char.get("id")) != str(target.get("id")) or str(name).upper() == "HP":
+        if (not isinstance(char, dict) or str(char.get("id")) != str(target.get("id"))
+                or (str(name).upper() == "HP" and not buff_name)):
             continue
         if kind in {"APPLY_STATE", "SET_STATUS"}:
             old = values.get(name, int(get_status_value(before, name) or 0))
             new = max(0, int(value) if kind == "SET_STATUS" else old + int(value))
-            if name == "MP" and before.get("maxMp") is not None:
-                new = min(new, int(before["maxMp"]))
+            cap = before.get({"HP": "maxHp", "MP": "maxMp"}.get(name))
+            if cap is not None and (name == "MP" or int(cap) > 0):
+                new = min(new, int(cap))
             values[name] = new
         elif kind == 'CONSUME_BLEED_MAINTENANCE':
             from manager.bleed_logic import get_bleed_maintenance_count

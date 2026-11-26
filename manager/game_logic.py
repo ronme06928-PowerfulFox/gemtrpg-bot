@@ -10,6 +10,8 @@ from manager.battle import skill_effect_helpers as _skill_effect_helpers
 from manager.battle import power_preview as _power_preview
 from manager.battle import damage_multiplier as _damage_multiplier
 from manager.battle import lifecycle_effects as _lifecycle_effects
+from manager.battle.timed_buffs import buff_rows
+from manager.json_rule_v2 import BUFF_SKILL_TIMINGS
 from manager.buff_catalog import get_buff_effect, resolve_runtime_buff_effect
 from manager.field_effects import (
     get_state_from_context,
@@ -338,6 +340,19 @@ def process_skill_effects(
 ):
     if actor_skill_data is None and isinstance(context, dict):
         actor_skill_data = context.get("actor_skill_data")
+    only_timed_buffs = isinstance(context, dict) and context.get("only_timed_buffs")
+    run_builtin = not (only_timed_buffs or (isinstance(context, dict) and context.get("skip_builtin_effects")))
+    skill_effects = bool(effects_array) and run_builtin
+    skip_timed_buffs = only_timed_buffs or (isinstance(context, dict) and context.get("skip_timed_buffs"))
+    if actor and actor_skill_data and timing_to_check in BUFF_SKILL_TIMINGS and not skip_timed_buffs:
+        timed = list(buff_rows(actor, timing_to_check))
+        if timed:
+            effects_array = [*(effects_array or ()), *timed]
+            from manager.battle.effect_presentation import step_effects_collector
+
+            context = dict(context or {})
+            if context.get("fired_effects") is None:
+                context["fired_effects"] = step_effects_collector()
     session = EffectSession(
         actor=actor,
         target=target,
@@ -355,7 +370,7 @@ def process_skill_effects(
     if not effects_array and timing_to_check != "HIT":
         return 0, [], []
 
-    if timing_to_check == "HIT":
+    if timing_to_check == "HIT" and run_builtin:
         origin_logs, origin_changes = build_origin_hit_changes(actor, target, context=context)
         if origin_logs:
             log_snippets.extend(origin_logs)
@@ -363,12 +378,14 @@ def process_skill_effects(
             changes_to_apply.extend(origin_changes)
 
     stage_state = get_state_from_context(context)
-    if timing_to_check in ("PRE_MATCH", "BEFORE_POWER_ROLL", "HIT", "UNOPPOSED"):
+    if (skill_effects or (timing_to_check == "HIT" and run_builtin)) and timing_to_check in (
+        "PRE_MATCH", "BEFORE_POWER_ROLL", "HIT", "UNOPPOSED"
+    ):
         stage_damage_mod = get_stage_damage_dealt_mod(stage_state, actor)
         if stage_damage_mod != 0:
             session.total_bonus_damage += int(stage_damage_mod)
             log_snippets.append(f"[StageDamage {stage_damage_mod:+} source=stage]")
-    if timing_to_check == "HIT" and isinstance(target, dict):
+    if timing_to_check == "HIT" and run_builtin and isinstance(target, dict):
         for st_name, st_value, rule_id in get_stage_state_effects(stage_state, target):
             if st_value == 0:
                 continue
@@ -457,7 +474,8 @@ def process_skill_effects(
         log_snippets.append(f"[蓄力-誘爆 10消費 ({current_count}->{remaining})]")
         log_snippets.extend(custom_logs)
 
-    _apply_chikuryoku_burst_guidance_on_hit()
+    if run_builtin:
+        _apply_chikuryoku_burst_guidance_on_hit()
 
     _expand_repeated_effects = _skill_effect_helpers.expand_repeated_effects
 
@@ -576,17 +594,18 @@ def process_skill_effects(
                 continue
 
             handler = EFFECT_HANDLERS.get(effect_type)
+            log_start, change_start = len(log_snippets), len(changes_to_apply)
+            bonus_before = session.total_bonus_damage
             if handler is not None:
                 before_effect = recording_before(context, sim_target, effect)
                 before_grants = grant_recording_before(context, session) if before_effect is None else None
                 changes_start = len(changes_to_apply)
                 converted_resource = handler(effect, target_obj, sim_target, session)
                 record_fired_effect(context, effect, actor, target_obj, before_effect,
-                                    changes_to_apply[changes_start:], converted_resource=converted_resource)
+                                    changes_to_apply[changes_start:], converted_resource=converted_resource,
+                                    bonus_damage=session.total_bonus_damage - bonus_before)
                 record_grants(context, actor.get('id'), before_grants, changes_to_apply[changes_start:])
-                continue
-
-            if effect_type == "CUSTOM_EFFECT":
+            elif effect_type == "CUSTOM_EFFECT":
                 custom_target_sim = sim_actor if effect.get("target") == "self" else sim_target
                 before_effect = recording_before(context, custom_target_sim, effect)
                 custom_changes, custom_logs = execute_custom_effect(effect, sim_actor, custom_target_sim, context=context)
@@ -603,6 +622,16 @@ def process_skill_effects(
 
                 changes_to_apply.extend(remapped_changes)
                 log_snippets.extend(custom_logs)
+            buff_name = effect.get("_buff_timing_name")
+            if buff_name and isinstance(context, dict) and context.get("timed_change_ids") is not None:
+                context["timed_change_ids"].update(id(change) for change in changes_to_apply[change_start:])
+            if buff_name and (len(changes_to_apply) > change_start or len(log_snippets) > log_start
+                              or session.total_bonus_damage != bonus_before):
+                from manager.battle.timed_buffs import log_timed_buff_effect
+
+                lines = [f"[{buff_name}] {line}" for line in log_snippets[log_start:]] or [f"[{buff_name}] {timing_to_check}"]
+                log_snippets[log_start:] = lines
+                log_timed_buff_effect((context or {}).get("room"), lines)
     return session.total_bonus_damage, session.log_snippets, session.changes_to_apply
 
 def calculate_power_bonus(actor, target, power_bonus_data, context=None):

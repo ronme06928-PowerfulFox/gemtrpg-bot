@@ -938,3 +938,24 @@ EFFECT_SCHEMASの各タイプはgroupを持つ。配信と管理画面だけの�
 ## 伏せた特殊パッシブ
 
 ユニットおよび召喚テンプレートの `hidden_passives` は `{passive_id, reveal_when}` の配列。ID は特殊パッシブを参照し、同じ ID の重複と通常のパッシブ欄との重複は指定できない。`reveal_when` は任意のオブジェクトで、`hp_percent_lte`（0〜100 の整数）と `round_gte`（1 以上の整数）を指定できる。両方指定した場合は両方の成立を要する。条件を省くとスキルか行動チャートで公開できる。
+
+## バフの誘発効果（計画35 PR35-12）
+
+バフの `effect.effects` にスキルの効果と同じ行を配列で記述する。各行の `timing` は `PRE_MATCH`・`HIT`・`WIN`・`LOSE`・`UNOPPOSED`・`END_MATCH`・`START_ROUND`・`END_ROUND`・`BATTLE_START`・`ON_KILL` のいずれか。最後の新タイミングと `START_ROUND` はバフ欄で使う。
+
+```json
+{
+  "effects": [{
+    "timing": "HIT",
+    "type": "APPLY_STATE",
+    "target": "target",
+    "state_name": "出血",
+    "value": 1,
+    "condition": {"source": "skill", "param": "属性", "operator": "EQUALS", "value": "斬撃"}
+  }]
+}
+```
+
+分類条件は同じ位置に `param: "分類"` と `value: "物理"` などを書く。マスターとホロウのバフは同じ検査を使う。対象ごとの絞り込みには `character_filter.condition` を使える。撃破を条件にする場合の `trigger_target` は、効果の適用先に関係なくその撃破の対象を指す。
+
+`APPLY_BUFF_FROM_CHARACTER_COUNT` に `apply_to: "stack"` を指定すると、条件に合う人数に `value_per_character` を掛けた個数のスタック型バフを付与する。

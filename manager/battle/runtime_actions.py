@@ -490,6 +490,10 @@ def execute_pre_match_effects(room, actor, target, skill_data, target_skill_data
                     logger.warning("[pre_match grant_skill failed] %s", res.get("message"))
     except Exception:
         pass
+    from manager.battle.timed_buffs import run_timed_buffs
+
+    run_timed_buffs(room, state, actor, "PRE_MATCH", target=target,
+                   skill=skill_data, target_skill=target_skill_data)
 
 def proceed_next_turn(room, suppress_logs=False, suppress_state_emit=False):
     """

@@ -208,6 +208,15 @@ def _resolve_max_hp_for_condition(source_obj):
 
 
 def _get_value_for_condition(source_obj, param_name, context=None, actor=None, target=None, source_type=None, get_status_value_fn=None):
+    if source_type in {"skill", "actor_skill", "target_skill"} and isinstance(source_obj, dict):
+        key = str(param_name or "").strip()
+        if key in {"属性", "attribute"}:
+            value = source_obj.get("属性") or source_obj.get("attribute")
+            return value.strip() or None if isinstance(value, str) else None
+        if key in {"分類", "category"}:
+            from manager.battle.skill_rules import _resolve_skill_category
+
+            return _resolve_skill_category(source_obj) or None
     if source_type == "death_context":
         ctx = context if isinstance(context, dict) else {}
         cause = ctx.get("death_context")
@@ -397,6 +406,8 @@ def check_condition(condition_obj, actor, target, target_skill_data=None, actor_
     elif source_str == "skill" or source_str == "actor_skill": source_obj = actor_skill_data
     elif source_str == "relation": source_obj = {}
     elif source_str == "battle": source_obj = {}
+    elif source_str == "trigger_target":
+        source_obj = (context or {}).get("trigger_target") if isinstance(context, dict) else None
     elif source_str == "death_context":
         source_obj = (context or {}).get("death_context") if isinstance(context, dict) else None
 

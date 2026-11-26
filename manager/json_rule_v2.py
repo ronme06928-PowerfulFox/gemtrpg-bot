@@ -17,6 +17,8 @@ EFFECT_TIMINGS = ("PRE_MATCH", "BEFORE_POWER_ROLL", "WIN", "LOSE", "HIT", "UNOPP
     "END_ROUND", "IMMEDIATE", "BATTLE_START")
 EFFECT_TARGETS = ("", "self", "target", "ALL_ENEMIES", "ALL_ALLIES", "ALL_OTHER_ALLIES",
     "ALL", "FILTERED_CHARACTERS", "KILLER", "KILLER_TEAM", "NEXT_ALLY")
+BUFF_SKILL_TIMINGS = frozenset(("PRE_MATCH", "HIT", "WIN", "LOSE", "UNOPPOSED", "END_MATCH"))
+BUFF_EFFECT_TIMINGS = BUFF_SKILL_TIMINGS | {"START_ROUND", "END_ROUND", "BATTLE_START", "ON_KILL"}
 
 SKILL_RULE_SOURCE_KEYS = [
     "rule_data",
@@ -276,6 +278,37 @@ def _normalize_effect_rows(
 
         out.append(row)
     return out
+
+
+def normalize_timed_buff_effects(effects):
+    from manager.battle.effect_handlers import EFFECT_SCHEMAS
+
+    path = "effect.effects"
+    if not isinstance(effects, list):
+        raise JsonRuleV2Error("effects must be list", path=path)
+    rows = _normalize_effect_rows(effects, path=path)
+    for index, row in enumerate(rows):
+        row_path = f"{path}[{index}]"
+        timing = row.get("timing")
+        if not isinstance(timing, str) or timing not in BUFF_EFFECT_TIMINGS:
+            raise JsonRuleV2Error("unsupported buff timing", path=f"{row_path}.timing")
+        schema = EFFECT_SCHEMAS.get(row["type"])
+        if schema is None:
+            raise JsonRuleV2Error("unsupported effect type", path=f"{row_path}.type")
+        if row.get("target", "") not in EFFECT_TARGETS:
+            raise JsonRuleV2Error("unsupported effect target", path=f"{row_path}.target")
+        for field, spec in schema["fields"].items():
+            value = row.get(field, row.get("name") if field == "state_name" else None)
+            if spec.get("required") and (value is None or value == ""):
+                raise JsonRuleV2Error("effect field is required", path=f"{row_path}.{field}")
+            field_type = spec.get("type", "")
+            types = {"int": (int,), "number": (int, float), "bool": (bool,), "string": (str,)}
+            expected = (str,) if field_type.endswith("_ref") else types.get(field_type)
+            if value is not None and expected and type(value) not in expected:
+                raise JsonRuleV2Error(f"invalid {field_type} effect field", path=f"{row_path}.{field}")
+        if isinstance(row.get("character_filter"), dict):
+            _validate_condition_row(row["character_filter"].get("condition"), path=f"{row_path}.character_filter.condition")
+    return rows
 
 
 def normalize_skill_rule_object(rule_obj, *, source_path="rule_data", strict=PHASE3_STRICT_DEFAULT, buff_resolver=None):

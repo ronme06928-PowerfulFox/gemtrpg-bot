@@ -409,8 +409,15 @@ def execute_wide_match(room, username, fired_effects=None):
                     logger.warning("[wide grant_skill failed] %s", res.get("message"))
         return extra
 
+    from manager.battle.timed_buffs import run_timed_buffs
+
+    def timed(timing, actor, target, skill, target_skill=None):
+        if skill:
+            run_timed_buffs(room, state, actor, timing, target=target, skill=skill, target_skill=target_skill)
+
     attacker_tags = attacker_skill_data.get("tags", []) if attacker_skill_data else []
     if _is_unmatchable_skill(attacker_skill_data):
+        timed("PRE_MATCH", attacker_char, None, attacker_skill_data)
         broadcast_log(room, "[Unmatchable] Skip dice roll and apply HIT effects.", "info")
 
         for def_data in defenders:
@@ -502,6 +509,7 @@ def execute_wide_match(room, username, fired_effects=None):
 
     elif mode == 'combined':
 
+        timed("PRE_MATCH", attacker_char, None, attacker_skill_data)
         defender_rolls = []
         valid_defenders = []
         total_defender_roll = 0
@@ -572,6 +580,11 @@ def execute_wide_match(room, username, fired_effects=None):
         broadcast_log(room, f"📊 防御側合計 {total_defender_roll} vs 攻撃側 {attacker_total}", 'info')
 
         if attacker_total > total_defender_roll:
+            primary = defender_rolls[0] if defender_rolls else {}
+            timed("WIN", attacker_char, primary.get("char"), attacker_skill_data,
+                  all_skill_data.get(primary.get("skill_id")))
+            for dr in defender_rolls:
+                timed("LOSE", dr["char"], attacker_char, all_skill_data.get(dr.get("skill_id")), attacker_skill_data)
             diff = attacker_total - total_defender_roll
 
 
@@ -599,6 +612,9 @@ def execute_wide_match(room, username, fired_effects=None):
                     process_on_damage_buffs(room, def_char, damage_with_fissure + extra_dmg, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
                     broadcast_log(room, f"   →{def_char['name']} に {diff} ダメージ", 'damage')
 
+                    if not attacker_effects:
+                        timed("HIT", attacker_char, def_char, attacker_skill_data,
+                              all_skill_data.get(dr.get("skill_id")))
                     if attacker_effects:
                         dmg_bonus, logs, changes = process_skill_effects(
                             attacker_effects,
@@ -624,6 +640,11 @@ def execute_wide_match(room, username, fired_effects=None):
                             broadcast_log(room, f"   →{def_char['name']} に追加 {diff_bonus} ダメージ", 'damage')
 
         elif total_defender_roll > attacker_total:
+            primary = defender_rolls[0] if defender_rolls else {}
+            timed("LOSE", attacker_char, primary.get("char"), attacker_skill_data,
+                  all_skill_data.get(primary.get("skill_id")))
+            for dr in defender_rolls:
+                timed("WIN", dr["char"], attacker_char, all_skill_data.get(dr.get("skill_id")), attacker_skill_data)
             diff = total_defender_roll - attacker_total
             broadcast_log(room, f"   → 防御側勝利! 差分 {diff}", 'match-result')
 
@@ -798,6 +819,8 @@ def execute_wide_match(room, username, fired_effects=None):
 
 
             if effective_attacker_total > defender_total:
+                timed("WIN" if def_skill_data else "UNOPPOSED", attacker_char, def_char, attacker_skill_data, def_skill_data)
+                timed("LOSE", def_char, attacker_char, def_skill_data, attacker_skill_data)
 
                 is_defense_skill = False
                 is_evasion_skill = False
@@ -872,6 +895,8 @@ def execute_wide_match(room, username, fired_effects=None):
                 kiretsu = get_status_value(def_char, "亀裂")
                 damage += kiretsu
 
+                if not attacker_effects:
+                    timed("HIT", attacker_char, def_char, attacker_skill_data, def_skill_data)
                 if attacker_effects:
                     dmg_bonus, logs, changes = process_skill_effects(
                         attacker_effects,
@@ -900,6 +925,8 @@ def execute_wide_match(room, username, fired_effects=None):
                 process_on_damage_buffs(room, def_char, damage, f"[{attacker_skill_id}]", [], attacker_char=attacker_char)
 
             elif defender_total > effective_attacker_total:
+                timed("LOSE", attacker_char, def_char, attacker_skill_data, def_skill_data)
+                timed("WIN", def_char, attacker_char, def_skill_data, attacker_skill_data)
 
                 is_defense_skill = False
                 if def_skill_data:
@@ -1022,7 +1049,7 @@ def execute_wide_match(room, username, fired_effects=None):
             )
             d = raw_rule if isinstance(raw_rule, dict) else json.loads(str(raw_rule))
             effs = d.get('effects', [])
-            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'fired_effects': fired_effects, 'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room})
+            _, logs, changes = process_skill_effects(effs, "END_MATCH", actor, target, target_skill_d, context={'fired_effects': fired_effects, 'timeline': state.get('timeline', []), 'characters': state['characters'], 'room': room, 'actor_skill_data': skill_d})
             for log_msg in logs:
                 broadcast_log(room, log_msg, 'skill-effect')
             apply_local_changes(changes, target)

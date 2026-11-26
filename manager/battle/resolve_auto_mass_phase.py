@@ -16,6 +16,7 @@ def _sync_from_core():
 
 
 def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, characters_by_id):
+    from manager.battle.timed_buffs import run_timed_buffs
     _sync_from_core()
     from manager.battle.resolve_effect_runtime import _snapshot_characters_for_timing, _diff_timing_snapshots
     from manager.battle.effect_presentation import mass_effect_applied, start_step_effects
@@ -61,6 +62,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
             delta_value,
             source_actor=None,
             source_skill=None,
+            target_skill=None,
+            unopposed=False,
         ):
             damage_events = []
             delta_int = int(max(0, delta_value))
@@ -71,11 +74,20 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 defender_char = characters_by_id.get(actor_id)
                 if not isinstance(defender_char, dict):
                     continue
+                bonus = 0
+                if source_skill and int(defender_char.get('hp', 0)) > 0:
+                    if unopposed:
+                        _, bonus = run_timed_buffs(room, state, source_actor, "UNOPPOSED", target=defender_char,
+                                                   skill=source_skill, base_damage=delta_int)
+                    _, hit_bonus = run_timed_buffs(room, state, source_actor, "HIT", target=defender_char,
+                                                   skill=source_skill, target_skill=target_skill,
+                                                   base_damage=delta_int + bonus)
+                    bonus += hit_bonus
                 try:
                     fissure = int(get_status_value(defender_char, '亀裂') or 0)
                 except Exception:
                     fissure = 0
-                total_damage = max(0, delta_int + fissure)
+                total_damage = max(0, delta_int + fissure + bonus)
                 if total_damage <= 0:
                     continue
                 before_hp = int(defender_char.get('hp', 0))
@@ -328,6 +340,12 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                     intents_override=intents
                 )
 
+                defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
+                primary_defender_char = _mass_target_char(defender_actor_ids)
+                first_slot = participant_slots[0] if participant_slots else None
+                first_skill = all_skill_data.get((intents.get(first_slot) or {}).get('skill_id'))
+                run_timed_buffs(room, state, attacker_char, "PRE_MATCH",
+                                target=primary_defender_char, skill=attacker_skill_data, target_skill=first_skill)
                 attacker_power = _roll_power_for_slot(battle_state, slot_id)
                 defender_powers = {}
                 participant_entries = []
@@ -343,6 +361,9 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         for resource, value in spent.items():
                             participant_cost[resource] += value
                     _record_used_skill_for_actor(participant_char, participant_skill_id)
+                    if participant_skill_data:
+                        run_timed_buffs(room, state, participant_char, "PRE_MATCH", target=attacker_char,
+                                        skill=participant_skill_data, target_skill=attacker_skill_data)
                     defender_powers[p_slot] = _roll_power_for_slot(battle_state, p_slot)
                     if isinstance(participant_char, dict):
                         participant_entries.append({
@@ -357,8 +378,6 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                 delta = abs(int(attacker_power) - int(defender_sum))
                 attacker_name = _resolve_actor_name(characters_by_id, attacker_actor_id)
                 skill_name = _resolve_skill_name(attacker_skill_id, attacker_skill_data, characters_by_id.get(attacker_actor_id))
-                defender_actor_ids = _enemy_actor_ids_for_team(attacker_team)
-                primary_defender_char = _mass_target_char(defender_actor_ids)
                 primary_participant = participant_entries[0] if participant_entries else None
                 primary_participant_char = primary_participant.get('char') if isinstance(primary_participant, dict) else None
                 primary_participant_skill = primary_participant.get('skill_data') if isinstance(primary_participant, dict) else None
@@ -479,6 +498,8 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         delta,
                         source_actor=attacker_char,
                         source_skill=attacker_skill_data,
+                        target_skill=primary_participant_skill,
+                        unopposed=not participant_slots,
                     )
                 elif outcome == 'defender_win' and delta > 0:
                     damage_events = _apply_mass_summation_delta_damage(
@@ -486,6 +507,7 @@ def run_mass_phase(room, battle_id, state, battle_state, resolve_intents, charac
                         delta,
                         source_actor=primary_participant_char,
                         source_skill=primary_participant_skill,
+                        target_skill=attacker_skill_data,
                     )
                 if outcome == 'attacker_win':
                     for evt in damage_events:

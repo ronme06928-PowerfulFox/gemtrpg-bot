@@ -116,6 +116,13 @@ def inspect_buff_effect(payload, entry_id, stage, add):
     if type(duration) is int and duration != -1 and duration < 1:
         add("default_duration", "-1 または1以上の整数が必要です")
     effect = payload.get("effect", {})
+    if isinstance(effect, dict) and "effects" in effect:
+        from manager.json_rule_v2 import JsonRuleV2Error, normalize_timed_buff_effects
+
+        try:
+            normalize_timed_buff_effects(effect["effects"])
+        except JsonRuleV2Error as exc:
+            add(exc.path, str(exc))
     if isinstance(effect, dict) and effect.get("type") == "plugin":
         # 戦闘はプラグインをバフIDで呼ぶ（BUFF_IDS）。effect.name は判定に使わない。
         from plugins.buffs.registry import buff_registry

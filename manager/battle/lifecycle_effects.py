@@ -118,6 +118,7 @@ def process_battle_start(room, characters, ctx, *, state=None):
         get_room_state, save_specific_room_state,
     )
     from manager.summons.service import apply_summon_change
+    from manager.battle.timed_buffs import run_timed_buffs
 
     pending = deque(char for char in characters if isinstance(char, dict))
     if not pending:
@@ -191,6 +192,12 @@ def process_battle_start(room, characters, ctx, *, state=None):
                     elif live:
                         ctx["logger"].warning("[battle_start grant_skill failed] %s", result.get("message"))
             executed = True
+
+        timed_logs, _ = run_timed_buffs(room, state, char, "BATTLE_START", on_summon=pending.append)
+        if timed_logs:
+            executed = True
+            if not live:
+                logs.extend(timed_logs)
 
     if live and executed:
         save_specific_room_state(room)

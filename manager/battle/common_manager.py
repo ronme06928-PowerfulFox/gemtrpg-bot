@@ -369,6 +369,8 @@ def _process_full_round_end_impl(room, username):
         return False
 
 
+    from manager.battle.timed_buffs import run_timed_buffs
+    round_end_owners = {id(char) for char in characters_to_process}
     for char in characters_to_process:
         pending_selected_power = pop_pending_selected_power_recoveries(char)
         for state_name in pending_selected_power:
@@ -422,6 +424,9 @@ def _process_full_round_end_impl(room, username):
                     logger.warning("[end_round summon failed] %s", res.get("message"))
 
 
+        if id(char) in round_end_owners:
+            round_end_owners.remove(id(char))
+            run_timed_buffs(room, state, char, "END_ROUND")
         bleed_tick = resolve_bleed_tick(char, consume_maintenance=True)
         if bleed_tick.get("damage", 0) > 0:
             _update_char_stat(
@@ -1034,6 +1039,9 @@ def _process_round_start_impl(room, username):
         if isinstance(flags, dict):
             flags.pop('immediate_action_used', None)
     execute_scheduled_effects(state, state['round'], room=room)
+    from manager.battle.timed_buffs import run_timed_buffs
+    for char in list(state.get("characters", [])):
+        run_timed_buffs(room, state, char, "START_ROUND")
     reveal_round_conditions(room, state)
 
     broadcast_log(room, f"--- {username} が Round {state['round']} を開始しました ---", 'round')

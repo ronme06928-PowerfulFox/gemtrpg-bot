@@ -328,6 +328,7 @@ def _run_skill_timing_effects(
     base_damage=0,
     source_slot_id=None,
     fired_effects=None,
+    trigger_buffs=True,
 ):
     result = {
         'fired_effects': fired_effects if fired_effects is not None else [],
@@ -346,8 +347,12 @@ def _run_skill_timing_effects(
 
     rule_data = _extract_rule_data_from_skill(skill_data)
     effects_array = rule_data.get('effects', []) if isinstance(rule_data, dict) else []
-    if not isinstance(effects_array, list) or not effects_array:
+    if not isinstance(effects_array, list):
         return result
+    if not effects_array:
+        from manager.battle.timed_buffs import buff_rows
+        if not trigger_buffs or not any(buff_rows(actor_char, timing)):
+            return result
 
     before_map = _snapshot_characters_for_timing(state)
     context = {
@@ -356,11 +361,14 @@ def _run_skill_timing_effects(
         'characters': (state.get('characters', []) if isinstance(state, dict) else []),
         'room': room,
         'actor_skill_data': skill_data,
+        'skip_timed_buffs': not trigger_buffs,
         'room_state': state,
         'battle_state': state.get('battle_state') if isinstance(state, dict) else None,
         'source_slot_id': source_slot_id,
         'round': state.get('round', 0) if isinstance(state, dict) else 0,
     }
+    if not effects_array:
+        context["skip_builtin_effects"] = True
     try:
         bonus_damage, logs, changes = process_skill_effects(
             effects_array,
@@ -421,6 +429,7 @@ def _trigger_skill_timing_effects(
     emit_source='select_resolve_timing',
     source_slot_id=None,
     fired_effects=None,
+    trigger_buffs=True,
 ):
     res = _run_skill_timing_effects(
         room=room,
@@ -433,6 +442,7 @@ def _trigger_skill_timing_effects(
         base_damage=base_damage,
         source_slot_id=source_slot_id,
         fired_effects=fired_effects,
+        trigger_buffs=trigger_buffs,
     )
     if res.get('damage') or res.get('statuses'):
         _emit_stat_updates_from_applied(
@@ -818,7 +828,19 @@ def _apply_effect_changes_like_duel(
     log_snippets,
     reuse_requests=None,
     attacker_skill_data=None,
+    on_summon=None,
+    timed_buff=False,
 ):
+    def update(_room, char, name, value, **kwargs):
+        if timed_buff and name == "HP" and value < int(char.get("hp", 0)):
+            kwargs["damage_context"] = build_damage_context(
+                actor=attacker_char, skill_data=attacker_skill_data, damage_type="timed_buff")
+        if room is not None or not timed_buff:
+            _update_char_stat(room, char, name, value, **kwargs)
+        else:
+            from manager.battle.lifecycle_effects import _set_candidate_status
+            _set_candidate_status(char, name, max(0, value), set_status_value)
+
     extra_primary_damage = 0
     for (char, effect_type, name, value) in changes:
         if not isinstance(char, dict):
@@ -836,9 +858,9 @@ def _apply_effect_changes_like_duel(
                         base_curr = int(state_obj.get('value', 0))
                     except ValueError:
                         base_curr = 0
-            _update_char_stat(room, char, name, base_curr + value, username=f"[{name}]")
+            update(room, char, name, base_curr + value, username=f"[{name}]")
         elif effect_type == "SET_STATUS":
-            _update_char_stat(room, char, name, int(value), username=f"[{name}]")
+            update(room, char, name, int(value), username=f"[{name}]")
         elif effect_type == "APPLY_BUFF":
             apply_buff(char, name, value.get("lasting", 0), value.get("delay", 0), data=value.get("data"), count=value.get("count"))
             log_snippets.append(f"[{name}] が {char.get('name', char.get('id', ''))} に付与されました。")
@@ -848,7 +870,7 @@ def _apply_effect_changes_like_duel(
         elif effect_type == "CUSTOM_DAMAGE":
             if name == "DEAL_TARGET_MAX_HP_DAMAGE":
                 curr_hp = int(get_status_value(char, 'HP'))
-                _update_char_stat(
+                update(
                     room,
                     char,
                     'HP',
@@ -865,7 +887,7 @@ def _apply_effect_changes_like_duel(
                 extra_primary_damage += int(value)
             else:
                 curr_hp = int(get_status_value(char, 'HP'))
-                _update_char_stat(
+                update(
                     room,
                     char,
                     'HP',
@@ -884,7 +906,7 @@ def _apply_effect_changes_like_duel(
                 log_snippets.append(f"[出血維持] 1消費 (残{remaining})")
         elif effect_type == "APPLY_SKILL_DAMAGE_AGAIN":
             if base_damage > 0:
-                _update_char_stat(
+                update(
                     room,
                     char,
                     'HP',
@@ -960,9 +982,16 @@ def _apply_effect_changes_like_duel(
                 char['flags'] = {}
             char['flags'][name] = value
         elif effect_type == "SUMMON_CHARACTER":
-            res = apply_summon_change(room, state, char, value)
+            res = (apply_summon_change(room, state, char, value) if room is not None
+                   else apply_summon_change(room, state, char, value, run_battle_start=False))
             if res.get("ok"):
-                broadcast_log(room, res.get("message", "召喚が発生した。"), "state-change")
+                message = res.get("message", "召喚が発生した。")
+                if room is not None:
+                    broadcast_log(room, message, "state-change")
+                else:
+                    log_snippets.append(message)
+                    if on_summon is not None:
+                        on_summon(res["char"])
             else:
                 logger.warning("[select_resolve summon failed] %s", res.get("message"))
         elif effect_type == "SCHEDULE_EFFECT":
@@ -978,7 +1007,11 @@ def _apply_effect_changes_like_duel(
                 grant_payload["skill_id"] = name
             res = apply_grant_skill_change(room, state, attacker_char, char, grant_payload)
             if res.get("ok"):
-                broadcast_log(room, res.get("message", "スキル付与が発生した。"), "state-change")
+                message = res.get("message", "スキル付与が発生した。")
+                if room is not None:
+                    broadcast_log(room, message, "state-change")
+                else:
+                    log_snippets.append(message)
             else:
                 logger.warning("[select_resolve grant_skill failed] %s", res.get("message"))
     return extra_primary_damage

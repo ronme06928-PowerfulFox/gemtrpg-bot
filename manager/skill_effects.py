@@ -85,16 +85,17 @@ def apply_skill_effects_bidirectional(
     primary_target = d_char if winner_side == 'attacker' else a_char
 
     # 内部関数: 変更内容の即時適用
-    def apply_local_changes(changes, target_char, source_actor=None, source_skill=None):
+    def apply_local_changes(changes, target_char, source_actor=None, source_skill=None, *, timed_change_ids):
         nonlocal custom_damage_applied
         extra_dmg = 0
 
         # 重複防止のためのセット (char_id, type, name, str(value))
         applied_changes = set()
 
-        for (char, type_, name, value) in changes:
+        for change in changes:
+            char, type_, name, value = change
             # APPLY_STATE の場合、重複チェックを行う
-            if type_ == "APPLY_STATE":
+            if type_ == "APPLY_STATE" and id(change) not in timed_change_ids:
                 try:
                     # valueが辞書などの場合に対応するため文字列化してキーにする
                     change_key = (char.get('id'), type_, name, str(value))
@@ -233,6 +234,7 @@ def apply_skill_effects_bidirectional(
         current_base_damage = damage_val + total_bonus_dmg
         effect_context = dict(context or {})
         effect_context['actor_skill_data'] = actor_skill
+        timed_change_ids = effect_context["timed_change_ids"] = set()
         d, l, c = process_skill_effects(
             effs,
             timing,
@@ -264,6 +266,7 @@ def apply_skill_effects_bidirectional(
             primary_target,
             source_actor=actor,
             source_skill=actor_skill,
+            timed_change_ids=timed_change_ids,
         )
         total_bonus_dmg += dmg_val
 
