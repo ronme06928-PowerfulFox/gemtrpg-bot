@@ -39,10 +39,8 @@ def test_party_socket_validation_and_live_state(expedition):
             return conn.emit("hollow_party_change", dict(action=action, char_id=char_id, **values), callback=True)
 
         assert not change(guest, "add", "0")["ok"]
-        for i in range(6):
-            assert change(owner, "add", str(i))["ok"]
-        for invalid in ("6", "0", "enemy", "missing"):
-            assert not change(owner, "add", invalid)["ok"]
+        assert not change(owner, "add", "0")["ok"]
+        state["party"]["order"] = list("012345")
         assert not change(owner, "move", "0", index=True)["ok"]
         assert change(owner, "move", "0", index=5)["ok"]
         assert state["party"]["order"] == ["1", "2", "3", "4", "5", "0"]
@@ -78,7 +76,7 @@ def test_host_transfer_disconnect_and_revocation(expedition, exit_kind):
     transfer_host(ROOM, "owner", "guest")
     assert can_manage_hollow(ROOM, "guest") and can_manage_hollow(ROOM, "owner")
     assert not can_manage_hollow(ROOM, "admin")
-    change_party(ROOM, "guest", "add", "0")
+    state["party"]["order"] = ["0"]
     change_party(ROOM, "owner", "remove", "0")
     assert state["party"]["order"] == []
     transfer_host(ROOM, "guest", "admin")

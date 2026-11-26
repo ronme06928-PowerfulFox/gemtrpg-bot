@@ -247,28 +247,33 @@ def save_room_route():
         app_admin=is_user_management_admin(user_id),
     ):
         return jsonify({"error": "このルームを更新する権限がありません"}), 403
-    if is_hollow_room(room_name):
+    hollow = is_hollow_room(room_name)
+    if hollow:
         from manager.battle.progress_authority import can_progress_battle
         if not can_progress_battle(room_name, {"user_id": user_id}):
             return jsonify({"error": "ホストかオーナーだけが部屋の全状態を保存できます"}), 403
-        from manager.hollow.run import expedition_run
-        if expedition_run(get_room_state(room_name)):
-            return jsonify({"error": "遠征中は部屋の全状態を上書きできません"}), 403
     if not isinstance(state, dict):
         return jsonify({"error": "Room state required"}), 400
+    from contextlib import nullcontext
+    from manager.battle.common_manager import _get_round_transition_lock
     from manager.room_manager import PRIVATE_ROOM_FIELDS
-    current = get_room_state(room_name) or {}
-    for field in (*PRIVATE_ROOM_FIELDS, "play_mode", "party", "hollow"):
-        state.pop(field, None)
-        if field in current:
-            state[field] = current[field]
-    active_room_states[room_name] = state
-    if state.get("play_mode") == HOLLOW_MODE:
-        from manager.hollow.party import prune_party
-        from manager.room_manager import broadcast_participant_state
-        if prune_party(state):
-            broadcast_participant_state(room_name, state)
-    save_room_to_db(room_name, state)
+
+    with _get_round_transition_lock(room_name) if hollow else nullcontext():
+        current = get_room_state(room_name) or {}
+        protected = (*PRIVATE_ROOM_FIELDS, "play_mode", "party", "hollow")
+        if hollow:
+            from manager.hollow.run import expedition_run
+            if expedition_run(current):
+                return jsonify({"error": "遠征中は部屋の全状態を上書きできません"}), 403
+            if "characters" in state and state["characters"] != current.get("characters", []):
+                return jsonify({"error": "ホロウのキャラはパーティの操作で変更してください"}), 403
+            protected += ("characters", "character_owners")
+        for field in protected:
+            state.pop(field, None)
+            if field in current:
+                state[field] = current[field]
+        active_room_states[room_name] = state
+        save_room_to_db(room_name, state)
     return jsonify({"message": "Saved"})
 
 

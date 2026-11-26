@@ -44,7 +44,12 @@ def start_run(room, user_id, *, seed=None):
             "seed": seed, "map_candidates": candidates, "current_event": None,
             "positions": {}, "relics": [], "temp_buffs": [], "log": [],
         }
+        _log_map_prompt(room, candidates)
         save_specific_room_state(room)
+
+
+def _log_map_prompt(room, candidates):
+    broadcast_log(room, f"T{candidates['tier']} のマップを選んでください", "system", save=False)
 
 
 def _next_map(run):
@@ -58,17 +63,19 @@ def _next_map(run):
     return True
 
 
-def choose_map(room, user_id, map_id, tier):
+def choose_map(room, user_id, map_id, tier, *, username=None):
     with _get_round_transition_lock(room):
         _, run = _managed_state(room, user_id, "in_progress")
         candidates = run.get("map_candidates")
         if not candidates or type(tier) is not int or tier != candidates["tier"]:
             raise ValueError("選択待ちの区切りを指定してください")
-        if map_id not in [row["map_id"] for row in candidates["maps"]]:
+        card = next((row for row in candidates["maps"] if row["map_id"] == map_id), None)
+        if card is None:
             raise ValueError("候補の中からマップを選んでください")
         seed = Random(f"{run['seed']}:{tier}:layout").getrandbits(53)
         run["map"] = new_map(tier, map_id, seed, floor_resources())
         del run["map_candidates"]
+        broadcast_log(room, f"{username or user_id} が {card['name']} を選んだ", "system", save=False)
         save_specific_room_state(room)
 
 
@@ -83,6 +90,7 @@ def select_node(room, user_id, node_id, tier, *, username=None):
         if run.get("next_tier_error") and node_id == layout["current"]:
             if not _next_map(run):
                 raise ValueError(run["next_tier_error"])
+            _log_map_prompt(room, run["map_candidates"])
             save_specific_room_state(room)
             return
         if node_id not in next_nodes(layout):
@@ -165,6 +173,8 @@ def after_round(room, username):
         elif event["type"] == "boss" and run["floor"] % 10 == 0:
             _next_map(run)
     broadcast_log(room, f"{run['floor']}F 戦闘終結: {outcome}", "round")
+    if run.get("map_candidates"):
+        _log_map_prompt(room, run["map_candidates"])
     broadcast_state_update(room)
     save_specific_room_state(room)
 

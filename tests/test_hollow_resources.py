@@ -10,7 +10,8 @@ from tests.test_units import unit_app
 
 PAYLOADS = {
     "tier": ("HT-01", {"tier": 1}),
-    "hollow_map": ("HM-01", {"tier": 1, "event_weights": {"normal": 1, "chest": 2, "miasma": 3},
+    "hollow_map": ("HM-01", {"tier": 1, "image": "/static/images/cave.webp",
+                              "event_weights": {"normal": 1, "chest": 2, "miasma": 3},
                               "encounters": {"normal": [{"formation_id": "F-001", "weight": 1}]},
                               "category_weights": {"出血": 3},
                               "boss_formation_id": "F-001", "boss_stage_id": "ST-001"}),
@@ -118,6 +119,7 @@ def test_transfer_includes_all_kinds_and_checks_references(resource_set):
     ("hollow_map", {"tier": 0}, "tier"),
     ("hollow_map", {"tier": 6}, "tier"),
     ("hollow_map", {"tier": True}, "tier"),
+    ("hollow_map", {"image": 5}, "image"),
     ("hollow_map", {"event_weights": {"camp": 1}}, "event_weights.camp"),
     ("hollow_map", {"category_weights": {"不明": 1}}, "category_weights.不明"),
     ("hollow_map", {"category_weights": {"出血": -1}}, "category_weights.出血"),

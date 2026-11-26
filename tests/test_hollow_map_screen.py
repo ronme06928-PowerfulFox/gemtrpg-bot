@@ -34,10 +34,20 @@ def test_map_visibility_through_load_and_broadcast(dungeon, monkeypatch):
     from manager.hollow.run import choose_map, start_run
 
     _, clients, state, _ = dungeon
+    from manager.units.repository import get, save
+
+    area = get("hollow_map", "HM-01")
+    save("hollow_map", "HM-01", {**area.payload, "image": "/static/images/cave.webp",
+                                "category_weights": {"出身強化": 9, "出血": 9, "打撃": 2, "斬撃": 1, "破裂": 0}},
+         base_revision=area.revision)
     start_run(ROOM, "owner", seed=34)
     pending = clients["guest"].get("/load_room", query_string={"name": ROOM}).json["hollow"]["run"]
     assert pending["map_candidates"]["maps"][0]["map_id"] == "HM-01" and "seed" not in pending
     assert "map" not in pending
+    assert pending["map_candidates"]["maps"][0] == {
+        "map_id": "HM-01", "name": "試験マップ1", "description": "",
+        "image": "/static/images/cave.webp", "categories": ["出血", "出身強化", "打撃"],
+    }
     choose_map(ROOM, "owner", "HM-01", 1)
     run = state["hollow"]["run"]
     layout = run["map"]

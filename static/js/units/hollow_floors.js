@@ -1,6 +1,6 @@
 (function () {
   const {h} = window.CatalogWorkspaceParts;
-  const {button, field, select, grid, card, remove} = window.UnitForms;
+  const {button, field, select, grid, card, remove, imageField} = window.UnitForms;
   const labels = {tier:'Tier',hollow_map:'マップ',fixed_floor:'固定階'};
   const types = {town:'町',camp:'キャンプ'};
   const events = {normal:'通常戦闘',elite:'精鋭戦闘',chest:'宝箱',miasma:'魔素だまり'};
@@ -15,7 +15,7 @@
 
   function defaults(kind, records) {
     if (kind === 'fixed_floor') return {name:'',floor:10,type:'town',text:''};
-    if (kind === 'hollow_map') return {name:'',tier:1,description:'',event_weights:{},
+    if (kind === 'hollow_map') return {name:'',tier:1,description:'',image:'',event_weights:{},
       encounters:{normal:[],elite:[]},category_weights:{},boss_formation_id:'',boss_stage_id:''};
     const used = new Set(records.filter(row => row.kind === 'tier' && !row.deprecated).map(number));
     return {name:'',tier:[1,2,3,4,5].find(value => !used.has(value)) ?? 1,description:'',
@@ -92,7 +92,8 @@
         reference('ボスステージ','boss_stage_id','stage',p.boss_stage_id,records))
       : grid(tier, numberField('HP係数','hp_multiplier',p.hp_multiplier,'step="any"'),
         numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"'));
-    return name + details + checked('description',field('説明','description',p.description,'area'));
+    return name + details + checked('description',field('説明','description',p.description,'area')) +
+      (kind === 'hollow_map' ? imageField(p.image, edit) : '');
   }
 
   const weight = value => Number.isInteger(value) && value >= 0 ? value : 0;

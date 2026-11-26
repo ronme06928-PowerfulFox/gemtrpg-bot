@@ -50,6 +50,8 @@
   const nameOf = p => p?.デフォルト名称 || p?.display_name || p?.name || '';
   const url = value => /^(https?:\/\/|\/(?!\/))/i.test(value || '') ? h(value) : '';
   const image = value => url(value) ? `<img class="unit-image" src="${url(value)}" alt="">` : '';
+  const imageField = (value, edit) => card('画像', image(value) + '<div class="unit-row-actions">' +
+    (edit ? button('画像を選択','image') + (value ? button('解除','clear-image') : '') : '') + '</div>');
 
   function defaults(kind, side) {
     if (kind === 'unit') return {name:'', domain:'session', image:'', allow_ally: true, allow_enemy: true, scenario:false,
@@ -117,7 +119,7 @@
           <span>${h(collection?.payload.name || p.collection_id || '未分類')}</span>
           ${picker('分類を選択','collection','collection_id',edit)}</div></fieldset>${visibility}</div>`;
       if (kind === 'unit') return field('キャラクター名','name',p.name) + grid(
-        card('画像',image(p.image) + '<div class="unit-row-actions">' + (edit ? button('画像を選択','image') + (p.image ? button('解除','clear-image') : '') : '') + '</div>'),
+        imageField(p.image, edit),
         card('キャラ区分',field('味方キャラクター','allow_ally',p.allow_ally,'checkbox') + field('敵キャラクター','allow_enemy',p.allow_enemy !== false,'checkbox')),
         field('シナリオキャラクター','scenario',p.scenario,'checkbox'), field('GMのみ操作可能','gm_only',p.gm_only,'checkbox')) +
         card('印', Object.entries(markLabels).filter(([key]) => key !== 'known' || p.allow_enemy)
@@ -240,5 +242,5 @@
     return '';
   }
 
-  window.UnitForms = {sections, sides, button, options, field, select, grid, card, remove, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, plain, markLabels, configureMarks};
+  window.UnitForms = {sections, sides, button, options, field, select, grid, card, remove, badges, sectionAction, defaults, overwriteUnit, palette, render, nameOf, image, imageField, plain, markLabels, configureMarks};
 })();

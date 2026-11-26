@@ -107,10 +107,12 @@ def seed():
             "name": f"{PREFIX} T{number}", "tier": number, "hp_multiplier": hp, "attack_multiplier": attack,
         }, lambda other, number=number: other.get("tier") == number)
 
-    for number, name, description, normal, boss in MAPS:
+    categories = ({"打撃": 4, "蓄力": 3, "汎用": 2}, {"亀裂": 5, "凝魔": 3, "貫通": 2}, {"斬撃": 4, "亀裂": 3, "凝魔": 2})
+    for (number, name, description, normal, boss), weights in zip(MAPS, categories):
         payload = {
             "name": f"{PREFIX} {name}", "description": description, "tier": number,
-            "event_weights": {"normal": 3, "elite": 1},
+            "event_weights": {"normal": 3, "elite": 1}, "category_weights": weights,
+            "image": "/static/images/backgrounds/暗い遺跡洞窟.webp" if name == "青晶洞" else "",
             "encounters": {"normal": [{"formation_id": formations[normal], "weight": 1}],
                            "elite": [{"formation_id": formations["elite"], "weight": 1}]},
             "boss_formation_id": formations[boss], "boss_stage_id": stages[boss],

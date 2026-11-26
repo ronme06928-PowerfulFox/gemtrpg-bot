@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>マップの選択 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="host" data-layout="cards" data-hints="few" data-dock="hollow" data-scene="boss">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+  </header>
+  <nav class="dock" aria-label="アクションドック" data-dock-icons></nav>
+
+  <main class="board" data-board>
+    <section class="screen choose-screen" data-theme="abyss" data-screen="choose" aria-label="マップの選択">
+      <header class="choose-head">
+        <small data-choose-kicker></small>
+        <h2 data-choose-title></h2>
+        <p data-choose-lead></p>
+      </header>
+      <div class="choose-body" data-choose-body></div>
+      <p class="choose-wait">ホストがマップを選んでいます</p>
+    </section>
+
+    <section class="screen after-screen" data-theme="abyss" data-screen="after" aria-label="地図">
+      <div class="after-card">
+        <small data-after-kicker></small>
+        <h2 data-after-name></h2>
+        <p>（ここから PR35-9 の地図の画面。スタートマスの下に、このマップの1段目が並ぶ）</p>
+        <button type="button" class="ui-btn" data-back>選び直す（試作）</button>
+      </div>
+    </section>
+
+    <div class="curtain" data-theme="abyss" data-curtain aria-hidden="true">
+      <div class="curtain-inner"><b data-curtain-main></b><span data-curtain-sub></span></div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line"><span class="strip-state" data-strip-state></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>パーティ <b data-strip-party></b></span><span>参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<dialog class="hollow-dialog go-dialog" data-theme="abyss" data-go aria-labelledby="go-title">
+  <small data-go-kicker></small>
+  <h2 id="go-title" data-go-name></h2>
+  <p>選んだら、この区切りの間は変えられません。</p>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn" data-close>キャンセル</button>
+    <button type="button" class="ui-btn primary" data-go-ok autofocus>このマップへ進む</button>
+  </div>
+</dialog>
+
+<dialog class="hollow-dialog add-dialog" data-theme="abyss" data-add aria-labelledby="add-title">
+  <header class="add-head">
+    <h2 id="add-title">パーティメンバーを追加</h2>
+    <span class="add-count" data-add-count></span>
+  </header>
+  <p class="add-lead" data-add-lead></p>
+  <ul class="add-list" data-add-list></ul>
+  <div class="dialog-actions">
+    <button type="button" class="ui-btn" data-close>キャンセル</button>
+    <button type="button" class="ui-btn primary" data-add-ok></button>
+  </div>
+</dialog>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-set="viewer" data-value="host">ホスト</button>
+    <button type="button" data-set="viewer" data-value="player">プレイヤー</button></div>
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-set="scene" data-value="start">ランの始め</button>
+    <button type="button" data-set="scene" data-value="boss">10F のボスの後</button></div>
+  <div class="compare-row"><span>並べ方</span>
+    <button type="button" data-set="layout" data-value="cards">A 札</button>
+    <button type="button" data-set="layout" data-value="list">B 一覧と詳細</button></div>
+  <div class="compare-row"><span>手がかり</span>
+    <button type="button" data-set="hints" data-value="many">多め</button>
+    <button type="button" data-set="hints" data-value="few">少なめ</button></div>
+  <div class="compare-row"><span>ドック</span>
+    <button type="button" data-set="dock" data-value="hollow">ホロウ用</button>
+    <button type="button" data-set="dock" data-value="now">今</button></div>
+  <div class="compare-row"><span>窓</span>
+    <button type="button" data-open-add>パーティメンバーを追加</button></div>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

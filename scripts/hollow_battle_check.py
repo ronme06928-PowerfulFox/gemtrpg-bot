@@ -2,11 +2,13 @@
 
 import argparse
 import sys
+from urllib.parse import urlencode
 from uuid import uuid4
 
 from playwright.sync_api import expect
 
-from scripts.hollow_data_proto.check_app import BASE, ROOT, api, click, launch_and_verify, register
+from scripts.hollow_data_proto.check_app import ROOT, api, click, launch_and_verify, register
+from scripts.hollow_run_check import choose, choose_map, command, create_owned, enter_room, library
 
 
 def verify(browser):
@@ -19,33 +21,30 @@ def verify(browser):
     host_id = api(host, "GET", "/api/get_session_user")["user_id"]
     player_id = api(player, "GET", "/api/get_session_user")["user_id"]
     skill = api(host, "GET", "/api/get_skill_data")["Ps-01"]["チャットパレット"]
-    characters = []
-    for index, (key, name, team, owner, portrait) in enumerate([
-        ("host", "岩牙", "ally", host_id, "男冒険者"),
-        ("player", "晶殻", "ally", player_id, "女冒険者"),
-        ("proxy", "夜風", "ally", player_id, "男冒険者"),
-        ("enemy", "淵の番兵", "enemy", None, "人狼型シュラーカー"),
-    ]):
-        characters.append({
-            "id": key, "name": name, "type": team, "owner_id": owner,
-            "owner": {host_id: "Rio" + tag, player_id: "Nagi" + tag}.get(owner),
-            "x": 10 if team == "ally" else 14, "y": 8 + index,
-            "hp": 80, "maxHp": 80, "mp": 20, "maxMp": 20,
-            "states": [{"name": "FP", "value": 8}],
-            "params": [{"label": key, "value": 3} for key in ("速度", "五感", "物理補正")],
-            "commands": skill, "image": f"/static/images/characters/{portrait}.png",
-        })
-    timeline = [{"id": row["id"] + "-1", "char_id": row["id"], "speed": 8 - i}
-                for i, row in enumerate(characters)]
-    api(host, "POST", "/save_room", room_name=room_name, state={
-        "mode": "battle", "battle_mode": "pvp", "combat_phase": "active",
-        "characters": characters, "timeline": timeline, "round": 1, "is_round_ended": False, "logs": [],
-    })
-
+    author = register(browser, "BattleAuthor" + tag, author=True)
+    for foe in library(author, tag):
+        api(author, "PUT", f"/api/units/unit/{foe['entry_id']}",
+            payload={**foe["payload"], "hp": 500}, base_revision=foe["revision"])
+    owned = {key: create_owned(page, name, skill, hp=80, strength=3, portrait=portrait)
+             for key, page, name, portrait in (("host", host, "岩牙", "男冒険者"),
+                                                ("player", player, "晶殻", "女冒険者"),
+                                                ("proxy", player, "夜風", "男冒険者"))}
     for page in (host, player):
         page.on("pageerror", lambda error: errors.append(str(error)))
-        page.goto(BASE + "/#dungeon")
-        page.locator(".dungeon-room").filter(has_text=room_name).get_by_role("button", name="入る").click()
+        enter_room(page, room_name)
+    command(host, "hollow_party_add_owned", owned_ids=[owned["host"]])
+    command(player, "hollow_party_add_owned", owned_ids=[owned["player"], owned["proxy"]])
+    def state():
+        return api(host, "GET", "/load_room?" + urlencode({"name": room_name}))
+
+    command(host, "hollow_run_start")
+    choose_map(host, state, 1, 2)
+    choose(host, state(), 1)
+    characters = state()["characters"]
+    ids = {key: next(char["id"] for char in characters if char.get("owned_character_id") == value)
+           for key, value in owned.items()}
+    ids["enemy"] = next(char["id"] for char in characters if char["type"] == "enemy")
+    for page in (host, player):
         page.wait_for_function("window.BattleStore?.state?.round === 1 && window.currentUserId")
         expect(page.locator(".map-token")).to_have_count(4)
         for selector in ("#visual-round-start-btn", "#visual-round-end-btn", "#visual-room-preset-btn",
@@ -55,7 +54,7 @@ def verify(browser):
     expect(host.locator("#visual-reset-btn")).to_be_visible()
     expect(player.locator("#visual-reset-btn")).to_be_hidden()
     expect(player.locator("#sr-resolve-confirm-btn")).to_have_count(0)
-    player.evaluate("window.showCharacterDetail('host')")
+    player.evaluate("id => window.showCharacterDetail(id)", ids["host"])
     player.locator("#modal-settings-trigger").click()
     size_control = player.locator("#ctx-scale-slider")
     expect(size_control).to_be_disabled()
@@ -75,7 +74,7 @@ def verify(browser):
           const find = id => slots.find(slot => slot.actor_id === id && !slot.target_only).slot_id;
           BattleStore.setDeclare({sourceSlotId: find(source), targetSlotId: find(target),
             targetType: 'single_slot', skillId: null, mode: 'editing'});
-        }""", [source, target])
+        }""", [ids[source], ids[target]])
 
     def declare(page, source, target, photo=None):
         select_actor(page, source, target)
@@ -87,7 +86,7 @@ def verify(browser):
         commit.click()
         page.wait_for_function(
             "id => Object.values(BattleStore.state.slots).some(s => s.actor_id === id && BattleStore.state.intents[s.slot_id]?.committed)",
-            arg=source,
+            arg=ids[source],
         )
         page.evaluate("BattleStore.resetDeclare()")
 
@@ -96,7 +95,6 @@ def verify(browser):
     declare(player, "player", "enemy", "1280-player-declare.png")
     declare(host, "proxy", "enemy", "1280-host-proxy.png")
     declare(host, "host", "enemy")
-    declare(host, "enemy", "player")
     expect(host.locator("#sr-resolve-confirm-btn")).to_be_enabled()
     click(host, "解決開始")
     next_button = host.locator(".resolve-flow-next-btn")

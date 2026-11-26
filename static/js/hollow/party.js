@@ -5,6 +5,7 @@
   let partyDialog;
   let dragId;
   let lastMarkup;
+  let ownedPicker;
 
   function currentParty(state = battleState) {
     const members = state?.hollow?.members || [];
@@ -15,7 +16,7 @@
     const allies = (state?.characters || []).filter(char => char.type === 'ally');
     const byId = new Map(allies.map(char => [char.id, char]));
     const order = (state?.party?.order || []).filter(id => byId.has(id));
-    return {members, host, owner, manage, locked, allies, byId, order};
+    return {members, host, owner, manage, locked, byId, order};
   }
 
   function button(action, label, id = '', disabled = false) {
@@ -47,12 +48,10 @@
   }
 
   function render(state) {
+    renderOwnedPicker(state);
     if (!partyDialog?.open) return;
     const party = currentParty(state);
     const rows = party.order.map((id, index) => characterRow(party.byId.get(id), index, party));
-    const available = party.allies.filter(char => !party.order.includes(char.id));
-    const selectable = party.manage && !party.locked;
-    const cannotAdd = !available.length || party.order.length >= capacity;
     const markup = `<div class="hollow-party-columns">
       <section aria-label="パーティ編成">
         <p class="hollow-party-note">番号＝淵遺物の「N番目」 ${party.locked ? '<strong>🔒 並び固定</strong>' : ''}</p>
@@ -60,10 +59,6 @@
         <ol class="hollow-party-list" data-party-group="sortie">${rows.slice(0, sortieSize).join('') || '<li class="hollow-party-note">—</li>'}</ol>
         <h3>控え <small>${Math.max(0, rows.length - sortieSize)} / ${capacity - sortieSize}</small></h3>
         <ol class="hollow-party-list" data-party-group="reserve" start="5">${rows.slice(sortieSize).join('') || '<li class="hollow-party-note">—</li>'}</ol>
-        ${selectable ? `<div class="hollow-party-actions hollow-party-add"><label for="hollow-party-add">部屋のキャラ</label>
-          <select id="hollow-party-add"${cannotAdd ? ' disabled' : ''}><option value="">選択</option>
-          ${available.map(char => `<option value="${escape(char.id)}">${escape(char.name)}</option>`).join('')}</select>
-          ${button('add', '加える', '', true)}</div>` : ''}
       </section>
       <section aria-label="参加者"><h3>参加者</h3><ol class="hollow-party-list">
         ${party.members.map(member => `<li class="hollow-party-member">
@@ -81,19 +76,11 @@
     lastMarkup = markup;
     const body = partyDialog.querySelector('[data-party-body]');
     const focus = document.activeElement;
-    const selected = body.querySelector('select')?.value;
     body.innerHTML = markup;
-    const select = body.querySelector('select');
-    if (select && selected) select.value = selected;
-    if (select) updateAdd();
     if (focus?.dataset.partyAction) {
       [...body.querySelectorAll('[data-party-action]')].find(control =>
         control.dataset.partyAction === focus.dataset.partyAction && control.dataset.id === focus.dataset.id)?.focus();
-    } else if (focus?.id === 'hollow-party-add') select?.focus();
-  }
-
-  function updateAdd() {
-    partyDialog.querySelector('[data-party-action="add"]').disabled = !partyDialog.querySelector('select').value;
+    }
   }
 
   function notify(error) {
@@ -144,10 +131,7 @@
       if (partyAction === 'item') openItemModal(id);
       else window.showCharacterDetail(id);
     }
-    if (partyAction === 'add' || partyAction === 'remove') {
-      const charId = id || partyDialog.querySelector('select')?.value;
-      if (charId) send('hollow_party_change', {action: partyAction, char_id: charId});
-    }
+    if (partyAction === 'remove') send('hollow_party_change', {action: 'remove', char_id: id});
     if (partyAction === 'transfer') {
       const member = currentParty().members.find(row => row.id === id);
       if (member && await confirmAction(`「${member.name}」にホストを譲りますか？`, 'ホストを譲る')) {
@@ -180,7 +164,6 @@
         <div data-party-body></div><p role="alert" class="hollow-party-error"></p>
         <footer>${button('close', '閉じる')}</footer>`);
       partyDialog.addEventListener('click', handleAction);
-      partyDialog.addEventListener('change', updateAdd);
       partyDialog.addEventListener('keydown', event => {
         const id = event.target.closest('.hollow-party-grip')?.dataset.id;
         if (!id || !['ArrowUp', 'ArrowDown'].includes(event.key)) return;
@@ -245,29 +228,139 @@
     } catch (error) { notify(error.message); }
   }
 
+  function renderOwnedPicker(state = battleState) {
+    const picker = ownedPicker;
+    if (!picker) return;
+    if (state?.hollow?.run?.status !== 'forming') { picker.dialog.close(); return; }
+    const {byId, order} = currentParty(state);
+    const inParty = new Set(order.map(id => byId.get(id)?.owned_character_id));
+    const available = Math.max(0, capacity - order.length);
+    for (const key of [...picker.selected]) {
+      if (inParty.has(key) || picker.selected.size > available) picker.selected.delete(key);
+    }
+    const root = picker.dialog.querySelector('.hollow-owned-list');
+    const focus = root.contains(document.activeElement) ? document.activeElement.value : null;
+    const scroll = root.scrollTop;
+    picker.dialog.querySelector('[data-owned-count]').textContent =
+      available ? `空き ${available}人 · 選択 ${picker.selected.size}人` : '空きがありません';
+    if (picker.rows) {
+      root.innerHTML = picker.rows.map(row => {
+        const data = row.data || {};
+        const tags = Array.isArray(data.tag_ids) ? data.tag_ids : [];
+        const status = Array.isArray(data.status) ? data.status : [];
+        const origin = tags.find(tag => tag.startsWith('出身:'))?.slice(3) || '—';
+        const stat = label => status.find(item => item?.label === label || item?.name === label)?.value ??
+          data[label.toLowerCase()] ?? '—';
+        const joined = inParty.has(row.id);
+        const checked = picker.selected.has(row.id);
+        const disabled = joined || !available || (!checked && picker.selected.size >= available) || picker.busy;
+        const image = window.UnitForms.image(data.image);
+        return `<label class="hollow-owned-row">
+          <input type="checkbox" value="${escape(row.id)}"${checked ? ' checked' : ''}${disabled ? ' disabled' : ''}>
+          <span class="hollow-party-face">${image || escape(Array.from(row.name || '？')[0])}</span>
+          <span><strong>${escape(row.name)}</strong><small>出身 ${escape(origin)}</small></span>
+          <span class="hollow-owned-stats">HP ${escape(stat('HP'))} · MP ${escape(stat('MP'))}
+          ${joined ? '<b>パーティにいます</b>' : ''}</span>
+        </label>`;
+      }).join('') || '<p>持ちキャラがありません。</p>';
+    }
+    root.scrollTop = scroll;
+    if (focus) [...root.querySelectorAll('input')].find(input => input.value === focus)?.focus({preventScroll: true});
+    picker.dialog.querySelector('[data-owned-submit]').disabled = picker.busy || !picker.selected.size;
+  }
+
+  async function openOwnedPicker() {
+    if (ownedPicker || battleState?.hollow?.run?.status !== 'forming') return;
+    const dialog = createDialog('hollow-owned-window', 'パーティメンバーを追加', `
+      <div class="hollow-owned-content"><p data-owned-count></p><div class="hollow-owned-list">読み込み中…</div>
+      <p role="alert" class="hollow-party-error"></p></div>
+      <footer><button type="button" class="btn-set" data-owned-close>閉じる</button>
+      <button type="button" class="btn-set" data-owned-submit>追加</button></footer>`);
+    const picker = {dialog, selected: new Set(), rows: null, busy: false};
+    ownedPicker = picker;
+    const alert = dialog.querySelector('[role="alert"]');
+    dialog.addEventListener('close', () => {
+      if (ownedPicker === picker) ownedPicker = null;
+      dialog.remove();
+    }, {once: true});
+    dialog.querySelector('[data-owned-close]').onclick = () => dialog.close();
+    dialog.querySelector('[data-owned-submit]').onclick = () => {
+      if (picker.busy || !picker.selected.size || battleState?.hollow?.run?.status !== 'forming') return;
+      picker.busy = true;
+      alert.textContent = '';
+      const ids = [...picker.selected];
+      renderOwnedPicker();
+      window.socket.timeout(7000).emit('hollow_party_add_owned', {owned_ids: ids}, (error, result) => {
+        if (!dialog.open) return;
+        if (!error && result?.ok) { dialog.close(); return; }
+        picker.busy = false;
+        alert.textContent = result?.error || '通信に失敗しました';
+        renderOwnedPicker();
+      });
+    };
+    dialog.addEventListener('change', event => {
+      if (!event.target.matches('input[type="checkbox"]')) return;
+      const {value, checked} = event.target;
+      if (checked) picker.selected.add(value);
+      else picker.selected.delete(value);
+      renderOwnedPicker();
+    });
+    dialog.showModal();
+    renderOwnedPicker();
+    try {
+      const response = await fetchWithSession('/api/owned_characters');
+      if (!response.ok) throw new Error('一覧の取得に失敗しました。');
+      const {characters} = await response.json();
+      if (dialog.open) {
+        picker.rows = characters || [];
+        renderOwnedPicker();
+      }
+    } catch (error) {
+      if (dialog.open) {
+        dialog.querySelector('.hollow-owned-list').textContent = '';
+        alert.textContent = error.message;
+      }
+    }
+  }
+
   function mountDock(dock, state) {
-    const id = 'dock-hollow-party';
-    if (state?.play_mode !== 'hollow') {
-      dock?.querySelector(`#${id}`)?.remove();
+    if (!dock) return;
+    const hollow = state?.play_mode === 'hollow';
+    dock.classList.toggle('is-hollow-dock', hollow);
+    let add = dock.querySelector('#dock-hollow-add');
+    const party = dock.querySelector('#dock-hollow-party');
+    if (!hollow) {
+      add?.remove();
+      party?.remove();
       return;
     }
-    if (!dock || dock.querySelector(`#${id}`)) return;
-    const control = document.createElement('button');
-    control.type = 'button';
-    control.id = id;
-    control.className = 'dock-icon';
-    control.title = 'パーティ';
-    control.setAttribute('aria-label', 'パーティ');
-    control.textContent = '👥';
-    control.addEventListener('click', open);
-    dock.prepend(control);
+    const dockButton = (id, label, icon, action) => {
+      const control = document.createElement('button');
+      control.type = 'button';
+      control.id = id;
+      control.className = 'dock-icon';
+      control.title = label;
+      control.setAttribute('aria-label', label);
+      control.textContent = icon;
+      control.onclick = action;
+      return control;
+    };
+    if (!party) dock.prepend(dockButton('dock-hollow-party', 'パーティ', '👥', open));
+    if (!add) {
+      add = dockButton('dock-hollow-add', 'パーティメンバーを追加', '➕', openOwnedPicker);
+      const original = dock.querySelector('#dock-add-char-icon');
+      if (original) original.before(add);
+      else dock.append(add);
+    }
+    add.disabled = state.hollow?.run?.status !== 'forming';
+    add.classList.toggle('disabled', add.disabled);
   }
 
   function renderRibbon(root, state) {
     const party = currentParty(state);
     const run = state.hollow.run;
-    const tier = run.map_candidates?.tier ?? run.map?.tier;
-    const status = run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
+    const tier = run.map?.tier;
+    const status = run.map_candidates ? 'ラン中 · マップ選択待ち' : run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
       : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';
     root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">
@@ -278,6 +371,7 @@
 
   function close() {
     partyDialog?.close();
+    ownedPicker?.dialog.close();
     lastMarkup = null;
     document.getElementById('hollow-code-window')?.close();
   }

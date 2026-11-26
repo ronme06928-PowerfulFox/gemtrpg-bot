@@ -5,7 +5,7 @@ from flask import request, session
 from extensions import socketio, user_sids
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.hollow.host import transfer_host
-from manager.hollow.party import change_party
+from manager.hollow.party import add_owned_party, change_party
 from manager.hollow.run import choose_map, retreat, select_node, start_run, swap_party
 from manager.room_manager import broadcast_state_update
 
@@ -35,6 +35,13 @@ def _change_party(room, user_id, action, char_id, index):
         change_party(room, user_id, action, char_id, index)
 
 
+@socketio.on("hollow_party_add_owned")
+def handle_party_add_owned(data):
+    payload = data if isinstance(data, dict) else {}
+    username = user_sids.get(request.sid, {}).get("username")
+    return _perform(add_owned_party, payload.get("owned_ids"), username=username)
+
+
 @socketio.on("hollow_transfer_host")
 def handle_transfer_host(data):
     payload = data if isinstance(data, dict) else {}
@@ -49,7 +56,8 @@ def handle_run_start(_data=None):
 @socketio.on("hollow_choose_map")
 def handle_choose_map(data):
     payload = data if isinstance(data, dict) else {}
-    return _perform(choose_map, payload.get("map_id"), payload.get("tier"))
+    username = user_sids.get(request.sid, {}).get("username")
+    return _perform(choose_map, payload.get("map_id"), payload.get("tier"), username=username)
 
 
 @socketio.on("hollow_select_node")

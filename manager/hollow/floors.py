@@ -7,6 +7,7 @@ from random import Random
 from manager.battle.action_slot_mode import is_character_deployed
 from manager.battle.combat_session import mark_combat_arrival, start_combat_session
 from manager.hollow.map import build_map, weighted_choice
+from manager.hollow.resources import RELIC_CATEGORIES
 from manager.units.repository import entries
 from manager.units.runtime import deployment_store, get_record, valid_deployment_target
 
@@ -40,10 +41,15 @@ def map_candidates(number, seed, resources):
     if not pool:
         raise ValueError(f"Tier {number} にマップがありません")
     keys = Random(f"{seed}:{number}:candidates").sample(pool, min(3, len(pool)))
-    return {"tier": number, "maps": [
-        {"map_id": key, "name": resources.maps[key]["name"], "description": resources.maps[key]["description"]}
-        for key in keys
-    ]}
+    return {"tier": number, "maps": [_candidate_card(key, resources.maps[key]) for key in keys]}
+
+
+def _candidate_card(key, area):
+    weights = area.get("category_weights", {})
+    ranked = sorted((category for category in RELIC_CATEGORIES if weights.get(category, 0) > 0),
+                    key=weights.__getitem__, reverse=True)
+    return {"map_id": key, "name": area["name"], "description": area["description"],
+            "image": area.get("image", ""), "categories": ranked[:3]}
 
 
 def _formation_usable(store, key):
@@ -234,4 +240,7 @@ def prepare_battle(state, run, node, resources, username):
     # Combat entry effects use the scaled enemy HP.
     logs += process_battle_start(None, [char for char in state["characters"]
                                        if alive(char) and is_character_deployed(char)], state=state)
-    return {"formation_id": formation_id, "stage_id": stage_id, **scaling}, logs, enemies
+    encounter = {"formation_id": formation_id, "stage_id": stage_id, **scaling}
+    if node["type"] == "boss":
+        encounter["boss_name"] = get_record(resources.store, "enemy_formation", formation_id)["name"]
+    return encounter, logs, enemies

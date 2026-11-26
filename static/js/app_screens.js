@@ -211,6 +211,7 @@
   }
 
   function exitRoomTo(name) {
+    if (window.currentRoomPlayMode === 'hollow') forgetReconnectRoom();
     window.HollowParty?.close();
     window.HollowMap?.close();
     window.resetRoomEncyclopedia?.();

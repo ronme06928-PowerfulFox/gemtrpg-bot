@@ -60,14 +60,14 @@ function escapeDialogText(value) {
 
 let dismissAppDialog;
 
-function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, validate = null, defaultFocus, danger = false } = {}) {
+function openAppDialog({ title = '確認', message = '', mode = 'confirm', defaultValue = '', placeholder = '', confirmText = 'OK', cancelText = 'キャンセル', required = false, validate = null, defaultFocus, danger = false, theme } = {}) {
     return new Promise((resolve) => {
         dismissAppDialog?.();
         const opener = document.activeElement;
 
         const overlay = document.createElement('div');
         overlay.id = 'app-dialog-backdrop';
-        overlay.dataset.theme = appSurfaceTheme();
+        overlay.dataset.theme = theme || appSurfaceTheme();
         overlay.className = 'modal-backdrop app-dialog-backdrop';
         overlay.innerHTML = `
             <div class="modal-content app-dialog-modal" role="dialog" aria-modal="true" aria-labelledby="app-dialog-title">
@@ -152,6 +152,7 @@ function showAppConfirm(message, options = {}) {
         danger: options.danger ?? (options.defaultFocus === 'cancel'),
         confirmText: options.confirmText || '実行',
         cancelText: options.cancelText || 'キャンセル',
+        theme: options.theme,
     });
 }
 
@@ -933,6 +934,7 @@ async function joinRoom(roomName, initialState = null, entryOptions = null, know
         window.PracticeRoom?.sync(battleState);
         await window.AppLoading.waitForImage(roomBackgroundUrl(battleState));
         await window.AppLoading.end();
+        if (window.currentRoomPlayMode === 'hollow') rememberReconnectRoom(roomName, 'Player');
     } catch (error) {
         window.AppLoading.end();
         console.error('Error joining room:', error);

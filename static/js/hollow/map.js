@@ -10,6 +10,10 @@
     boss: 'M2 6l5 4 5-7 5 7 5-4-2 13H4zm10 6.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4.5 20.5h15V22h-15z',
   };
   const OUTCOMES = {CLEAR: 'クリア', RETREAT: '撤退', DEFEAT: '全滅'};
+  const CATEGORY_COLORS = {
+    出血: '#e06a6a', 破裂: '#ef9a4a', 亀裂: '#8fd0ff', 戦慄: '#b48cf0', 荊棘: '#7fcf7f', 蓄力: '#f0d27a',
+    凝魔: '#6fb8e8', 斬撃: '#e8e8e8', 打撃: '#c9a27a', 貫通: '#a0e0d0', 汎用: '#9aa3b8', 出身強化: '#f0a0c8',
+  };
   const esc = value => window.CatalogWorkspaceParts.h(value ?? '');
   const chooseLabel = (node, next, run, manage) => node.id === run.map.current
     ? '今いるマス' : run.map.visited.includes(node.id) ? '通過'
@@ -20,6 +24,8 @@
   let frame = 0, scrollKey;
 
   function tierName(map) { return map.name || TIERS[map.tier - 1] || ''; }
+
+  function tierRange(tier) { return `T${tier} · ${tier * 10 - 9}〜${tier * 10}F`; }
 
   function panelFor(value) {
     const run = value.hollow.run;
@@ -45,10 +51,6 @@
   }
 
   function renderCard(run, screen, manage) {
-    if (screen === 'map-pending') {
-      return card(`T${esc(run.map_candidates.tier)} · マップ選択待ち`,
-        manage ? '<button class="hollow-route-btn danger" data-route-action="retreat">撤退</button>' : '');
-    }
     const roster = parties(run, state);
     if (screen === 'finished') {
       const result = run.result || {floor: run.floor || 0};
@@ -62,6 +64,29 @@
       ${manage ? `<button class="hollow-route-btn primary" data-route-action="start"${roster.active.length ? '' : ' disabled'}>ランを始める</button>
         ${roster.active.length ? '' : '<p>パーティに味方を加えてください</p>'}`
         : '<p>ホストの出発を待っています</p>'}`);
+  }
+
+  function mapChoice(run, manage) {
+    const {tier, maps} = run.map_candidates;
+    const lead = tier === 1 ? '最初に降りるマップを選んでください'
+      : `${run.floor}F ${run.current_event?.boss_name || '区切りの主'}を退けた。下へ続く道を選んでください`;
+    const cards = maps.map(area => {
+      const image = window.UnitForms.image(area.image);
+      const categories = (area.categories || []).map(category =>
+        `<span class="hollow-category"><i style="--dot:${CATEGORY_COLORS[category] || 'currentColor'}"></i>${esc(category)}</span>`).join('');
+      return `<button type="button" class="hollow-choice-card" data-map-id="${esc(area.map_id)}"${manage ? '' : ' disabled'}>
+        <span class="hollow-choice-art">${image}</span>
+        <span class="hollow-choice-copy"><strong>${esc(area.name)}</strong>
+        <span class="hollow-choice-description">${esc(area.description)}</span>
+        ${categories ? `<span class="hollow-choice-label">出やすい淵遺物</span><span class="hollow-choice-categories">${categories}</span>` : ''}</span>
+        </button>`;
+    }).join('');
+    return `<section class="hollow-choice"><div class="hollow-choice-head"><small>${tierRange(tier)}</small>
+      <h2>${tier === 1 ? '虚夢の辺縁へ降りる' : '次のマップを選ぶ'}</h2>
+      <p>${esc(lead)}</p>
+      ${manage ? '<button class="hollow-route-btn danger" data-route-action="retreat">撤退</button>'
+        : '<p>ホストがマップを選んでいます</p>'}</div>
+      <div class="hollow-choice-cards">${cards}</div></section>`;
   }
 
   function nextIds(run) {
@@ -165,7 +190,8 @@
     }
     const run = state.hollow.run;
     const manage = window.HollowParty.canProgress(state);
-    const html = screen === 'map' ? renderMap(run, manage) : renderCard(run, screen, manage);
+    const html = screen === 'map' ? renderMap(run, manage)
+      : screen === 'map-pending' ? mapChoice(run, manage) : renderCard(run, screen, manage);
     if (markup === html) return;
     const scroll = view.querySelector('.hollow-map-scroll')?.scrollTop || 0;
     const focused = view.contains(document.activeElement) ? document.activeElement.dataset : null;
@@ -176,7 +202,7 @@
       requestDraw();
     }
     if (focused) [...view.querySelectorAll('button')].find(el =>
-      ['node', 'chip', 'routeAction'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
+      ['node', 'chip', 'routeAction', 'mapId'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
   }
 
   function announce(title, subtitle, sinking) {
@@ -254,6 +280,20 @@
     if (!window.HollowParty.canProgress(state)) return;
     const run = state.hollow.run;
     if (action === 'start') return send('hollow_run_start');
+    if (button.dataset.mapId && run.map_candidates) {
+      const current = room;
+      const candidates = run.map_candidates;
+      const area = candidates.maps.find(row => row.map_id === button.dataset.mapId);
+      if (!area) return;
+      const confirmed = await window.showAppConfirm(`${tierRange(candidates.tier)}\n${area.name}`, {
+        title: 'このマップへ進む', confirmText: '進む', defaultFocus: 'cancel', danger: false, theme: 'abyss',
+      });
+      if (confirmed && room === current && state?.hollow.run.map_candidates?.tier === candidates.tier
+          && window.HollowParty.canProgress(state)) {
+        send('hollow_choose_map', {map_id: area.map_id, tier: candidates.tier});
+      }
+      return;
+    }
     if (action === 'retreat') {
       const current = room;
       const confirmed = await window.showAppConfirm('遠征を終えて撤退しますか？',
@@ -329,7 +369,7 @@
     state = value;
     const run = state.hollow.run;
     const screen = panelFor(state);
-    snapshot = {screen, floor: run.floor, tier: run.map?.tier, event: run.current_event?.type};
+    snapshot = {screen, tier: run.map?.tier, candidates: run.map_candidates?.maps};
     if (!window.HollowParty.canProgress(state)) {
       picked = null;
       if (dialog.open) dialog.close('cancel');
@@ -344,8 +384,10 @@
       else if (result === 'VICTORY') announce(`${run.floor}F`, '制圧', false);
       else if (screen === 'finished') announce(`${run.floor}F`, OUTCOMES[run.result?.outcome], false);
       else paint();
-    } else if (previous?.screen === 'map-pending' && screen === 'map' && previous.tier !== snapshot.tier) {
-      announce(`T${snapshot.tier}`, tierName(run.map), false);
+    } else if (previous?.screen === 'map-pending' && screen === 'map') {
+      const chosen = previous.candidates.find(row => row.map_id === run.map.map_id);
+      if (chosen) announce(chosen.name, tierRange(run.map.tier), true);
+      else if (!timer) paint();
     } else if (!timer) paint();
   }
 

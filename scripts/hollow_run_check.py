@@ -70,24 +70,28 @@ def library(author, suffix):
     return foes
 
 
-def expedition(page, title, count, hp, strength):
-    api(page, "POST", "/api/hollow/rooms", room_name=title)
-    user = api(page, "GET", "/api/get_session_user")
-    command_line = api(page, "GET", "/api/get_skill_data")["Ps-01"]["チャットパレット"]
-    actors = [{
-        "id": f"ally-{i}", "name": f"冒険者{i + 1}", "type": "ally", "owner_id": user["user_id"],
-        "hp": hp, "maxHp": hp, "mp": 50, "maxMp": 50, "x": -1, "y": -1,
-        "states": [{"name": "FP", "value": 50}],
-        "params": [{"label": "物理補正", "value": strength}], "commands": command_line,
-    } for i in range(count)]
-    api(page, "POST", "/save_room", room_name=title, state={
-        "characters": actors, "combat_phase": "ready", "round": 0, "timeline": [], "logs": [],
-    })
+def create_owned(page, name, skill, *, hp=150, strength=100, portrait="男冒険者"):
+    data = {
+        "name": name, "image": f"/static/images/characters/{portrait}.png", "commands": skill,
+        "status": [{"label": key, "value": value, "max": value}
+                   for key, value in (("HP", hp), ("MP", 50), ("FP", 50))],
+        "params": [{"label": "物理補正", "value": strength}, {"label": "出身", "value": 1}],
+    }
+    return api(page, "POST", "/api/owned_characters", data=data)["character"]["id"]
+
+
+def enter_room(page, title):
     page.goto(BASE + "/#dungeon")
     page.locator(".dungeon-room").filter(has_text=title).get_by_role("button", name="入る").click()
     page.wait_for_function("socket.connected && !!document.querySelector('#dock-hollow-party')")
-    for actor in actors:
-        command(page, "hollow_party_change", action="add", char_id=actor["id"])
+
+
+def expedition(page, title, count, hp, strength):
+    api(page, "POST", "/api/hollow/rooms", room_name=title)
+    skill = api(page, "GET", "/api/get_skill_data")["Ps-01"]["チャットパレット"]
+    actors = [create_owned(page, f"冒険者{i + 1}", skill, hp=hp, strength=strength) for i in range(count)]
+    enter_room(page, title)
+    command(page, "hollow_party_add_owned", owned_ids=actors)
     command(page, "hollow_run_start")
     return lambda: api(page, "GET", "/load_room?" + urlencode({"name": title}))
 

@@ -75,6 +75,10 @@ def handle_add_character(data):
         return
     if not _require_in_room(room):
         return
+    state = get_room_state(room)
+    if state.get("play_mode") == "hollow":
+        emit('character_operation_denied', {'message': 'ホロウでは「パーティメンバーを追加」を使ってください'}, to=request.sid)
+        return
     char_data = copy.deepcopy(char_data)
     owned_character_id = _resolve_owned_character_tag(data)
     if owned_character_id:
@@ -92,17 +96,8 @@ def handle_add_character(data):
     except CharacterTagValidationError as exc:
         emit('error', {'message': str(exc)}, to=request.sid)
         return
-    state = get_room_state(room)
     baseName = char_data.get('name', '名前不明')
     type = char_data.setdefault('type', 'enemy')
-    if state.get("play_mode") == "hollow":
-        from manager.hollow.run import expedition_run
-        run = expedition_run(state)
-        if run:
-            if run["status"] == "finished" or type != "ally":
-                emit('character_operation_denied', {'message': '遠征中の敵はマスの選択で配置します'}, to=request.sid)
-                return
-            char_data.update(x=-1, y=-1)
     char_data.pop('source_unit_id', None)
     type_jp = "味方" if type == "ally" else "敵"
 
@@ -494,7 +489,7 @@ def handle_delete_character(data):
             return
         if state.get("play_mode") == "hollow":
             from manager.hollow.run import can_delete_character
-            if not can_delete_character(state, char):
+            if char_id in state.get("party", {}).get("order", []) or not can_delete_character(state, char):
                 emit('character_operation_denied', {'message': '遠征中はこのキャラを削除できません。'}, to=request.sid)
                 return
 

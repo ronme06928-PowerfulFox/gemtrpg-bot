@@ -157,9 +157,10 @@ SCHEMAS = {
     ),
     "hollow_map": (
         {"tier": _tier_number, "description": lambda value: isinstance(value, str),
+         "image": lambda value: isinstance(value, str),
          **dict.fromkeys(("event_weights", "encounters", "category_weights"), lambda value: isinstance(value, dict)),
          "boss_formation_id": _text, "boss_stage_id": _text},
-        {"description": "", "event_weights": {}, "encounters": {}, "category_weights": {}}, _inspect_map,
+        {"description": "", "image": "", "event_weights": {}, "encounters": {}, "category_weights": {}}, _inspect_map,
     ),
     "fixed_floor": (
         {"floor": _floor, "type": lambda value: value in ("town", "camp"),
