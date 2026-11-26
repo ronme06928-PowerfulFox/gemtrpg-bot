@@ -85,6 +85,21 @@ def test_contention_and_evade_use_existing_selectors(scene,monkeypatch):
     assert call(skill_ids=['atk'])=={'odds':{}}
 
 
+@pytest.mark.parametrize('initiative,tag,expected',[(5,None,True),(3,None,False),(5,'no_redirect',False)])
+def test_faster_declaration_steals_the_match(scene,monkeypatch,initiative,tag,expected):
+    # 相手が別の人を狙っていても、速ければ確定時の引き寄せでマッチを奪える（B03 §6、2026-11-26）。
+    battle=scene['battle_state']
+    battle['slots']['third']={'actor_id':'third','team':'ally','initiative':1}
+    battle['slots']['a1']['initiative']=initiative
+    battle['slots']['b1']['initiative']=3
+    battle['intents']['b1']['target']['slot_id']='third'
+    if tag:
+        monkeypatch.setitem(all_skill_data,'atk',{'id':'atk','target_scope':'enemy','tags':['対象変更不可']})
+    before=copy.deepcopy(scene)
+    assert ('atk' in call(skill_ids=['atk'])['odds'])==expected
+    assert scene==before
+
+
 def test_room_values_skip_the_api_size_limits():
     # デバッグ用キャラは全スキルのパレットを持ち、API の文字数の上限を超える（2026-11-19 本番で予測が出なかった）。
     from manager.drill.match import calculate_match

@@ -16,6 +16,7 @@ logger=logging.getLogger(__name__)
 
 def calculate_room_odds(room, source, target, candidates, yield_work=lambda: None):
     from events.battle.intent_targets import _build_tags, _infer_mass_type_from_skill, _normalize_target_by_skill
+    from events.battle.common_routes import _try_apply_redirect
     snapshot=deepcopy({'characters':room.get('characters',[]),'battle_state':room['battle_state']})
     battle=snapshot['battle_state']
     battle.setdefault('resolve',{})
@@ -36,6 +37,10 @@ def calculate_room_odds(room, source, target, candidates, yield_work=lambda: Non
             or _infer_target_scope_from_skill_data(opponent_skill)=='self'):
         return {}
     characters={char['id']:char for char in snapshot.get('characters',[])}
+    # Each candidate is forecast as the latest declaration, so it may redirect the opponent (B03 §6).
+    latest=max((int(intent.get(key) or 0) for intent in intents.values() for key in ('intent_rev','committed_at')),
+               default=0)+1
+    unredirected=deepcopy((opponent,slots[target]))
     result={}
     failed=[]
     for skill_id in dict.fromkeys(candidates):
@@ -52,7 +57,11 @@ def calculate_room_odds(room, source, target, candidates, yield_work=lambda: Non
         if error:
             continue
         intents[source]={**intents.get(source,{}),'skill_id':skill_id,'committed':True,
-                         'target':selection,'tags':_build_tags(skill_id,selection)}
+                         'target':selection,'tags':_build_tags(skill_id,selection),
+                         'intent_rev':latest,'committed_at':latest}
+        intents[target],slots[target]=deepcopy(unredirected)
+        _try_apply_redirect(None,None,battle,source)
+        opponent=intents[target]
         _build_resolve_queues(battle,intents)
         queue=battle['resolve']['single_queue']
         if source not in queue or target not in queue:
