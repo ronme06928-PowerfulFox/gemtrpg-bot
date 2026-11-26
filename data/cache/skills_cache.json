@@ -488,8 +488,7 @@
   },
   "E-14": {
     "tags": [
-      "攻撃",
-      "広域"
+      "攻撃"
     ],
     "コスト": "([[W-19|使用時]]):FPを3消費。出血を5得る。",
     "スキルID": "E-14",
@@ -501,7 +500,7 @@
     "基礎威力": "4",
     "属性": "斬撃",
     "特記": "自身に付与された出血5につき、[[W-50|基礎威力]]+1。",
-    "特記処理": "{\"schema\": \"skill_json_rule_v2\", \"id\": \"SKILL_E14\", \"tags\": [\"広域\"], \"power_bonus\": [{\"source\": \"self\", \"param\": \"出血\", \"operation\": \"PER_N_BONUS\", \"per_N\": 5, \"value\": 1}], \"cost\": [{\"type\": \"FP\", \"value\": 3}], \"effects\": [{\"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"target\": \"self\", \"state_name\": \"出血\", \"value\": 5}, {\"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"target\": \"target\", \"state_name\": \"出血\", \"value\": 10}]}",
+    "特記処理": "{\"cost\": [{\"type\": \"FP\", \"value\": 3}], \"effects\": [{\"state_name\": \"出血\", \"target\": \"self\", \"timing\": \"PRE_MATCH\", \"type\": \"APPLY_STATE\", \"value\": 5}, {\"state_name\": \"出血\", \"target\": \"target\", \"timing\": \"HIT\", \"type\": \"APPLY_STATE\", \"value\": 10}], \"id\": \"SKILL_E14\", \"power_bonus\": [{\"operation\": \"PER_N_BONUS\", \"param\": \"出血\", \"per_N\": 5, \"source\": \"self\", \"value\": 1}], \"schema\": \"skill_json_rule_v2\", \"tags\": []}",
     "発動時効果": "([[W-20|的中時]]):[[W-00|出血]]10を付与。",
     "距離": "近接"
   },

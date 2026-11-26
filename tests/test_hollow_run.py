@@ -239,3 +239,14 @@ def test_boss_victory_and_last_departure(dungeon, number, floor):
         assert cleanup_finished_room(ROOM)
         assert Room.query.filter_by(name=ROOM).first() is None
         assert ROOM not in active_room_states
+
+
+def test_line_up_centers_every_other_cell_and_spills_outward():
+    from manager.hollow.floors import line_up
+    chars = [{"id": str(i)} for i in range(8)]
+    line_up(chars[:4], 20, 15, "ally")
+    assert [(c["x"], c["y"]) for c in chars[:4]] == [(6, 4), (6, 6), (6, 8), (6, 10)]
+    line_up(chars[:5], 20, 9, "enemy")
+    assert [(c["x"], c["y"]) for c in chars[:5]] == [(13, 1), (13, 3), (13, 5), (13, 7), (15, 4)]
+    with pytest.raises(ValueError):
+        line_up(chars, 8, 5, "ally")

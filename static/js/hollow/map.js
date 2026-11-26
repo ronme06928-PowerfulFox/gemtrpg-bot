@@ -1,6 +1,8 @@
 (function () {
   const TYPES = {battle: '通常戦闘', elite: '精鋭戦闘', boss: 'ボス'};
-  const typeName = node => node.type === 'start' ? (node.floor ? '降り口' : '地上') : TYPES[node.type];
+  // A later tier starts on the boss node just defeated, so it keeps that boss's look.
+  const look = node => node.type === 'start' && node.floor ? 'boss' : node.type;
+  const typeName = node => look(node) === 'start' ? '地上' : TYPES[look(node)];
   const TIERS = ['入穴', '浅層上部', '浅層中部', '浅層下部', '深層境界'];
   const ICONS = {
     battle: 'M20 3h-5l-9 9-2-2-1.5 1.5 3 3L3 17l1.5 1.5L7 16l3 3 1.5-1.5-2-2 9-9z',
@@ -66,14 +68,14 @@
     const now = node.id === run.map.current;
     const done = !now && run.map.visited.includes(node.id);
     const offered = next.has(node.id);
-    const cls = ['hollow-node', `type-${node.type}`, now && 'is-now', done && 'is-done',
+    const cls = ['hollow-node', `type-${look(node)}`, now && 'is-now', done && 'is-done',
       offered && 'is-next', !now && !done && node.floor <= run.floor && 'is-skipped'].filter(Boolean).join(' ');
     const label = `${node.floor}F ${typeName(node)}、${chooseLabel(node, next, run, manage)}`;
     const shift = Math.max(-20, Math.min(20, Number(node.shift) || 0));
     return `<button type="button" class="${cls}" data-node="${esc(node.id)}" aria-label="${label}"
       ${offered && manage ? '' : 'aria-disabled="true" tabindex="-1"'}
       ${now ? 'aria-current="location"' : ''} style="--shift:${shift}px">
-      ${ICONS[node.type] ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[node.type]}"/></svg>` : ''}
+      ${ICONS[look(node)] ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[look(node)]}"/></svg>` : ''}
       <span>${typeName(node)}</span></button>`;
   }
 

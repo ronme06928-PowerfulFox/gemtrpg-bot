@@ -81,3 +81,11 @@ def test_player_cannot_send_hollow_run_commands(dungeon):
             assert not result["ok"] and "ホストとオーナー" in result["error"]
     finally:
         client.disconnect()
+
+
+def test_later_start_nodes_look_like_the_defeated_boss():
+    # T2 以降のスタートマスは倒したボスのマスの札で描く（2026-11-26 試遊で「降り口」をやめた）。
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1] / "static/js/hollow/map.js").read_text(encoding="utf-8")
+    assert "降り口" not in source
+    assert "node.type === 'start' && node.floor ? 'boss' : node.type" in source

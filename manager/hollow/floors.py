@@ -76,19 +76,34 @@ def alive(char):
     return char is not None and char.get("hp", 0) > 0
 
 
+def _board(state):
+    board = state.get("map_data") or {}
+    return (max(1, min(100, int(board.get("width") or 20))),
+            max(1, min(100, int(board.get("height") or 15))))
+
+
+def line_up(chars, width, height, side):
+    """Every other cell, centred vertically, so the badges above and names below never overlap."""
+    usable = max(1, height - 2)
+    per_column = (usable + 1) // 2
+    ally_x = width // 2 - 4
+    for column in range(0, len(chars), per_column):
+        group = chars[column:column + per_column]
+        x = ally_x - column // per_column * 2
+        if side == "enemy":
+            x = width - 1 - x
+        if not 0 <= x < width:
+            raise ValueError("戦闘のキャラを配置する場所が足りません")
+        top = 1 + (usable - (2 * len(group) - 1)) // 2
+        for index, char in enumerate(group):
+            char.update(x=x, y=top + 2 * index)
+
+
 def place_party(state, active):
     roster = _roster(state)
     for char in roster.values():
         char.update(x=-1, y=-1)
-    board = state.get("map_data") or {}
-    width = max(1, min(100, int(board.get("width") or 20)))
-    height = max(1, min(100, int(board.get("height") or 15)))
-    positions = [(x, y) for x in range(1, max(1, width // 2)) for y in range(1, height - 1)]
-    if len(positions) < len(active):
-        raise ValueError("出撃キャラを配置する場所が足りません")
-    for char_id, (x, y) in zip(active, positions):
-        if char_id in roster:
-            roster[char_id].update(x=x, y=y)
+    line_up([roster[char_id] for char_id in active if char_id in roster], *_board(state), "ally")
 
 
 def _reserve_order(run):
@@ -167,6 +182,8 @@ def prepare_battle(state, run, node, resources, username):
     summary, logs = apply_deployment(state, request, resources[2], room_role="owner")
     if summary["placement"]["unplaced"]:
         raise ValueError("敵を配置する場所が足りません")
+    line_up([char for char in state["characters"] if char.get("type") == "enemy" and is_character_deployed(char)],
+            *_board(state), "enemy")
     if not start_combat_session(state, username):
         raise ValueError("戦闘を開始できません")
     # Deployment replaces the room's nested state with its own candidate.
