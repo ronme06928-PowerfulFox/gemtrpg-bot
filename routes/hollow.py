@@ -17,9 +17,9 @@ hollow_bp = Blueprint("hollow", __name__)
 @hollow_bp.get("/api/hollow/recipes/discovered")
 @session_required
 def discovered_recipes():
-    from manager.hollow.discoveries import discovered
+    from manager.hollow.discoveries import named_discoveries
 
-    return jsonify(recipes=discovered(session["user_id"]))
+    return jsonify(recipes=named_discoveries(session["user_id"]))
 
 
 @hollow_bp.get("/api/hollow/rooms")

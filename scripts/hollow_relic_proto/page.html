@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>淵遺物の画面 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="host" data-screen="reward">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon dock-party" title="パーティ">👥</span>
+    <button type="button" class="dock-icon dock-relic" title="淵遺物" data-open-relics>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 4 8l8 14 8-14-8-6Zm0 3.2L16.9 9H7.1L12 5.2ZM7.6 11h8.8L12 18.7 7.6 11Z"/></svg>
+      <span class="dock-badge" data-dock-count></span>
+    </button>
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">➕</span>
+    <span class="dock-icon">🏹</span>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+    <span class="dock-icon">✨</span>
+  </nav>
+
+  <main class="board" data-board>
+    <section class="screen reward-screen" data-theme="abyss" aria-label="戦闘の報酬">
+      <header class="stage-head">
+        <small data-reward-kicker></small>
+        <h2>淵遺物を1つ選ぶ</h2>
+        <p class="load-line">魔力負荷 <b data-reward-load></b><span data-reward-next></span></p>
+      </header>
+      <div class="reward-cards" data-reward-cards></div>
+      <footer class="stage-actions">
+        <p class="host-wait">ホストが選んでいます</p>
+        <button type="button" class="ui-btn" data-skip>見送る</button>
+        <button type="button" class="ui-btn primary big" data-take disabled>受け取る</button>
+      </footer>
+    </section>
+
+    <section class="screen fusion-screen" data-theme="abyss" aria-label="虚夢変転">
+      <header class="stage-head">
+        <small>19F の後 · ボスの前</small>
+        <h2>虚夢変転</h2>
+        <p>淵遺物を2〜4個合わせて、別の淵遺物に変える。何回でもできる</p>
+      </header>
+      <div class="fusion-body">
+        <section class="fusion-pool" aria-label="材料">
+          <h3>所持の淵遺物</h3>
+          <div class="relic-grid" data-fusion-pool></div>
+          <h3>汎用素材</h3>
+          <div class="material-row" data-fusion-materials></div>
+        </section>
+        <section class="fusion-forge" aria-label="合成">
+          <div class="forge-slots" data-forge-slots></div>
+          <div class="forge-preview" data-forge-preview></div>
+          <div class="wish" data-wish>
+            <label><input type="checkbox" data-wish-toggle> 祈念する <small data-wish-left></small></label>
+            <div class="wish-cats" data-wish-cats></div>
+          </div>
+          <div class="forge-actions">
+            <button type="button" class="ui-btn" data-clear>選び直す</button>
+            <button type="button" class="ui-btn primary big" data-fuse disabled>変転する</button>
+          </div>
+          <div class="forge-result" data-forge-result hidden></div>
+        </section>
+      </div>
+      <footer class="stage-actions">
+        <p class="host-wait">ホストが虚夢変転を行っています</p>
+        <button type="button" class="ui-btn primary" data-end-fusion>変転を終えてボスへ</button>
+      </footer>
+    </section>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line"><span class="strip-state" data-strip-state></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>魔力負荷 <b data-strip-load></b></span><span>参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<dialog class="hollow-dialog relic-dialog" data-theme="abyss" data-relics aria-labelledby="relic-title">
+  <header class="relic-head">
+    <h2 id="relic-title">淵遺物</h2>
+    <button type="button" class="ui-btn" data-close>閉じる</button>
+  </header>
+  <section class="load-box" aria-label="魔力負荷" data-load-box></section>
+  <div class="relic-split">
+    <div>
+      <h3 class="sub-head">所持 <span data-relic-count></span></h3>
+      <div class="relic-grid" data-relic-grid></div>
+      <h3 class="sub-head">汎用素材</h3>
+      <div class="material-row" data-relic-materials></div>
+      <h3 class="sub-head">一時バフ</h3>
+      <ul class="temp-list" data-temp-list></ul>
+    </div>
+    <article class="relic-detail" data-relic-detail></article>
+  </div>
+</dialog>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-set="viewer" data-value="host">ホスト</button>
+    <button type="button" data-set="viewer" data-value="player">プレイヤー</button></div>
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-set="screen" data-value="reward">報酬</button>
+    <button type="button" data-set="screen" data-value="fusion">虚夢変転</button></div>
+  <div class="compare-row"><span>窓</span>
+    <button type="button" data-open-relics>淵遺物の窓</button></div>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

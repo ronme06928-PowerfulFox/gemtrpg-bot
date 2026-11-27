@@ -31,7 +31,10 @@
     const p = row.payload;
     const caption = ['tier','hollow_map'].includes(row.kind) ? (p.tier ? `T${p.tier}` : '—')
       : row.kind === 'fixed_floor' ? floors.floorLabel(p.floor) : row.entry_id;
-    const summary = row.kind === 'fixed_floor' ? h(floors.types[p.type]) : badges(row);
+    const rank = window.UnitHollowRewards?.ranks[p.rank];
+    const summary = row.kind === 'fixed_floor' ? h(floors.types[p.type])
+      : row.kind === 'relic' ? `${h(p.category)} ${h(rank)} ${badges(row)}`
+      : row.kind === 'hollow_load_stage' ? `${h(p.threshold)} ${badges(row)}` : badges(row);
     return `<button type="button" class="bo-workspace__record ${selected ? 'is-selected' : ''}"
       data-ui-kind="${h(row.kind)}" data-unit-action="record" data-id="${h(row.entry_id)}" aria-pressed="${selected}">
       <code class="cat-id" title="${h(row.entry_id)}">${h(caption)}</code><strong title="${h(p.name)}">${h(p.name)}</strong>

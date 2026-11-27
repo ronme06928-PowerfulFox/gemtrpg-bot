@@ -175,7 +175,7 @@ def verify_fusion(page, get_state, recipe):
         ("祈念", common[2:4], "斬撃"),
     ):
         result = socket_call(page, "hollow_preview_fusion", {"floor": 9, "materials": materials})
-        assert result == {"ok": True, "special": kind == "特別"}, result
+        assert result["ok"] and result["special"] == (kind == "特別"), result
         ack = socket_call(page, "hollow_fuse_relics", {"floor": 9, "materials": materials, "wish": wish})
         assert ack["ok"], ack
         current = get_state()["hollow"]["run"]
@@ -183,8 +183,8 @@ def verify_fusion(page, get_state, recipe):
         assert current["fusion"]["wishes_left"] == (0 if kind == "祈念" else 1)
         reports.append({"kind": kind, "materials": materials, **ack["result"], "mana_load": before})
     discovered = api(page, "GET", "/api/hollow/recipes/discovered")["recipes"]
-    assert discovered == [{"recipe_id": recipe["id"], "material_ids": recipe["material_ids"],
-                           "result_id": recipe["result_id"]}]
+    assert [(row["recipe_id"],row["material_ids"],row["result_id"]) for row in discovered] == [
+        (recipe["id"],recipe["material_ids"],recipe["result_id"])]
     return reports
 
 

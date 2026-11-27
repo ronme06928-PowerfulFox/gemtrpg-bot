@@ -73,19 +73,46 @@ def available(kind):
     return {key: row for key, row in prepare_rewards().get(kind, {}).items() if not row["deprecated"]}
 
 
+def _buff_display(key, *, description=False):
+    from manager.buff_catalog import get_buff_by_id
+
+    if not key:
+        return ""
+    buff = get_buff_by_id(key) or {}
+    return (buff.get("description") if description else None) or buff.get("display_name") or buff.get("name") or key
+
+
+def relic_card(item):
+    target = item.get("target") or {"type": "all"}
+    condition = target.get("condition", "")
+    if target["type"] == "nth":
+        label = f"開始時の並びで{target['n']}番目"
+    elif target["type"] == "condition":
+        label = {"hp_lowest": "HPが最も低い味方", "bled_last_round": "前ラウンドで出血した味方"}.get(
+            condition, f"タグ「{condition.removeprefix('has_tag:')}」の味方")
+    else:
+        label = "パーティ全員（控えを含む）"
+    return {key: item.get(key) for key in ("id", "name", "category", "rank", "image", "flavor", "buff_id", "cost_buff_id")} | {
+        "target": dict(target),
+        "target_text": label, "effect_text": _buff_display(item.get("buff_id"), description=True),
+        "cost_text": _buff_display(item.get("cost_buff_id"), description=True),
+    }
+
+
 def project_relics(run):
     if "mana_load" not in run:
         return
     definitions = prepare_rewards().get("relic", {})
-    fields = ("id", "name", "category", "rank", "image", "flavor", "target", "buff_id", "cost_buff_id")
-
     def cards(keys):
-        return [{field: definitions[key].get(field) for field in fields} for key in keys if key in definitions]
+        return [relic_card(definitions[key]) for key in keys if key in definitions]
 
     run["relic_cards"] = cards(run["relics"])
     if reward := run.get("reward"):
         reward["cards"] = cards(reward["relic_ids"])
-    stages = sorted(row["threshold"] for row in available("hollow_load_stage").values())
+    stages = [{"threshold": row["threshold"], "name": _buff_display(row["buff_id"])}
+              for row in sorted(available("hollow_load_stage").values(), key=lambda row: row["threshold"])]
     load = run["mana_load"]
-    run["load_stage"] = {"level": sum(threshold <= load for threshold in stages),
-                         "next_threshold": next((threshold for threshold in stages if threshold > load), None)}
+    run["load_stage"] = {"level": sum(row["threshold"] <= load for row in stages), "stages": stages,
+                         "next_threshold": next((row["threshold"] for row in stages if row["threshold"] > load), None)}
+    for buff in run.get("temp_buffs", []):
+        buff["name"] = _buff_display(buff["buff_id"])

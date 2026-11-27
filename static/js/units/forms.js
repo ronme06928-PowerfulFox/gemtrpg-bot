@@ -9,6 +9,8 @@
     tier: [['basic','基本情報'], ['history','履歴']],
     hollow_map: [['basic','基本情報'], ['events','イベント'], ['encounters','遭遇表'], ['categories','カテゴリ'], ['history','履歴']],
     fixed_floor: [['basic','基本情報'], ['history','履歴']],
+    ...Object.fromEntries(['relic','hollow_load_stage','hollow_recipe','hollow_buff','hollow_item']
+      .map(kind=>[kind,[['basic','基本情報'],['history','履歴']]])),
   };
   const rules = {SPEED_ROLL_MOD:'速度ロール補正', DAMAGE_DEALT_MOD:'与ダメージ補正', APPLY_STATE_ON_CONDITION:'条件付き状態異常付与'};
   const scopes = {ALL:'全員', ALLY:'味方のみ', ENEMY:'敵のみ'};

@@ -330,6 +330,7 @@
     let add = dock.querySelector('#dock-hollow-add');
     const party = dock.querySelector('#dock-hollow-party');
     if (!hollow) {
+      window.HollowRelics?.mountDock(dock,state);
       add?.remove();
       party?.remove();
       return;
@@ -346,6 +347,7 @@
       return control;
     };
     if (!party) dock.prepend(dockButton('dock-hollow-party', 'パーティ', '👥', open));
+    window.HollowRelics?.mountDock(dock,state);
     if (!add) {
       add = dockButton('dock-hollow-add', 'パーティメンバーを追加', '➕', openOwnedPicker);
       const original = dock.querySelector('#dock-add-char-icon');
@@ -360,7 +362,9 @@
     const party = currentParty(state);
     const run = state.hollow.run;
     const tier = run.map?.tier;
-    const status = run.map_candidates ? 'ラン中 · マップ選択待ち' : run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
+    const status = run.reward ? `ラン中 · T${tier} · ${run.floor}F 報酬`
+      : run.fusion ? 'ラン中 · 虚夢変転'
+      : run.map_candidates ? 'ラン中 · マップ選択待ち' : run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
       : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';
     root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">

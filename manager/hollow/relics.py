@@ -11,12 +11,17 @@ def reward_rank_weights(tier, encounter):
     return [(rank, 2 if rank == cap - 1 else 1) for rank in range(1, cap + 1)]
 
 
-def draw_relic(relics, category_weights, rank, rng):
+def relic_pools(relics, category_weights, rank):
     pools = {}
     for key, item in sorted(relics.items()):
         category = item["category"]
         if category in DRAW_CATEGORIES and category_weights.get(category, 0) > 0 and item["rank"] <= rank:
             pools.setdefault(category, {}).setdefault(item["rank"], []).append(key)
+    return pools
+
+
+def draw_relic(relics, category_weights, rank, rng):
+    pools = relic_pools(relics, category_weights, rank)
     if not pools:
         return None
     category = weighted_choice([(key, category_weights[key]) for key in DRAW_CATEGORIES if key in pools], rng)
@@ -91,15 +96,22 @@ def fusion_result(run, relic_ids, materials, relics, active, recipe, wish):
         return recipe["result_id"], False
     if wish is not None and (wish not in DRAW_CATEGORIES or run["fusion"]["wishes_left"] < 1):
         raise ValueError("祈念できるカテゴリと残り回数を確認してください")
-    ranks = [relics[key]["rank"] for key in relic_ids]
-    ranks.extend(int(rank) for rank in materials.elements())
-    categories = Counter(relics[key]["category"] for key in relic_ids if relics[key]["category"] in DRAW_CATEGORIES)
-    weights = ({wish: 1} if wish else categories or dict.fromkeys(DRAW_CATEGORIES, 1))
+    ranks, rank, weights = fusion_forecast(relic_ids, materials, relics, active, wish)
     rng = Random(f"{run['seed']}:fusion:{run['floor']}:{run['fusion']['count']}")
-    result_id = draw_relic(active, weights, fusion_rank(ranks), rng)
+    result_id = draw_relic(active, weights, rank, rng)
     if result_id is None:
         raise ValueError("この材料から作れる淵遺物がありません")
     return result_id, wish is not None
+
+
+def fusion_forecast(relic_ids, materials, relics, active, wish=None):
+    ranks = [relics[key]["rank"] for key in relic_ids]
+    ranks.extend(int(rank) for rank in materials.elements())
+    rank = fusion_rank(ranks)
+    categories = Counter(relics[key]["category"] for key in relic_ids if relics[key]["category"] in DRAW_CATEGORIES)
+    weights = {wish: 1} if wish else categories or dict.fromkeys(DRAW_CATEGORIES, 1)
+    pools = relic_pools(active, weights, rank)
+    return ranks, rank, {key: weights[key] for key in DRAW_CATEGORIES if key in pools}
 
 
 def consume_materials(run, relic_ids, materials):

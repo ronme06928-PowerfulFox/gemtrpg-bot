@@ -6,6 +6,23 @@ from tests.test_hollow_run import ROOM, _resolve_complete, dungeon, expedition, 
 from tests.test_units import unit_app
 
 
+def test_participant_cards_have_readable_details(library):
+    from manager.hollow.runtime import project_relics
+
+    buff = save("hollow_buff", name="効果", description="威力を得る", effect={})
+    cost = save("hollow_buff", name="代償", description="疲労する", effect={})
+    relic = save("relic", category="出血", rank=2, buff_id=buff.entry_id, cost_buff_id=cost.entry_id,
+                 target={"type": "nth", "n": 2})
+    save("hollow_load_stage", threshold=3, buff_id=cost.entry_id)
+    run = {"relics": [relic.entry_id], "mana_load": 1, "reward": {"relic_ids": [relic.entry_id]}}
+    project_relics(run)
+    card = run["reward"]["cards"][0]
+    assert card == run["relic_cards"][0]
+    assert (card["effect_text"], card["cost_text"], card["target_text"]) == ("威力を得る", "疲労する", "開始時の並びで2番目")
+    assert run["load_stage"]["stages"] == [{"threshold": 3, "name": "代償"}]
+    assert "material_ids" not in str(run)
+
+
 def test_load_stage_and_recipe_uniqueness(library):
     save("hollow_load_stage", threshold=0, buff_id="Bu-01")
     with pytest.raises(CatalogValidationError):
@@ -16,6 +33,36 @@ def test_load_stage_and_recipe_uniqueness(library):
     assert recipe.payload["material_ids"] == [one, two]
     with pytest.raises(CatalogValidationError):
         save("hollow_recipe", material_ids=[one, two], result_id=result)
+
+
+def test_hollow_workspace_reward_kinds_save_and_validate(expedition):
+    _, clients, _, _ = expedition
+    client = clients["admin"]
+
+    def create(kind, **payload):
+        response = client.post(f"/api/units/{kind}", json={"payload": {"domain": "hollow", **payload}})
+        assert response.status_code == 201, response.json
+        entry = response.json["entry"]
+        assert client.get(f"/api/units/{kind}/{entry['entry_id']}").json["entry_id"] == entry["entry_id"]
+        return entry["entry_id"]
+
+    buff = create("hollow_buff", name="光", effect={"effects": [{"timing": "HIT", "type": "APPLY_STATE",
+                      "state_name": "出血", "value": 1}]})
+    a, b = (create("relic", name=f"遺物{rank}", rank=rank, category="出血", buff_id=buff) for rank in (1, 2))
+    create("hollow_item", name="びん", effect={"type": "buff", "buff_id": buff})
+    create("hollow_load_stage", name="段階", threshold=5, buff_id=buff)
+    create("hollow_recipe", name="組", material_ids=[a, b], result_id=a)
+    options = client.get("/api/units?domain=hollow").json
+    assert "出身強化" in options["relic_all_categories"] and "出身強化" not in options["relic_categories"]
+    for kind, invalid in (
+        ("relic", {"rank": 0, "category": "出血", "buff_id": buff}),
+        ("hollow_load_stage", {"threshold": -1, "buff_id": buff}),
+        ("hollow_recipe", {"material_ids": [a, a], "result_id": b}),
+        ("hollow_item", {"effect": {"type": "buff", "buff_id": a}}),
+        ("hollow_buff", {"effect": {"effects": [{"timing": "BAD"}]}}),
+    ):
+        response = client.post(f"/api/units/{kind}", json={"payload": {"name": "不正", **invalid}})
+        assert response.status_code == 422, response.json
 
 
 def test_reward_seed_rank_and_duplicate():
@@ -107,7 +154,8 @@ def test_reward_fusion_and_private_discovery_survive_reload(dungeon):
     run = get_room_state(ROOM)["hollow"]["run"]
     assert (run["relics"], run["mana_load"], run["fusion"]["wishes_left"]) == ([prize], 2, 1)
     owner = clients["owner"].get("/api/hollow/recipes/discovered").json
-    assert owner == {"recipes": [{"recipe_id": recipe, "material_ids": [first, second], "result_id": prize}]}
+    assert owner == {"recipes": [{"recipe_id": recipe, "material_ids": [first, second], "result_id": prize,
+                                   "material_names": ["relic", "relic"], "result_name": "relic"}]}
     assert clients["guest"].get("/api/hollow/recipes/discovered").json == {"recipes": []}
     assert "material_ids" not in str(clients["guest"].get("/load_room", query_string={"name": ROOM}).json)
     end_fusion(ROOM, "owner", 9)

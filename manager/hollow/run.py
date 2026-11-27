@@ -14,7 +14,7 @@ from manager.hollow.map import next_nodes, node_at
 from manager.hollow.party import PARTY_SIZE, prune_party
 from manager.hollow import relics
 from manager.hollow.rooms import is_hollow_room
-from manager.hollow.runtime import available, get_reward, prepare_rewards
+from manager.hollow.runtime import available, get_reward, prepare_rewards, relic_card
 from manager.room_manager import broadcast_log, broadcast_state_update, get_room_state, save_specific_room_state
 
 
@@ -174,7 +174,15 @@ def choose_reward(room, user_id, floor, relic_id):
             if relic_id not in reward["relic_ids"] or (definition := get_reward("relic", relic_id)) is None:
                 raise ValueError("報酬の候補から選んでください")
             result = relics.acquire(run, relic_id, definition)
+            if result["material"]:
+                rank = "ⅠⅡⅢⅣⅤ"[result["rank"] - 1]
+                message = f"{definition['name']} は所持済み。素材{rank}を得た"
+            else:
+                message = f"{definition['name']} を手に入れた"
+        else:
+            message = "報酬を見送った"
         del run["reward"]
+        broadcast_log(room, message, "system", save=False)
         _continue_after_reward(room, state, run)
         save_specific_room_state(room)
         return {"reward": result}
@@ -199,8 +207,11 @@ def _fusion_input(run, materials):
 def preview_fusion(room, user_id, floor, materials):
     with _get_round_transition_lock(room):
         run = _fusion_run(room, user_id, floor)
-        *_, recipe = _fusion_input(run, materials)
-        return {"special": recipe is not None}
+        definitions, active, keys, counts, recipe = _fusion_input(run, materials)
+        if recipe:
+            return {"special": True}
+        _, _, odds = relics.fusion_forecast(keys, counts, definitions, active)
+        return {"special": False, "weights": odds}
 
 
 def fuse_relics(room, user_id, floor, materials, wish):
@@ -216,6 +227,7 @@ def fuse_relics(room, user_id, floor, materials, wish):
         run["fusion"]["count"] += 1
         run["fusion"]["wishes_left"] -= int(used_wish)
         result = relics.acquire(run, result_id, active[result_id], charge=False)
+        run["fusion"]["result"] = {**result, "special": recipe is not None, "card": relic_card(active[result_id])}
         save_specific_room_state(room)
         return {"result": result}
 

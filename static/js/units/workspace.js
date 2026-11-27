@@ -4,6 +4,7 @@
   const views = window.UnitViews;
   const patterns = window.UnitPatterns;
   const floors = window.UnitHollowFloors;
+  const rewards = window.UnitHollowRewards;
   const {button, badges, sections} = forms;
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
@@ -33,10 +34,11 @@
     const detail = get('.unit-detail');
     const dialog = get('.unit-dialog');
     const notify = notice(get('.cat-message'));
-    const masters = Object.fromEntries(views.master.map(kind => [kind,[]]));
+    const masterKinds = hollow ? [...views.master,'buff'] : views.master;
+    const masters = Object.fromEntries(masterKinds.map(kind => [kind,[]]));
     const state = {author:false, busy:false, kind:'unit', records:[], selected:null, draft:null, section:'basic',
       search:'', collection:'', mark:'', deprecated:false, dirty:false, check:null, refs:null, history:null, picker:null,
-      rawConstraints:null, conflict:false, wideConfirm:false, patternAdditions:new Map()};
+      rawConstraints:null, rawEffect:null, conflict:false, wideConfirm:false, patternAdditions:new Map()};
     let checkTimer, checkToken = 0, dialogFocus;
     let referenceBack = options.onReferenceBack;
     const backButton = () => referenceBack ? button(`← ${h(options.originName)}`, 'reference-back', '', 'cat-reference-back') : '';
@@ -105,10 +107,11 @@
     function renderList() {
       const query = state.search.trim().toLowerCase();
       const isFloor = floors.supports(state.kind);
-      const rows = tabRows().filter(row => (isFloor || state.kind === 'unit_collection' || !state.collection || row.payload.collection_id === state.collection) &&
+      const rows = tabRows().filter(row => (isFloor || rewards.supports(state.kind) || state.kind === 'unit_collection' || !state.collection || row.payload.collection_id === state.collection) &&
         (state.kind !== 'unit' || !state.mark || row.payload.marks?.includes(state.mark)) &&
         (row.entry_id + ' ' + row.payload.name + ' ' + (row.payload.tags || []).join(' ')).toLowerCase().includes(query));
       if (isFloor) rows.sort((a,b) => floors.number(a) - floors.number(b));
+      if (rewards.supports(state.kind)) rows.sort(rewards.compare);
       get('.unit-records').innerHTML = rows.map(row => views.recordRow(row,row.entry_id === state.selected)).join('')
         || '<p class="cat-empty">該当する資源はありません。</p>';
     }
@@ -123,10 +126,10 @@
       const inactive = (...tabs) => tabs.map(tab => `<button type="button" class="cat-button" disabled>${tab}</button>`).join('');
       get('.unit-tabs').innerHTML = hollow ? group('敵', activeTabs(hollowLabels)) +
         group('階',activeTabs(floors.labels) + inactive('イベント','宝箱')) +
-        group('報酬',inactive('淵遺物','ドロップ表','バフ','アイテム')) : activeTabs(labels);
+        group('報酬',activeTabs(rewards.labels) + inactive('ドロップ表')) : activeTabs(labels);
       get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
       get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
-        ${state.kind !== 'unit_collection' && !floors.supports(state.kind) ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
+        ${state.kind !== 'unit_collection' && !floors.supports(state.kind) && !rewards.supports(state.kind) ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
         ${state.kind === 'unit' ? `<label class="cat-field">印<select data-filter="mark"><option value="">すべての印</option>${Object.entries(forms.markLabels).map(([key,label])=>`<option value="${key}" ${state.mark === key ? 'selected' : ''}>${label}</option>`).join('')}</select></label>` : ''}
         <label class="unit-inline"><input type="checkbox" aria-label="廃止済みも表示" data-filter="deprecated" ${state.deprecated ? 'checked' : ''}> 廃止済み</label>`;
       renderList();
@@ -143,6 +146,7 @@
       const renderForm = floors.supports(state.kind) ? floors.render : forms.render;
       const sectionBody = state.section === 'history'
         ? (persisted ? history(state.history, {revision:row.revision, restore:canEdit(), button}) : '<p class="cat-caption">保存すると履歴が表示されます。</p>')
+        : rewards.supports(state.kind) ? rewards.render(state.kind,row,canEdit(),masters,state.records,state.rawEffect)
         : renderForm(state.section,{kind:state.kind,row,edit:canEdit(),masters,records:state.patternAdditions.size ? state.records.map(withPendingPatterns) : state.records});
       detail.innerHTML = `${backButton()}<header class="unit-detail-header"><code class="cat-id">${h(state.selected || '新規')}</code>
         <h3 data-unit-title>${h(payload().name || '名前未入力')}</h3>${badges(row)}</header>
@@ -183,7 +187,9 @@
       if (constraints && state.rawConstraints !== null && constraints !== document.activeElement) constraints.value = state.rawConstraints;
       get('[data-unit-title]').textContent = payload().name || '名前未入力';
       const isFloor = floors.supports(state.kind);
-      get('.unit-preview').innerHTML = isFloor ? floors.preview(state.kind,payload()) : views.preview(state.kind,state.draft,state.records,masters);
+      get('.unit-preview').innerHTML = isFloor ? floors.preview(state.kind,payload())
+        : rewards.supports(state.kind) ? rewards.preview(state.kind,payload(),state.records,masters)
+        : views.preview(state.kind,state.draft,state.records,masters);
       if (isFloor) floors.update(get('.unit-section'),payload(),state.check?.errors || {});
       if (canEdit()) get('.unit-check').innerHTML = state.check ? views.issues(state.check) : '<p class="cat-caption">確認中…</p>';
       const refs = state.refs;
@@ -212,6 +218,11 @@
       if (!canEdit() || !state.draft) return;
       if (state.rawConstraints !== null) {
         state.check = {errors:{constraints:'スキルの制約にはJSON配列を入力してください。'}};
+        updatePreview();
+        return;
+      }
+      if (state.rawEffect !== null) {
+        state.check = {errors:{effect:'効果にはJSONオブジェクトを入力してください。'}};
         updatePreview();
         return;
       }
@@ -258,6 +269,7 @@
       state.history = null;
       state.conflict = false;
       state.rawConstraints = null;
+      state.rawEffect = null;
       state.dirty = false;
       state.check = null;
       renderFrame();
@@ -269,8 +281,9 @@
     }
 
     async function reload(id = state.selected, section = state.section, fromReference = false) {
-      const {entries, marks, relic_categories} = await api.list(domain);
+      const {entries, marks, relic_categories, relic_all_categories} = await api.list(domain);
       floors.configureCategories(relic_categories || []);
+      rewards.configure(relic_all_categories || []);
       forms.configureMarks(marks || {});
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
       const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
@@ -279,7 +292,8 @@
       if (fromReference && !row) notify('リンク先のユニットが見つかりません。', true);
     }
 
-    function startNew(kind, value = floors.supports(kind) ? floors.defaults(kind,state.records) : forms.defaults(kind)) {
+    function startNew(kind, value = floors.supports(kind) ? floors.defaults(kind,state.records)
+      : rewards.supports(kind) ? rewards.defaults(kind) : forms.defaults(kind)) {
       state.patternAdditions.clear();
       state.kind = kind;
       state.selected = null;
@@ -288,6 +302,7 @@
       state.section = 'basic';
       state.conflict = false;
       state.rawConstraints = null;
+      state.rawEffect = null;
       state.draft = {payload:{...clone(value),domain}, visibility:'public', deprecated:false};
       closeDialog();
       renderFrame();
@@ -505,7 +520,7 @@
     }
 
     async function save() {
-      if (state.conflict || state.rawConstraints !== null) return;
+      if (state.conflict || state.rawConstraints !== null || state.rawEffect !== null) return;
       if (addTag()) update(true);
       const {entry,warnings} = await api.save(state.kind,state.selected,submitBody());
       state.dirty = false;
@@ -712,6 +727,7 @@
           rule_id:'rule_' + Date.now()});
         update(true);
       }
+      if (action === 'recipe-material') { addRow('material_ids',''); update(true); }
       if (action === 'save') await save();
       if (action === 'duplicate-to-hollow') {
         if (state.dirty) {
@@ -854,12 +870,42 @@
         update(true);
         return;
       }
+      const model = rewards.models[state.kind];
+      if (model && canEdit() && state.draft && !state.busy) {
+        const field = input.dataset.field;
+        if (input.hasAttribute('data-duration-mode')) {
+          setPath(input.dataset.durationField || 'default_duration',input.value === 'permanent' ? -1 : 1);
+          update(true);
+          return;
+        }
+        if (field) {
+          try {
+            setPath(field,model.parseField(field,input.value));
+            if (field === 'effect') state.rawEffect = null;
+          } catch {
+            if (field === 'effect') state.rawEffect = input.value;
+            else setPath(field,input.value);
+          }
+          update();
+          return;
+        }
+      }
       const path = input.dataset.path;
       if (!path || !canEdit() || !state.draft || state.busy) return;
       let value = input.type === 'checkbox' ? input.checked : input.type === 'number' ? Number(input.value || 0) : input.value;
       if (path === 'other_lines') value = input.value.split(/\r?\n/).filter(line => line.trim());
       if (path.endsWith('.pattern_id')) value ||= null;
       if (input.validity.badInput) return;
+      if (state.kind === 'relic') {
+        if (path === 'rank') value = Number(value);
+        if (path === 'target.type' || path === 'target.condition' || path === 'target.tag') {
+          if (path === 'target.type') setPath('target',value === 'nth' ? {type:value,n:1}
+            : value === 'condition' ? {type:value,condition:'hp_lowest'} : {type:'all'});
+          else setPath('target.condition',path === 'target.tag' ? 'has_tag:' + value : value);
+          update(path !== 'target.tag');
+          return;
+        }
+      }
       if (path === 'behavior.constraints') {
         try {
           value = parse(input.value);
@@ -928,7 +974,7 @@
     run(async () => {
       const user = await window.CatalogApi.user();
       state.author = !!(user.is_catalog_author || user.is_app_admin);
-      await Promise.all(views.master.map(async kind => { masters[kind] = (await window.CatalogApi.list(kind)).entries; }));
+      await Promise.all(masterKinds.map(async kind => { masters[kind] = (await window.CatalogApi.list(kind)).entries; }));
       await reload(options.entryId || null, 'basic', !!options.entryId);
     });
     return {allowLeave: canLeave, destroy};

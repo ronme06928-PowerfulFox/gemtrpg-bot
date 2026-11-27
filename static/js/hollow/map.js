@@ -10,10 +10,7 @@
     boss: 'M2 6l5 4 5-7 5 7 5-4-2 13H4zm10 6.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4.5 20.5h15V22h-15z',
   };
   const OUTCOMES = {CLEAR: 'クリア', RETREAT: '撤退', DEFEAT: '全滅'};
-  const CATEGORY_COLORS = {
-    出血: '#e06a6a', 破裂: '#ef9a4a', 亀裂: '#8fd0ff', 戦慄: '#b48cf0', 荊棘: '#7fcf7f', 蓄力: '#f0d27a',
-    凝魔: '#6fb8e8', 斬撃: '#e8e8e8', 打撃: '#c9a27a', 貫通: '#a0e0d0', 汎用: '#9aa3b8', 出身強化: '#f0a0c8',
-  };
+  const relics = window.HollowRelics;
   const esc = value => window.CatalogWorkspaceParts.h(value ?? '');
   const chooseLabel = (node, next, run, manage) => node.id === run.map.current
     ? '今いるマス' : run.map.visited.includes(node.id) ? '通過'
@@ -31,6 +28,8 @@
     const run = value.hollow.run;
     if (run.status === 'finished') return 'finished';
     if (value.combat_phase === 'active') return 'battle';
+    if (run.reward) return 'reward';
+    if (run.fusion) return 'fusion';
     if (run.map_candidates) return 'map-pending';
     return run.status === 'in_progress' ? 'map' : 'forming';
   }
@@ -73,7 +72,7 @@
     const cards = maps.map(area => {
       const image = window.UnitForms.image(area.image);
       const categories = (area.categories || []).map(category =>
-        `<span class="hollow-category"><i style="--dot:${CATEGORY_COLORS[category] || 'currentColor'}"></i>${esc(category)}</span>`).join('');
+        `<span class="hollow-category"><i style="--dot:${relics.color(category)}"></i>${esc(category)}</span>`).join('');
       return `<button type="button" class="hollow-choice-card" data-map-id="${esc(area.map_id)}"${manage ? '' : ' disabled'}>
         <span class="hollow-choice-art">${image}</span>
         <span class="hollow-choice-copy"><strong>${esc(area.name)}</strong>
@@ -191,18 +190,25 @@
     const run = state.hollow.run;
     const manage = window.HollowParty.canProgress(state);
     const html = screen === 'map' ? renderMap(run, manage)
-      : screen === 'map-pending' ? mapChoice(run, manage) : renderCard(run, screen, manage);
+      : screen === 'map-pending' ? mapChoice(run, manage)
+      : screen === 'reward' ? relics.rewardView(run, manage, TYPES[run.current_event?.type])
+      : screen === 'fusion' ? relics.fusionView(run, manage) : renderCard(run, screen, manage);
     if (markup === html) return;
     const scroll = view.querySelector('.hollow-map-scroll')?.scrollTop || 0;
+    const panelScroll = changed ? 0 : view.querySelector('.hr-screen')?.scrollTop || 0;
     const focused = view.contains(document.activeElement) ? document.activeElement.dataset : null;
     view.innerHTML = html;
     markup = html;
+    const panel = view.querySelector('.hr-screen');
+    if (panel) panel.scrollTop = panelScroll;
     if (screen === 'map') {
       view.querySelector('.hollow-map-scroll').scrollTop = scroll;
       requestDraw();
     }
-    if (focused) [...view.querySelectorAll('button')].find(el =>
-      ['node', 'chip', 'routeAction', 'mapId'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
+    if (focused) [...view.querySelectorAll('button,input')].find(el =>
+      (focused.relicAction && el.dataset.relicAction === focused.relicAction && el.dataset.key === focused.key)
+      || (focused.relicWish !== undefined && el.hasAttribute('data-relic-wish'))
+      || ['node', 'chip', 'routeAction', 'mapId'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
   }
 
   function announce(title, subtitle, sinking) {
@@ -275,6 +281,7 @@
   async function click(event) {
     const button = event.target.closest('button');
     if (!button || !state || busy || timer) return;
+    if (button.dataset.relicAction) return relics.click(button);
     const action = button.dataset.routeAction;
     if (action === 'return') return leaveRoomTo('dungeon');
     if (!window.HollowParty.canProgress(state)) return;
@@ -312,6 +319,7 @@
   }
 
   function close() {
+    relics.close();
     clearTimeout(timer);
     clearTimeout(leavingTimer);
     if (pendingRound) window.EventBus?.emit('battle:round:banner:finished', {round: pendingRound});
@@ -341,6 +349,7 @@
       curtain = root.querySelector('#hollow-map-curtain');
       if (!view || !curtain) return;
       view.onclick = click;
+      view.onchange = event => relics.change(event.target);
       view.onpointermove = tip;
       view.onpointerleave = event => {
         const el = event.currentTarget.querySelector('.hollow-map-tip');
@@ -367,6 +376,7 @@
     }
     const previous = snapshot;
     state = value;
+    relics.sync(state, room, () => { if (!timer) paint(); });
     const run = state.hollow.run;
     const screen = panelFor(state);
     snapshot = {screen, tier: run.map?.tier, candidates: run.map_candidates?.maps};
