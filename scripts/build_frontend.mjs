@@ -96,6 +96,7 @@ const CLASSIC_SCRIPTS = [
   'js/units/views.js',
   'js/units/workspace.js',
   'js/main.js',
+  'js/hollow/finish.js',
   'js/hollow/party.js',
   'js/hollow/pins.js',
   'js/hollow/relics.js',

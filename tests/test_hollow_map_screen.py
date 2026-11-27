@@ -62,6 +62,7 @@ def test_map_visibility_through_load_and_broadcast(dungeon, monkeypatch):
         assert snapshot["hollow"]["run"] == sent[-1][1]["hollow"]["run"]
         public = snapshot["hollow"]["run"]["map"]
         assert "seed" not in public and public["last_floor"] == 10 and public["map_id"] == "HM-01"
+        assert public["map_name"] == "試験マップ1"
         assert len(public["rows"]) == min(floor + 2, 10) + 1
         allowed = {node["id"] for row in public["rows"] for node in row}
         assert all(set(node["next"]) <= allowed for row in public["rows"] for node in row)
@@ -104,3 +105,49 @@ def test_later_start_nodes_look_like_the_defeated_boss():
     source = (Path(__file__).resolve().parents[1] / "static/js/hollow/map.js").read_text(encoding="utf-8")
     assert "降り口" not in source
     assert "node.type === 'start' && node.floor ? 'boss' : node.type" in source
+
+
+def test_finish_screen_depth_fog_and_clear_transition():
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    script = r'''
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+let html = '';
+const window = {HollowEvents:{types:{}}, CatalogWorkspaceParts:{h: String}, currentRoomRole:'owner'};
+const context = {window, currentUserId:'owner', matchMedia: () => ({matches:false}), performance:{now:() => 0}};
+vm.createContext(context);
+for (const name of ['finish','party','map']) {
+  vm.runInContext(fs.readFileSync('static/js/hollow/' + name + '.js','utf8'), context);
+}
+const finish = window.HollowFinish;
+assert.equal(finish.revealedFloor({mapId:'HM-01', tier:1, visible:4}, {mapId:'HM-01', tier:1, visible:5}), 5);
+for (const previous of [null,{mapId:'HM-02',tier:2,visible:4},{mapId:'HM-01',tier:1,visible:3}]) {
+  assert.equal(finish.revealedFloor(previous,{mapId:'HM-01',tier:1,visible:5}), null);
+}
+const active = {status:'in_progress'};
+assert.equal(finish.liveClear(active,{status:'finished',result:{floor:50,outcome:'CLEAR'}}), true);
+for (const [before,floor,outcome] of [[null,50,'CLEAR'],[active,49,'CLEAR'],[active,50,'RETREAT'],
+                                     [{status:'finished'},50,'CLEAR']]) {
+  assert.equal(finish.liveClear(before,{status:'finished',result:{floor,outcome}}), false);
+}
+const state = {characters:[{id:'a',type:'ally'},{id:'b',type:'ally'}],
+  party:{order:['a','b']}, hollow:{members:[{id:'owner',name:'試験ホスト',role:'owner'}],
+  host_user_id:'owner',run:{status:'in_progress',floor:44,map:{tier:5,map_name:'淵の喉'},mana_load:18,
+  load_stage:{level:3},log:[{floor:40,type:'boss',outcome:'VICTORY'}]}}};
+const root = {set innerHTML(value) {html=value;}, querySelector:() => null};
+window.HollowParty.renderRibbon(root,state);
+for (const text of ['44F','T5 淵の喉','試験ホスト','魔力負荷','18','段階 3','2 / 6 人']) assert.ok(html.includes(text), text);
+assert.equal((html.match(/class="hollow-depth-tier/g)||[]).length, 5);
+assert.equal((html.match(/is-cleared/g)||[]).length, 4);
+const map = fs.readFileSync('static/js/hollow/map.js','utf8');
+assert.match(map,/row \? '' : ' is-fog'/);
+const art = fs.readFileSync('static/js/hollow/finish.js','utf8');
+assert.match(art,/querySelectorAll\('\.hollow-map-row\.is-fog, \.hollow-map-row\.is-revealing'\)/);
+'''
+    result = subprocess.run(["node", "--input-type=module", "-e", script], cwd=root,
+                            capture_output=True, text=True, encoding="utf-8", timeout=20)
+    assert result.returncode == 0, result.stderr

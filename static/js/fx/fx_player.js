@@ -23,6 +23,7 @@
     if (!LEVEL_LABELS[level]) return;
     try {
       localStorage.setItem(STORAGE_KEY, level);
+      window.dispatchEvent(new Event('fx:level'));
     } catch (_e) {
       // 保存できなくても今の画面には反映しない（次回は既定値）
     }

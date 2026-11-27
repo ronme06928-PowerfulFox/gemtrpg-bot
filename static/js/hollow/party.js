@@ -358,18 +358,47 @@
     add.classList.toggle('disabled', add.disabled);
   }
 
+  function depthScale(run) {
+    const floor = Math.max(0, Math.min(50, Number(run.floor) || 0));
+    const marker = Math.max(1, Math.ceil(floor / 10));
+    // Reaching the deepest defeated boss also means clearing every earlier tier.
+    const cleared = Math.max(0, ...(run.log || [])
+      .filter(entry => entry.type === 'boss' && entry.outcome === 'VICTORY')
+      .map(entry => Math.floor(entry.floor / 10)));
+    const tiers = Array.from({length:5}, (_, index) => {
+      const tier = index + 1;
+      const width = Math.max(0, Math.min(100, (floor - index * 10) * 10));
+      return `<span class="hollow-depth-tier${tier <= cleared ? ' is-cleared' : ''}" style="--depth-fill:${width}%">
+        <i></i>${marker === tier ? '<s></s>' : ''}<small>T${tier}</small></span>`;
+    }).join('');
+    return `<div class="hollow-depth-scale" role="img" aria-label="現在 ${floor}F／50F・踏破 ${cleared} 区切り">${tiers}</div>`;
+  }
+
   function renderRibbon(root, state) {
     const party = currentParty(state);
     const run = state.hollow.run;
-    const tier = run.map?.tier;
-    const status = run.reward ? `ラン中 · T${tier} · ${run.floor}F 報酬`
-      : run.fusion ? 'ラン中 · 虚夢変転'
-      : run.map_candidates ? 'ラン中 · マップ選択待ち' : run.status === 'in_progress' && tier ? `ラン中 · T${tier} · ${run.floor}F`
-      : {forming: 'パーティ編成中', in_progress: 'ラン中', finished: '遠征終了'}[run.status] || '—';
     const host = party.members.find(member => member.id === party.host)?.name || '—';
-    root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">
-      <strong>${status}</strong><span>ホスト ${escape(host)}</span><span>${party.order.length} / ${capacity} 人</span>
-      ${party.owner ? button('code', '参加コード') : ''}</div>`;
+    const hostLabel = `<span class="hollow-depth-host">ホスト ${escape(host)}</span>`;
+    const members = `<span>${party.order.length} / ${capacity} 人</span>`;
+    const code = party.owner ? button('code', '参加コード') : '';
+    const floor = escape(run.floor || 0);
+    let content;
+    if (run.status === 'finished') {
+      const outcome = {CLEAR:'クリア', RETREAT:'撤退', DEFEAT:'全滅'}[run.result?.outcome] || '遠征終了';
+      content = `<div class="hollow-depth-top"><strong>${outcome}</strong><span>到達階 ${escape(run.result?.floor ?? run.floor)}F</span></div>`;
+    } else if (run.status === 'forming') {
+      content = `<div class="hollow-depth-top"><strong>出発前</strong>${hostLabel}</div>
+        <div class="hollow-depth-sub">${members}${code}</div>`;
+    } else {
+      const tier = run.map?.tier;
+      const effect = run.reward ? '報酬' : run.fusion ? '虚夢変転' : run.map_candidates ? 'マップ選択待ち' : '';
+      const label = tier ? `T${tier} ${run.map.map_name || run.map.name || ''}`.trim() : 'ラン中';
+      content = `<div class="hollow-depth-top"><strong>${floor}F</strong><span class="hollow-depth-name" title="${escape(label)}">${escape(label)}</span>${hostLabel}</div>
+        ${effect ? `<div class="hollow-depth-phase">ラン中 · ${effect}</div>` : ''}${depthScale(run)}
+        <div class="hollow-depth-sub"><span>魔力負荷 <b>${escape(run.mana_load ?? 0)}</b> · 段階 ${escape(run.load_stage?.level ?? 0)}</span>
+          ${members}${code}</div>`;
+    }
+    root.innerHTML = `<div class="hollow-ribbon" data-theme="abyss">${content}</div>`;
     root.querySelector('[data-party-action="code"]')?.addEventListener('click', reviewCode);
   }
 

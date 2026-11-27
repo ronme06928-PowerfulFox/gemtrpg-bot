@@ -94,7 +94,8 @@ def project_map(layout, current_floor):
     visible_through = current_floor + SIGHT
     rows = [row for row in layout["rows"] if row[0]["floor"] <= visible_through]
     visible_ids = {node["id"] for row in rows for node in row}
-    return {"tier": layout["tier"], "map_id": layout["map_id"], "name": layout.get("name", ""), "last_floor": last,
+    return {"tier": layout["tier"], "map_id": layout["map_id"], "name": layout.get("name", ""),
+            "map_name": layout.get("map_name", ""), "last_floor": last,
             "current": layout["current"], "visited": [key for key in layout["visited"] if key in visible_ids],
             "rows": [[{**node, "next": [key for key in node["next"] if key in visible_ids]}
                       for node in row] for row in rows]}

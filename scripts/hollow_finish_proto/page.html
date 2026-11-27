@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ホロウの仕上げ 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="host" data-fog="hd" data-seal="hd" data-strip="gauge">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 淵の喉の先遣隊</span>
+    <span class="room-user">リオ（ホスト）</span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon dock-party" title="パーティ">👥</span>
+    <span class="dock-icon">💎</span>
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+  </nav>
+
+  <main class="board" data-board>
+    <section class="screen map-screen" data-theme="abyss" aria-label="地図">
+      <header class="map-head">
+        <div class="map-title"><small>T5 · 41〜50F</small><h2>淵の喉</h2></div>
+        <div class="map-now"><span class="map-floor" data-floor></span><span class="map-hint" data-hint></span></div>
+        <button type="button" class="ui-btn danger">撤退</button>
+      </header>
+      <div class="map-scroll" data-scroll><div class="map-canvas"><div class="map-rows" data-rows></div></div></div>
+    </section>
+
+    <section class="screen seal-screen" data-theme="abyss" data-seal-screen aria-live="polite"></section>
+    <section class="screen end-screen" data-theme="abyss" aria-label="ランの結果">
+      <div class="start-card end-card">
+        <small>ランの結果</small>
+        <h2>クリア</h2>
+        <p class="end-lead">浅層 50F 踏破</p>
+        <dl class="end-pair"><dt>到達階</dt><dd>50F</dd><dt>初踏破の成果</dt>
+          <dd><ul class="end-growth"><li>リオ 経験＋5・通過点＋5（T5 初踏破）</li><li>ミナ 経験＋5・通過点＋5（T5 初踏破）</li></ul></dd>
+          <dt>パーティ</dt><dd>リオ・ミナ・カイ・セラ</dd></dl>
+        <button type="button" class="ui-btn primary big">ダンジョンへ戻る</button>
+      </div>
+    </section>
+
+    <div class="curtain" data-theme="abyss" data-curtain aria-hidden="true">
+      <div class="curtain-inner"><b data-curtain-main></b><span data-curtain-sub></span></div>
+    </div>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip strip-plain" data-theme="abyss" aria-label="ホロウの状態（今）">
+      <div class="strip-line"><span class="strip-state" data-strip-state></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>4 / 6 人</span><span>参加コード</span></div>
+    </section>
+    <section class="hollow-strip strip-gauge" data-theme="abyss" aria-label="ホロウの状態（深度計）">
+      <div class="gauge-top"><b data-gauge-floor></b><span data-gauge-map></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="gauge" data-gauge aria-hidden="true"></div>
+      <div class="gauge-sub"><span>魔力負荷 <b>23</b> · 段階 2</span><span>4 / 6 人</span><span class="gauge-code">参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-set="scene" data-value="map">44F の地図</button>
+    <button type="button" data-set="scene" data-value="boss">49F の後（次がボス）</button></div>
+  <div class="compare-row"><span>霧</span>
+    <button type="button" data-set="fog" data-value="drift">A 流れる霧</button>
+    <button type="button" data-set="fog" data-value="veil">B 濃い霧と光の境目</button>
+    <button type="button" data-set="fog" data-value="hd">C 高解像度</button></div>
+  <div class="compare-row"><span>封鎖</span>
+    <button type="button" data-set="seal" data-value="map">A 地図で封鎖</button>
+    <button type="button" data-set="seal" data-value="curtain">B 縦穴の幕</button>
+    <button type="button" data-set="seal" data-value="hd">C 高解像度</button></div>
+  <div class="compare-row"><span>右の列</span>
+    <button type="button" data-set="strip" data-value="plain">A 今の帯</button>
+    <button type="button" data-set="strip" data-value="gauge">B 深度計</button></div>
+  <div class="compare-row"><span>試す</span>
+    <button type="button" data-step>1段進む（霧が晴れる）</button>
+    <button type="button" data-clear-run>50F のボスに勝つ</button>
+    <button type="button" data-reset>最初から</button></div>
+  <details class="contrast"><summary data-contrast-summary></summary><table data-contrast></table></details>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

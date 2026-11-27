@@ -126,20 +126,38 @@
 .hollow-window .hollow-party-grip { cursor: grab; padding: 4px; }
 #dock-hollow-party { font-family: inherit; }
 .hollow-ribbon {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  display: grid;
+  gap: 6px;
+  min-width: 0;
   padding: 6px 8px;
-  border: 1px solid var(--ui-gold);
+  border: 1px solid var(--ui-control);
   border-radius: 6px;
   color: var(--ui-text);
   background: var(--ui-bg);
   font-size: .79rem;
   overflow-wrap: anywhere;
 }
-.hollow-ribbon strong { color: var(--ui-primary); }
-.hollow-ribbon button { margin-inline-start: auto; }
+.hollow-depth-top, .hollow-depth-sub { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+.hollow-depth-top > strong { color: var(--ui-primary); font: 700 1.2rem var(--ui-head-font); white-space: nowrap; }
+.hollow-depth-host, .hollow-depth-phase, .hollow-depth-sub { color: var(--ui-sub); }
+.hollow-depth-host { margin-inline-start: auto; }
+.hollow-depth-name { font-weight: 700; }
+.hollow-depth-sub { align-items: center; }
+.hollow-depth-sub b { color: var(--ui-text); }
+.hollow-depth-sub button { margin-inline-start: auto; }
+.hollow-depth-scale { display: flex; gap: 4px; padding-block: 3px 14px; min-width: 0; }
+.hollow-depth-tier {
+  position: relative; flex: 1; height: 8px; border: 1px solid var(--ui-control);
+  border-radius: 4px; background: var(--ui-input-bg);
+}
+.hollow-depth-tier :is(i, s) { position: absolute; border-radius: 2px; }
+.hollow-depth-tier i { inset: 0 auto 0 0; width: var(--depth-fill); background: var(--ui-primary); }
+.hollow-depth-tier.is-cleared i { background: #6bafb3; }
+.hollow-depth-tier s {
+  inset-block: -4px; inset-inline-start: var(--depth-fill); translate: -50%;
+  width: 3px; background: var(--ui-text); box-shadow: 0 0 6px var(--ui-primary);
+}
+.hollow-depth-tier small { position: absolute; top: 9px; inset-inline-start: 0; color: var(--ui-sub); font-size: 10px; }
 #hollow-code-window { width: min(410px, calc(100% - 28px)); }
 #hollow-code-window dl {
   display: grid;

@@ -1,5 +1,6 @@
 (function () {
   const events = window.HollowEvents;
+  const finish = window.HollowFinish;
   const TYPES = {battle: '通常戦闘', elite: '精鋭戦闘', boss: 'ボス', ...events.types};
   // A later tier starts on the boss node just defeated, so it keeps that boss's look.
   const look = node => node.type === 'start' && node.floor ? 'boss' : node.type;
@@ -23,7 +24,7 @@
     : node.floor <= run.floor ? '選ばなかったマス' : '先のマス';
   let mount, view, curtain, dialog, resize, state, room, snapshot, markup;
   let enterNode, picked, busy, timer, leavingTimer, pendingRound;
-  let frame = 0, scrollKey;
+  let frame = 0, scrollKey, fogToReveal, cancelSeal;
   let eventKey, shownEvent, selectedChoice, selectedMember;
   const keyFor = run => Object.hasOwn(events.types, run.current_event?.type)
     ? `${run.floor}:${run.current_event.type}` : null;
@@ -70,6 +71,7 @@
       const growth = (result.growth || []).map(row => `<li>${esc(row.name)} 経験＋${esc(row.exp_gain)}・通過点＋${esc(row.radiance_gain)}
         （${row.tiers.map(tier => `T${esc(tier)}`).join('・')} 初踏破）</li>`).join('');
       return card(OUTCOMES[result.outcome] || '遠征終了', `
+        ${result.outcome === 'CLEAR' && result.floor === 50 ? '<p class="hollow-clear-lead">浅層 50F 踏破</p>' : ''}
         <dl><dt>到達階</dt><dd>${esc(result.floor)}F</dd>
         ${growth ? `<dt>初踏破の成果</dt><dd><ul class="hollow-growth-results">${growth}</ul></dd>` : ''}
         <dt>パーティ</dt><dd>${esc(roster.order.map(char => char.name).join('・') || '—')}</dd></dl>
@@ -149,7 +151,7 @@
     const chosen = player.order.find(char => char.id === picked);
     const rows = Array.from({length: last - first + 2}, (_, index) => {
       const row = map.rows[index];
-      return `<div class="hollow-map-row${row ? '' : ' is-fog'}"><span class="hollow-map-floor">${first - 1 + index}F</span>
+      return `<div class="hollow-map-row${row ? '' : ' is-fog'}" data-floor="${first - 1 + index}"><span class="hollow-map-floor">${first - 1 + index}F</span>
         ${row ? row.map(node => nodeButton(node, run, next, manage)).join('') : '<span class="hollow-map-fog">未踏</span>'}</div>`;
     }).join('');
     return `<header class="hollow-map-head"><div><small>T${map.tier} · ${first}〜${last}F</small><h2>${esc(tierName(map))}</h2></div>
@@ -190,6 +192,8 @@
       }
     }
     canvas.querySelector('svg').innerHTML = paths.join('');
+    finish.syncFog(canvas, fogToReveal);
+    fogToReveal = null;
     const key = `${run.map.tier}/${run.map.current}`;
     if (scrollKey === key) return;
     scrollKey = key;
@@ -201,10 +205,12 @@
   function requestDraw() { if (!frame) frame = requestAnimationFrame(draw); }
 
   function paint() {
+    if (cancelSeal) return;
     const screen = panelFor(state);
     const changed = mount.dataset.hollowScreen !== screen;
     mount.dataset.hollowScreen = screen;
     view.hidden = screen === 'battle';
+    if (screen !== 'map') finish.stopFog();
     if (view.hidden) {
       if (changed) requestAnimationFrame(() => window.renderVisualMap?.());
       return;
@@ -234,8 +240,8 @@
       || ['pin', 'node', 'chip', 'routeAction', 'mapId', 'eventAction', 'eventChoice', 'eventMember'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
   }
 
-  function announce(title, subtitle, sinking) {
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches || window.Fx?.getLevel?.() === 'light';
+  function announce(title, subtitle, sinking, after) {
+    const reduced = finish.reduced();
     view.classList.toggle('is-sinking', sinking && !reduced);
     curtain.querySelector('strong').textContent = title;
     curtain.querySelector('span').textContent = subtitle;
@@ -245,18 +251,36 @@
     clearTimeout(timer);
     clearTimeout(leavingTimer);
     timer = setTimeout(() => {
-      timer = null;
-      paint();
+      if (!after) {
+        timer = null;
+        paint();
+      }
       view.classList.remove('is-sinking');
       curtain.classList.replace('is-in', 'is-out');
       leavingTimer = setTimeout(() => {
         curtain.hidden = true;
+        if (after) { timer = null; after(); }
         const round = pendingRound;
         pendingRound = null;
         if (round && panelFor(state) === 'battle') window.showRoundStartBanner?.(round);
         else if (round) window.EventBus?.emit('battle:round:banner:finished', {round});
       }, reduced ? 65 : 380);
     }, reduced ? 230 : 1150);
+  }
+
+  function openSeal() {
+    finish.stopFog();
+    const screen = document.createElement('section');
+    screen.className = 'hollow-seal';
+    screen.dataset.theme = 'abyss';
+    screen.setAttribute('role', 'dialog');
+    screen.setAttribute('aria-label', '浅層の封鎖');
+    mount.append(screen);
+    cancelSeal = finish.playSeal(screen, () => {
+      cancelSeal = null;
+      paint();
+      view.querySelector('[data-route-action="return"]')?.focus({preventScroll:true});
+    });
   }
 
   function tip(event) {
@@ -374,6 +398,9 @@
 
   function close() {
     relics.close();
+    finish.stopFog();
+    cancelSeal?.();
+    fogToReveal = cancelSeal = null;
     eventKey = shownEvent = selectedChoice = selectedMember = null;
     clearTimeout(timer);
     clearTimeout(leavingTimer);
@@ -440,19 +467,25 @@
       selectedChoice = selectedMember = null;
     }
     const screen = panelFor(state);
-    snapshot = {screen, floor:run.floor, tier: run.map?.tier, candidates: run.map_candidates?.maps};
+    snapshot = {screen, status:run.status, floor:run.floor, tier:run.map?.tier, mapId:run.map?.map_id,
+      visible:run.map?.rows?.at(-1)?.[0]?.floor, candidates:run.map_candidates?.maps};
+    if (previous?.mapId !== snapshot.mapId || previous?.tier !== snapshot.tier) fogToReveal = null;
+    else if (previous?.visible !== snapshot.visible) fogToReveal = finish.revealedFloor(previous, snapshot);
     if (!window.HollowParty.canProgress(state)) {
       picked = null;
       if (dialog.open) dialog.close('cancel');
     }
-    if (previous && run.floor > previous.floor && ['battle','event'].includes(screen)) {
+    if (finish.liveClear(previous, run)) {
+      finish.stopFog();
+      announce('50F', '制圧', false, openSeal);
+    } else if (previous && run.floor > previous.floor && ['battle','event'].includes(screen)) {
       if (dialog.open) dialog.close('cancel');
       picked = null;
       announce(`${run.floor}F`, TYPES[run.current_event?.type], true);
     } else if (previous?.screen === 'battle' && screen !== 'battle') {
       const result = run.log?.findLast(row => row.floor === run.floor && row.outcome)?.outcome;
       if (snapshot.tier && snapshot.tier !== previous.tier) announce(`T${snapshot.tier}`, tierName(run.map), false);
-      else if (result === 'VICTORY') announce(`${run.floor}F`, '制圧', false);
+      else if (result === 'VICTORY' && !(run.floor === 50 && screen === 'reward')) announce(`${run.floor}F`, '制圧', false);
       else if (screen === 'finished') announce(`${run.floor}F`, OUTCOMES[run.result?.outcome], false);
       else paint();
     } else if (previous?.screen === 'map-pending' && screen === 'map') {

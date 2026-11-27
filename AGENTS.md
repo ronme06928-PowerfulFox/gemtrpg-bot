@@ -51,6 +51,7 @@
 21. 淵遺物の窓・戦闘の報酬・虚夢変転の試作は `node scripts/hollow_relic_proto/build.mjs` で `/_local/hollow_relic_proto/index.html` を作る（計画35 PR35-14）。本番のバンドルには入らない。
 22. 魔素だまり・宝箱・町・キャンプの画面とホロウデータのイベントのタブの試作は `node scripts/hollow_event_proto/build.mjs` で `/_local/hollow_event_proto/index.html` を作る（計画35 PR35-16）。本番のバンドルには入らない。
 23. 推薦ピンの試作は `node scripts/hollow_pin_proto/build.mjs` で `/_local/hollow_pin_proto/index.html` を作る（計画35 PR35-18）。本番のバンドルには入らない。
+24. ホロウの仕上げ（未踏の段の霧・50F のクリアと封鎖・右の列の状態の帯）の試作は `node scripts/hollow_finish_proto/build.mjs` で `/_local/hollow_finish_proto/index.html` を作る（計画35 PR35-19）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

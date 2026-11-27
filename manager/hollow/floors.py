@@ -99,7 +99,7 @@ def new_map(number, map_id, seed, resources):
     for kind in kinds:
         _encounters(area, kind, resources.store)
     _boss(area, resources.store)
-    return {**build_map(tier, area, resources.fixed, seed), "map_id": map_id}
+    return {**build_map(tier, area, resources.fixed, seed), "map_id": map_id, "map_name": area["name"]}
 
 
 def encounter_for(run, node, resources):

@@ -229,7 +229,7 @@ button.hollow-map-chip { cursor: pointer; }
 }
 .hollow-map-chip small { color: var(--ui-sub); }
 .hollow-map-chip.is-down small { color: var(--ui-danger); }
-.hollow-map-curtain {
+.hollow-map-curtain, .hollow-seal {
   position: absolute;
   inset: 0 350px 0 65px;
   z-index: 1000;
@@ -257,10 +257,69 @@ button.hollow-map-chip { cursor: pointer; }
     margin-inline-start: 65px;
     overflow: auto;
   }
-  .hollow-map-curtain { inset: 0 0 var(--hollow-side-size) 65px; }
+  :is(.hollow-map-curtain, .hollow-seal) { inset: 0 0 var(--hollow-side-size) 65px; }
   .hollow-map-canvas { padding-inline: 10px; }
   .hollow-map-row { min-height: 88px; padding-inline-start: 32px; }
   .hollow-node { transform: translateX(calc(var(--shift) * .45)); }
 }
 
 .hollow-growth-results { margin: 0; padding-inline-start: 1.15em; }
+
+
+/* The same map geometry clips the canvas to the undiscovered rows. */
+.hollow-fog-canvas { position: absolute; z-index: 1; pointer-events: none; }
+.hollow-fog-canvas[hidden] { display: none; }
+.hollow-map-row.is-fog { background: transparent; }
+.hollow-map-row.is-fog :is(.hollow-map-floor, .hollow-map-fog),
+.hollow-map-row.is-revealing .hollow-map-floor {
+  z-index: 2;
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: var(--ui-text);
+  background: var(--ui-bg);
+}
+.hollow-map-row.is-fog .hollow-map-fog { position: relative; }
+.hollow-map-row.is-revealing .hollow-node {
+  z-index: 2;
+  animation: hollow-node-emerge 1.3s calc(.55s - var(--reveal-elapsed, 0ms)) ease both;
+}
+@keyframes hollow-node-emerge {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+.hollow-route-card .hollow-clear-lead { color: #efe6d2; font-weight: 700; letter-spacing: .12em; }
+
+.hollow-seal { overflow: hidden; cursor: pointer; }
+.hd-shaft { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hd-title, .hd-verdict {
+  position: absolute; z-index: 1; display: none; justify-items: center; text-align: center; pointer-events: none;
+  width: fit-content; max-width: calc(100% - 20px); padding: 12px min(4vw, 24px); border-radius: 12px;
+  background: #100e19e8;
+}
+.hd-title {
+  font: 700 clamp(1.9rem, 7vw, 6.5rem) var(--ui-head-font); letter-spacing: .18em;
+  color: #efe6d2; text-shadow: 0 0 28px #b48cf088, 0 4px 18px #000;
+}
+.hollow-seal.is-title .hd-title { display: grid; animation: hollow-title-in 3.6s ease forwards; }
+@keyframes hollow-title-in {
+  0% { opacity: 0; filter: blur(10px); scale: 1.08; }
+  22% { opacity: 1; filter: none; scale: 1; }
+  88% { opacity: 1; }
+  100% { opacity: 0; }
+}
+.hd-verdict {
+  gap: 14px; font: 700 clamp(1rem, 3.6vw, 2.4rem) var(--ui-head-font); letter-spacing: .12em;
+  color: #d9cfe6; text-shadow: 0 2px 14px #000, 0 0 20px #6b4a9a88;
+}
+.hollow-seal.is-verdict .hd-verdict { display: grid; }
+.hollow-seal.is-verdict .hd-verdict span { animation: hollow-verdict-in 1.6s ease both; }
+.hollow-seal.is-verdict .hd-verdict span + span { animation-delay: 1.1s; }
+@keyframes hollow-verdict-in {
+  from { opacity: 0; filter: blur(6px); translate: 0 8px; }
+  to { opacity: 1; filter: none; translate: 0 0; }
+}
+.hollow-seal.is-still :is(.hd-title, .hd-verdict span) { animation: none; }
+.hollow-seal > .hd-skip { position: absolute; z-index: 2; inset-inline-end: 14px; inset-block-end: 14px; }
+@media (prefers-reduced-motion: reduce) {
+  .hollow-map-row.is-revealing .hollow-node { animation: none; }
+}

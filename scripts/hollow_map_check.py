@@ -212,7 +212,8 @@ def verify(browser, *, seeded=False):
         expect(player_map).to_be_visible()
         expect(player_curtain).to_be_hidden()
         if floor == 1:
-            expect(host.locator(".hollow-ribbon")).to_contain_text("ラン中 · T1 · 1F")
+            expect(host.locator(".hollow-depth-top")).to_contain_text("1F")
+            expect(host.locator(".hollow-depth-name")).to_contain_text("T1")
             expect(host.locator(".hollow-map-paths line").first).to_be_attached()
             ratios += host.evaluate(CONTRAST, [
                 [".hollow-map-head h2", None], [".hollow-map-guide span", None],
