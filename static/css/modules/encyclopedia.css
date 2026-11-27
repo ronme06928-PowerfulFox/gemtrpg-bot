@@ -431,5 +431,5 @@
 .encyclopedia-room::backdrop { background: #090d13cc; }
 .encyclopedia-room-header { height: 42px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; padding: 6px 18px; border-bottom: 1px solid #bda57c; }
 .encyclopedia-room-header button, .encyclopedia-open-link { border: 1px solid #806437; background: #fbf2df; color: #25221e; border-radius: 5px; padding: 6px 14px; cursor: pointer; }
-.encyclopedia-room-content { --encyclopedia-height: calc(100dvh - 68px); height: calc(100% - 42px); min-height: 0; overflow: auto; padding: 0 14px 10px; box-sizing: border-box; }
+.encyclopedia-room-content { --encyclopedia-height: calc(100dvh - 68px); position: relative; height: calc(100% - 42px); min-height: 0; overflow: auto; padding: 0 14px 10px; box-sizing: border-box; }
 .encyclopedia-link-slot { margin-top: 12px; }

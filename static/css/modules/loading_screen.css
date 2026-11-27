@@ -13,6 +13,11 @@
 
 .app-loading[hidden] { display: none; }
 
+.app-loading--in-panel {
+  position: absolute;
+  z-index: auto;
+}
+
 .app-loading__body {
   display: grid;
   justify-items: center;

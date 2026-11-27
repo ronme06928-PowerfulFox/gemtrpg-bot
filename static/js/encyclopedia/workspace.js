@@ -3,6 +3,7 @@
     host.classList.add('encyclopedia');
     let destroyed = false;
     let view;
+    let loadingTimer;
     let ownEncounters = !!options.initialState?.ownEncounters;
     const abort = new AbortController();
 
@@ -26,7 +27,16 @@
     }
 
     async function load() {
-      host.innerHTML = '<p role="status">図鑑を読み込んでいます…</p>';
+      if (options.room) {
+        host.replaceChildren();
+        loadingTimer = setTimeout(() => {
+          host.innerHTML = '<div class="app-loading app-loading--in-panel" data-theme="night" role="status">' +
+            '<div class="app-loading__body"><i class="app-loading__gem" aria-hidden="true"></i>' +
+            '<p class="app-loading__step">図鑑を読み込んでいます…</p></div></div>';
+        }, 200);
+      } else {
+        host.innerHTML = '<p role="status">図鑑を読み込んでいます…</p>';
+      }
       try {
         const { masters, extra } = await window.EncyclopediaData.load({ room:options.room, signal:abort.signal });
         if (!destroyed) {
@@ -38,6 +48,8 @@
         host.innerHTML = '<p role="alert"></p><button type="button">再読み込み</button>';
         host.querySelector('[role="alert"]').textContent = error.message;
         host.querySelector('button').addEventListener('click', () => { ready = load(); }, { once:true });
+      } finally {
+        clearTimeout(loadingTimer);
       }
     }
     let ready = load();
@@ -46,6 +58,7 @@
       getState() { return { ...(view?.getState() || options.initialState), ownEncounters }; },
       destroy() {
         destroyed = true;
+        clearTimeout(loadingTimer);
         abort.abort();
         view?.destroy();
         host.replaceChildren();

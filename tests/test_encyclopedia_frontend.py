@@ -101,6 +101,73 @@ def test_room_entry_and_modal_lifecycle():
     assert "!document.querySelector('dialog[open]')" in glossary
 
 
+def test_room_loading_indicator_only_appears_during_a_slow_request():
+    script = r"""
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+
+const timers = new Map();
+let nextTimer = 0;
+let finish;
+const window = {
+  EncyclopediaData: {
+    load: () => new Promise(resolve => { finish = resolve; }),
+    build: () => ({}),
+  },
+  createEncyclopediaView: () => ({restore() {}, destroy() {}, openEntry: () => true}),
+};
+vm.runInNewContext(fs.readFileSync('static/js/encyclopedia/workspace.js', 'utf8'), {
+  window, AbortController,
+  setTimeout(fn, delay) {
+    assert.equal(delay, 200);
+    timers.set(++nextTimer, fn);
+    return nextTimer;
+  },
+  clearTimeout: id => timers.delete(id),
+});
+function open() {
+  const host = {
+    innerHTML: '',
+    classList: {add() {}, remove() {}},
+    replaceChildren() { this.innerHTML = ''; },
+    querySelector: () => null,
+  };
+  const controller = window.mountEncyclopedia(host, {room: 'test'});
+  assert.equal(host.innerHTML, '');
+  assert.equal(timers.size, 1);
+  return {host, controller};
+}
+
+const fast = open();
+finish({masters: {}, extra: {}});
+assert.equal(await fast.controller.openEntry('W-01'), true);
+assert.match(fast.host.innerHTML, /encyclopedia-pages/);
+assert.equal(timers.size, 0);
+
+const slow = open();
+const [id, show] = timers.entries().next().value;
+timers.delete(id);
+show();
+assert.match(slow.host.innerHTML, /app-loading__gem/);
+assert.match(slow.host.innerHTML, /role="status"/);
+finish({masters: {}, extra: {}});
+await slow.controller.openEntry('W-01');
+assert.match(slow.host.innerHTML, /encyclopedia-pages/);
+assert.doesNotMatch(slow.host.innerHTML, /app-loading/);
+
+const closed = open();
+closed.controller.destroy();
+assert.equal(timers.size, 0);
+finish({masters: {}, extra: {}});
+assert.equal(await closed.controller.openEntry('W-01'), false);
+assert.equal(closed.host.innerHTML, '');
+"""
+    result = subprocess.run(["node", "--input-type=module", "-e", script],
+                            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_world_shelf_puts_buffs_in_one_row_after_case():
     view = (ROOT / 'static/js/encyclopedia/view.js').read_text(encoding='utf-8')
     assert "['case:バフ', ...buffKeys, 'hourglass']" in view
