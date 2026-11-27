@@ -1,0 +1,24 @@
+/* ホロウの推薦ピン（計画35 PR35-18）。立てた人の頭文字の丸を札の右上に重ねる。 */
+.hollow-choice-card, .hr-reward-card, .he-choice, .hollow-route-btn { position: relative; }
+.hollow-pins {
+  position: absolute; top: -9px; right: -6px; z-index: 2;
+  display: flex; flex-direction: row-reverse;
+}
+.he-choice > .hollow-pins { display: flex; width: auto; height: auto; border: 0; border-radius: 0; }
+.hollow-pins i {
+  display: grid; place-items: center; width: 22px; height: 22px; margin-left: -6px;
+  border-radius: 50%; border: 2px solid var(--ui-bg); background: var(--pin);
+  color: #0c1320; font: 700 11px/1 var(--ui-font, sans-serif); font-style: normal;
+  box-shadow: 0 1px 4px #0009;
+}
+.hollow-pins i.is-mine { border-color: var(--ui-text); }
+.hollow-choice-card > .hollow-pins, .hr-reward-card > .hollow-pins { top: 8px; right: 8px; }
+.hollow-choice-card > .hollow-pins i, .hr-reward-card > .hollow-pins i { width: 28px; height: 28px; margin-left: -8px; font-size: 13px; }
+.hollow-node > .hollow-pins { top: -10px; right: -8px; }
+.hollow-node > .hollow-pins i { width: 20px; height: 20px; font-size: 10px; }
+
+/* 自分のピンの札は点線の枠。ホストの「選んでいる」とは形で分ける。 */
+[data-pin] { cursor: pointer; }
+[data-pin][aria-pressed="true"] { border-color: var(--ui-primary); border-style: dashed; box-shadow: none; }
+.hollow-pin-hint { margin: 4px 0 0; color: var(--ui-sub); font-size: 12px; font-weight: 400; }
+.hollow-map-guide .hollow-pin-hint { margin: 0; }

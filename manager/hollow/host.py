@@ -47,12 +47,15 @@ def member_departed(room_name, user_id):
     """Apply a committed membership revocation to the live room."""
     from manager.room_manager import broadcast_state_update, broadcast_user_list, get_room_state, save_specific_room_state
 
+    from manager.hollow.pins import drop_member_pin
+
     with _get_round_transition_lock(room_name):
         state = get_room_state(room_name)
+        drop_member_pin(state, user_id)
         if state["hollow"]["host_user_id"] == user_id:
             members = active_members(room_name)
             state["hollow"]["host_user_id"] = members[0][0].user_id if members else None
-            save_specific_room_state(room_name)
+        save_specific_room_state(room_name)
     if socketio.server:
         for sid, info in user_sids.copy().items():
             if info.get("room") == room_name and info.get("user_id") == user_id:

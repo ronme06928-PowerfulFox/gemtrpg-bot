@@ -50,6 +50,7 @@
 20. マップの選択とパーティメンバーの追加の窓の試作は `node scripts/hollow_map_select_proto/build.mjs` で `/_local/hollow_map_select_proto/index.html` を作る（計画35 PR35-11）。本番のバンドルには入らない。
 21. 淵遺物の窓・戦闘の報酬・虚夢変転の試作は `node scripts/hollow_relic_proto/build.mjs` で `/_local/hollow_relic_proto/index.html` を作る（計画35 PR35-14）。本番のバンドルには入らない。
 22. 魔素だまり・宝箱・町・キャンプの画面とホロウデータのイベントのタブの試作は `node scripts/hollow_event_proto/build.mjs` で `/_local/hollow_event_proto/index.html` を作る（計画35 PR35-16）。本番のバンドルには入らない。
+23. 推薦ピンの試作は `node scripts/hollow_pin_proto/build.mjs` で `/_local/hollow_pin_proto/index.html` を作る（計画35 PR35-18）。本番のバンドルには入らない。
 
 ```bash
 # JS 編集後

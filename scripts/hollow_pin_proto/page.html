@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>推薦ピン 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="player" data-pinstyle="faces">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon dock-party" title="パーティ">👥</span>
+    <span class="dock-icon">💎</span>
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+  </nav>
+
+  <main class="board" data-board>
+    <section class="screen map-screen" data-theme="abyss" aria-label="地図">
+      <header class="map-head">
+        <div class="map-title"><small>T1 入穴</small><h2>青晶の坑道</h2></div>
+        <div class="map-now"><span class="map-floor">4F 通常戦闘</span><span class="map-hint" data-map-hint></span></div>
+        <span class="pin-slot" data-retreat-slot></span>
+      </header>
+      <div class="map-scroll"><div class="map-canvas"><div class="map-rows" data-map-rows></div></div></div>
+    </section>
+    <section class="screen pin-stage" data-theme="abyss" data-stage aria-live="polite"></section>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line"><span class="strip-state">ラン中 · 4F</span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>参加者 4人</span><span>参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-set="viewer" data-value="player">プレイヤー（ミナ）</button>
+    <button type="button" data-set="viewer" data-value="host">ホスト（リオ）</button></div>
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-set="scene" data-value="map">次のマス・撤退</button>
+    <button type="button" data-set="scene" data-value="maps">マップを選ぶ</button>
+    <button type="button" data-set="scene" data-value="reward">報酬</button>
+    <button type="button" data-set="scene" data-value="miasma">魔素だまり</button>
+    <button type="button" data-set="scene" data-value="chest">宝箱</button></div>
+  <div class="compare-row"><span>ピンの形</span>
+    <button type="button" data-set="pinstyle" data-value="faces">A 顔の印</button>
+    <button type="button" data-set="pinstyle" data-value="names">B 名前の帯</button></div>
+  <div class="compare-row"><span>試す</span>
+    <button type="button" data-others>ほかの人がピンを動かす</button>
+    <button type="button" data-clear>ピンを全部外す</button></div>
+  <details class="contrast"><summary data-contrast-summary></summary><table data-contrast></table></details>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

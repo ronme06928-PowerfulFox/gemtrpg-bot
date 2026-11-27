@@ -15,10 +15,11 @@
   };
   const OUTCOMES = {CLEAR: 'クリア', RETREAT: '撤退', DEFEAT: '全滅'};
   const relics = window.HollowRelics;
+  const pins = window.HollowPins;
   const esc = value => window.CatalogWorkspaceParts.h(value ?? '');
   const chooseLabel = (node, next, run, manage) => node.id === run.map.current
     ? '今いるマス' : run.map.visited.includes(node.id) ? '通過'
-    : next.has(node.id) ? (manage ? '押して入場' : '選べるマス')
+    : next.has(node.id) ? (manage ? '押して入場' : pins.canPin(state) ? '押してピンを立てる' : '選べるマス')
     : node.floor <= run.floor ? '選ばなかったマス' : '先のマス';
   let mount, view, curtain, dialog, resize, state, room, snapshot, markup;
   let enterNode, picked, busy, timer, leavingTimer, pendingRound;
@@ -53,6 +54,11 @@
     };
   }
 
+  function pinHint(manage) {
+    const text = pins.hint(state, manage);
+    return text ? `<p class="hollow-pin-hint">${esc(text)}</p>` : '';
+  }
+
   function card(title, content) {
     return `<div class="hollow-route-card"><small>ホロウダンジョン</small><h2>${title}</h2>${content}</div>`;
   }
@@ -84,7 +90,9 @@
       const image = window.UnitForms.image(area.image);
       const categories = (area.categories || []).map(category =>
         `<span class="hollow-category"><i style="--dot:${relics.color(category)}"></i>${esc(category)}</span>`).join('');
-      return `<button type="button" class="hollow-choice-card" data-map-id="${esc(area.map_id)}"${manage ? '' : ' disabled'}>
+      const pinnable = !manage && pins.canPin(state);
+      return `<button type="button" class="hollow-choice-card" data-map-id="${esc(area.map_id)}"
+        ${manage ? '' : pinnable ? pins.attrs(state, area.map_id) : ' disabled'}>${pins.marks(state, area.map_id)}
         <span class="hollow-choice-art">${image}</span>
         <span class="hollow-choice-copy"><strong>${esc(area.name)}</strong>
         <span class="hollow-choice-description">${esc(area.description)}</span>
@@ -95,7 +103,7 @@
       <h2>${tier === 1 ? '虚夢の辺縁へ降りる' : '次のマップを選ぶ'}</h2>
       <p>${esc(lead)}</p>
       ${manage ? '<button class="hollow-route-btn danger" data-route-action="retreat">撤退</button>'
-        : '<p>ホストがマップを選んでいます</p>'}</div>
+        : pinHint(manage) ? '' : '<p>ホストがマップを選んでいます</p>'}${pinHint(manage)}</div>
       <div class="hollow-choice-cards">${cards}</div></section>`;
   }
 
@@ -112,11 +120,12 @@
       offered && 'is-next', !now && !done && node.floor <= run.floor && 'is-skipped'].filter(Boolean).join(' ');
     const label = `${node.floor}F ${typeName(node)}、${chooseLabel(node, next, run, manage)}`;
     const shift = Math.max(-20, Math.min(20, Number(node.shift) || 0));
+    const pinnable = offered && !manage && pins.canPin(state);
     return `<button type="button" class="${cls}" data-node="${esc(node.id)}" aria-label="${label}"
-      ${offered && manage ? '' : 'aria-disabled="true" tabindex="-1"'}
+      ${offered && (manage || pinnable) ? '' : 'aria-disabled="true" tabindex="-1"'} ${pinnable ? pins.attrs(state, node.id) : ''}
       ${now ? 'aria-current="location"' : ''} style="--shift:${shift}px">
       ${ICONS[look(node)] ? `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[look(node)]}"/></svg>` : ''}
-      <span>${typeName(node)}</span></button>`;
+      <span>${typeName(node)}</span>${offered ? pins.marks(state, node.id) : ''}</button>`;
   }
 
   function chip(char, enabled) {
@@ -144,8 +153,10 @@
         ${row ? row.map(node => nodeButton(node, run, next, manage)).join('') : '<span class="hollow-map-fog">未踏</span>'}</div>`;
     }).join('');
     return `<header class="hollow-map-head"><div><small>T${map.tier} · ${first}〜${last}F</small><h2>${esc(tierName(map))}</h2></div>
-      <div class="hollow-map-guide"><strong>${floor}</strong><span>${manage ? '次のマスを選ぶ' : 'ホストが次のマスを選ぶ'}</span></div>
-      ${manage ? '<button class="hollow-route-btn danger" data-route-action="retreat">撤退</button>' : ''}</header>
+      <div class="hollow-map-guide"><strong>${floor}</strong><span>${manage ? '次のマスを選ぶ' : 'ホストが次のマスを選ぶ'}</span>
+        ${pinHint(manage)}</div>
+      ${manage ? `<button class="hollow-route-btn danger" data-route-action="retreat">撤退${pins.marks(state, 'retreat')}</button>`
+        : pins.canPin(state) ? `<button class="hollow-route-btn danger" ${pins.attrs(state, 'retreat')}>撤退${pins.marks(state, 'retreat')}</button>` : ''}</header>
       ${run.next_tier_error ? `<div class="hollow-map-retry"><span>${esc(run.next_tier_error)}</span>
         ${manage ? '<button class="hollow-route-btn" data-route-action="retry">次の区切りを開く</button>' : ''}</div>` : ''}
       <div class="hollow-map-scroll" tabindex="0" aria-label="階の地図"><div class="hollow-map-canvas">
@@ -202,7 +213,7 @@
     const manage = window.HollowParty.canProgress(state);
     const html = screen === 'map' ? renderMap(run, manage)
       : screen === 'map-pending' ? mapChoice(run, manage)
-      : screen === 'event' ? events.render(run, parties(run, state).order, manage, selectedChoice, selectedMember)
+      : screen === 'event' ? events.render(state, parties(run, state).order, manage, selectedChoice, selectedMember)
       : screen === 'reward' ? relics.rewardView(run, manage, TYPES[run.current_event?.type])
       : screen === 'fusion' ? relics.fusionView(run, manage) : renderCard(run, screen, manage);
     if (markup === html) return;
@@ -220,7 +231,7 @@
     if (focused) [...view.querySelectorAll('button,input')].find(el =>
       (focused.relicAction && el.dataset.relicAction === focused.relicAction && el.dataset.key === focused.key)
       || (focused.relicWish !== undefined && el.hasAttribute('data-relic-wish'))
-      || ['node', 'chip', 'routeAction', 'mapId', 'eventAction', 'eventChoice', 'eventMember'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
+      || ['pin', 'node', 'chip', 'routeAction', 'mapId', 'eventAction', 'eventChoice', 'eventMember'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
   }
 
   function announce(title, subtitle, sinking) {
@@ -293,6 +304,10 @@
   async function click(event) {
     const button = event.target.closest('button');
     if (!button || !state || busy || timer) return;
+    if (button.dataset.pin !== undefined && !window.HollowParty.canProgress(state)) {
+      const scene = state.hollow.run.pins?.scene;
+      return scene && send('hollow_pin', {scene, option: button.dataset.pin});
+    }
     if (button.dataset.relicAction) return relics.click(button);
     const action = button.dataset.routeAction;
     if (action === 'return') return leaveRoomTo('dungeon');

@@ -1,0 +1,45 @@
+/* 地図・マップを選ぶ・淵遺物・イベント階の試作の CSS に足す分。 */
+.board[data-current="map"] .map-screen, .board[data-current="stage"] .pin-stage { display: flex; }
+.pin-stage { flex-direction: column; overflow: auto; color: var(--ui-text); font-size: 13px; padding-bottom: 20px;
+  background: radial-gradient(ellipse at 50% -10%, var(--abyss-light), transparent 60%), linear-gradient(#080d17e8, #080d17f5), var(--cave) center / cover; }
+.pin-stage .stage-head { padding: 18px 24px 2px; }
+.pin-stage .choices, .pin-stage .loot, .pin-stage .event-text { max-width: 760px; margin-left: auto; margin-right: auto; width: calc(100% - 48px); }
+.pin-cards { padding: 14px 22px 0; }
+.cats { display: flex; flex-wrap: wrap; gap: 5px; }
+.pin-hint { margin: 6px 0 0 !important; color: var(--ui-sub); }
+.stage-actions.is-all .ui-btn { display: inline-flex !important; }
+.reward-card .cost { margin: 0; color: var(--ui-danger); font-weight: 700; }
+
+/* ピンを立てられる札。プレイヤーは押すとピン、ホストは押すと選ぶ。 */
+.pin-target { position: relative; cursor: pointer; }
+body[data-viewer="player"] .pin-target:hover { border-color: var(--ui-primary); }
+body[data-viewer="player"] .pin-target[aria-pressed="true"] { border-color: var(--ui-primary); border-style: dashed; box-shadow: none; }
+body[data-viewer="host"] .pin-target[aria-pressed="true"] { border-color: var(--ui-primary); box-shadow: 0 0 0 3px var(--ui-primary-soft); }
+.node.pin-target { font: inherit; }
+body[data-viewer="player"] .node.is-next { cursor: pointer; }
+
+/* A 顔の印：札の右上に、立てた人の頭文字の丸を重ねる */
+.pin-faces { position: absolute; top: -9px; right: -6px; z-index: 2; display: flex; flex-direction: row-reverse; pointer-events: none; }
+.pin-faces i { display: grid; place-items: center; width: 22px; height: 22px; margin-left: -6px; border-radius: 50%;
+  background: var(--u); color: #0c1320; font: 700 11px/1 sans-serif; font-style: normal; border: 2px solid var(--ui-bg); box-shadow: 0 1px 4px #0009; }
+.pin-faces i.is-mine { border-color: var(--ui-text); }
+.node .pin-faces { top: -10px; right: -8px; }
+.node .pin-faces i { width: 20px; height: 20px; font-size: 10px; }
+.map-card .pin-faces, .reward-card .pin-faces { top: 8px; right: 8px; }
+.map-card .pin-faces i, .reward-card .pin-faces i { width: 28px; height: 28px; font-size: 13px; margin-left: -8px; }
+
+/* B 名前の帯：札の下に「ピン ミナ・カイ」 */
+.pin-band { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--ui-line);
+  background: var(--ui-soft); color: var(--ui-text); font-size: 12px; font-weight: 700; white-space: nowrap; pointer-events: none; }
+.pin-band svg { width: 12px; height: 12px; fill: currentColor; }
+.pin-band.is-mine { background: var(--ui-primary); border-color: var(--ui-primary); color: var(--ui-on-primary); }
+.node .pin-band { position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); }
+.map-head .pin-band, .stage-actions .pin-band { margin-left: 6px; }
+.map-card .pin-band { margin: 0 18px 14px; align-self: flex-start; }
+.choice .pin-band { margin-left: auto; align-self: center; }
+.map-row { min-height: 132px; }
+
+@media (max-width: 760px) {
+  .pin-stage .choices, .pin-stage .loot, .pin-stage .event-text { width: calc(100% - 24px); }
+  .pin-cards { padding: 10px 12px 0; }
+}

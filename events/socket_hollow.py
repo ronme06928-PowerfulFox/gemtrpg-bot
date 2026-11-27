@@ -6,6 +6,7 @@ from extensions import socketio, user_sids
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.hollow.host import transfer_host
 from manager.hollow.party import add_owned_party, change_party
+from manager.hollow.pins import set_pin
 from manager.hollow.run import (
     choose_map, choose_reward, end_fusion, fuse_relics, preview_fusion, resolve_event, retreat, select_node, start_run, swap_party,
 )
@@ -117,3 +118,9 @@ def handle_resolve_miasma(data):
 def handle_resolve_chest(data):
     payload = data if isinstance(data, dict) else {}
     return _perform(resolve_event, "chest", payload.get("floor"), payload.get("take"), payload.get("char_id"))
+
+
+@socketio.on("hollow_pin")
+def handle_pin(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(set_pin, payload.get("scene"), payload.get("option"))

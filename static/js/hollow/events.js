@@ -1,6 +1,7 @@
 (function () {
   const {h} = window.CatalogWorkspaceParts;
   const {rewardCard} = window.HollowRelics;
+  const pins = window.HollowPins;
   const types = {miasma:'魔素だまり', chest:'宝箱', town:'町', camp:'先人のキャンプ'};
   const button = (label, action, {primary = false, disabled = false} = {}) =>
     `<button type="button" class="hollow-route-btn${primary ? ' primary' : ''}"
@@ -53,22 +54,33 @@
       <p>${h(gain.description || '')}</p></div></article>`;
   }
 
-  function miasma(run, event, party, manage, selected, member) {
+  function miasma(state, event, party, manage, selected, member) {
+    const run = state.hollow.run;
     const current = event.choices[selected];
+    const pinnable = !manage && pins.canPin(state);
     const choices = event.choices.map((choice, index) => {
-      const tag = manage ? 'button' : 'div';
-      const attrs = manage ? `type="button" data-event-choice="${index}" aria-pressed="${selected === index}"` : '';
+      const tag = manage || pinnable ? 'button' : 'div';
+      const attrs = manage ? `type="button" data-event-choice="${index}" aria-pressed="${selected === index}"`
+        : pinnable ? `type="button" ${pins.attrs(state, String(index))}` : '';
       return `<${tag} class="he-choice" ${attrs}><span>${index + 1}</span><b>${h(choice.label)}</b>
-        <small>${Object.hasOwn(choice,'difficulty') ? `${h(choice.skill)} · 難易度 ${choice.difficulty}` : '判定なし'}</small></${tag}>`;
+        <small>${Object.hasOwn(choice,'difficulty') ? `${h(choice.skill)} · 難易度 ${choice.difficulty}` : '判定なし'}</small>
+        ${pins.marks(state, String(index))}</${tag}>`;
     }).join('');
     const ready = current && (!current.needs_member || party.some(char => char.id === member && char.hp > 0));
     return `<div class="he-choices">${choices}</div>
       ${manage && current?.needs_member ? members(run, party, member, current, false) : ''}
-      ${actions(manage, button('決める','decide',{primary:true, disabled:!ready}))}`;
+      ${actions(state, manage, button('決める','decide',{primary:true, disabled:!ready}))}`;
   }
 
-  function actions(manage, controls) {
-    return `<footer class="hr-actions">${manage ? controls + button('撤退','retreat') : '<p class="hr-sub">ホストが選んでいます</p>'}</footer>`;
+  function actions(state, manage, controls, pinControls = '') {
+    const hint = pins.hint(state, manage);
+    const note = hint ? `<p class="hr-sub hollow-pin-hint">${h(hint)}</p>` : '';
+    return `<footer class="hr-actions">${manage ? controls + button('撤退','retreat') + note
+      : pinControls + (note || '<p class="hr-sub">ホストが選んでいます</p>')}</footer>`;
+  }
+
+  function pinButton(state, label, option, primary = false) {
+    return `<button type="button" class="hollow-route-btn${primary ? ' primary' : ''}" ${pins.attrs(state, option)}>${label}${pins.marks(state, option)}</button>`;
   }
 
   function resultView(run, event, party) {
@@ -91,7 +103,8 @@
     }).join('')}</ul>`;
   }
 
-  function render(run, party, manage, selected, member) {
+  function render(state, party, manage, selected, member) {
+    const run = state.hollow.run;
     const event = run.current_event;
     const {type, resolved} = event;
     const rest = type === 'town' || type === 'camp';
@@ -100,12 +113,14 @@
     let content;
     if (rest) content = recovery(event, party);
     else if (resolved) content = resultView(run, event, party);
-    else if (type === 'miasma') content = miasma(run, event, party, manage, selected, member);
+    else if (type === 'miasma') content = miasma(state, event, party, manage, selected, member);
     else {
       const item = event.loot.kind === 'item';
       const loot = item ? gainView(event.loot, party, run) : rewardCard(event.loot, run);
       content = `<div class="he-loot">${loot}</div>` + (manage && item ? members(run, party, member, null, true) : '') +
-        actions(manage, button('見送る','skip') + button('受け取る','take',{primary:true,disabled:item && !member}));
+        actions(state, manage,
+          button(`見送る${pins.marks(state, 'skip')}`,'skip') + button(`受け取る${pins.marks(state, 'take')}`,'take',{primary:true,disabled:item && !member}),
+          pins.canPin(state) ? pinButton(state, '見送る', 'skip') + pinButton(state, '受け取る', 'take', true) : '');
     }
     const text = rest || !resolved ? `<p class="he-text">${h(event.text)}</p>` : '';
     const note = rest ? `<p>${type === 'town' ? '全回復（戦闘不能も起き上がる）'

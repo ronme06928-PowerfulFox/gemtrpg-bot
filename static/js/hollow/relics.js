@@ -61,21 +61,27 @@
     return `<div class="hr-materials">${rows.join('') || '<span class="hr-sub">なし</span>'}</div>`;
   }
 
-  function rewardCard(item, run, attrs = '') {
+  function rewardCard(item, run, attrs = '', marks = '') {
     const tag = attrs ? 'button' : 'article';
-    return `<${tag} class="hr-reward-card" ${attrs}>
+    return `<${tag} class="hr-reward-card" ${attrs}>${marks}
       ${icon(item,'is-big')}<h3>${esc(item.name)}</h3>${metadata(item)}${description(item,false)}
       ${run.relics.includes(item.id) ? `<span class="hr-owned">所持済み：素材${ranks[item.rank]}になる</span>` : ''}
       <strong class="hr-load-up">魔力負荷 ＋${item.rank}</strong></${tag}>`;
   }
 
   function rewardView(run, manage, type) {
+    const pins = window.HollowPins;
+    const pinnable = !manage && pins.canPin(value);
     const cards = (run.reward.cards || []).map(item => rewardCard(item, run, manage
       ? `type="button" data-relic-action="select" data-key="${esc(item.id)}" aria-pressed="${chosen === item.id}" ${busy ? 'disabled' : ''}`
-      : '')).join('');
+      : pinnable ? `type="button" ${pins.attrs(value, item.id)}` : '', pins.marks(value, item.id))).join('');
+    const hint = pins.hint(value, manage);
+    const note = hint ? `<p class="hr-sub hollow-pin-hint">${esc(hint)}</p>` : '';
+    const skip = `見送る${pins.marks(value, 'skip')}`;
     return `<section class="hr-screen"><header class="hr-head"><small>${run.floor}F ${esc(type)} · 制圧</small><h2>戦闘の報酬</h2>
       ${loadView(run,false)}</header><div class="hr-reward-cards">${cards}</div><div class="hr-actions">
-      ${manage ? button('見送る','skip',busy ? 'disabled' : '') + button('受け取る','take',busy || !chosen ? 'disabled' : '',true)
+      ${manage ? button(skip,'skip',busy ? 'disabled' : '') + button('受け取る','take',busy || !chosen ? 'disabled' : '',true) + note
+        : pinnable ? `<button type="button" class="hollow-route-btn" ${pins.attrs(value, 'skip')}>${skip}</button>${note}`
         : '<p class="hr-sub">ホストが選んでいます</p>'}</div></section>`;
   }
 
