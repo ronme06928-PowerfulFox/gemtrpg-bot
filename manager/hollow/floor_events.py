@@ -17,7 +17,8 @@ from manager.buff_catalog import get_buff_by_id
 def _loot_card(kind, key):
     if kind == "item":
         item = item_loader.get_item(key)
-        return {"kind": kind, "id": key, "name": item.get("name") or key} if item else None
+        return {"kind": kind, "id": key, "name": item.get("name") or key,
+                "description": item.get("description") or ""} if item else None
     relic = get_reward("relic", key)
     return {"kind": kind, **relic_card(relic)} if relic else None
 
@@ -58,8 +59,9 @@ def _gain_loot(run, card, char):
     key = card["id"]
     if card["kind"] == "item":
         item_usage_manager.grant_item(char, key)
-        return {"kind": "item", "id": key, "name": card["name"], "char_id": char["id"]}
-    return {"kind": "relic", "id": key, "name": card["name"], **relics.acquire(run, key, card)}
+        return {"kind": "item", "id": key, "name": card["name"],
+                "description": card["description"], "char_id": char["id"]}
+    return {"kind": "relic", "id": key, "name": card["name"], "card": card, **relics.acquire(run, key, card)}
 
 
 def _apply_choice(state, run, choice, field, target, char):
@@ -78,11 +80,30 @@ def _apply_choice(state, run, choice, field, target, char):
         run["temp_buffs"].extend({"char_id": char_id, "buff_id": key, "battles_left": duration}
                                 for char_id in char_ids)
         name = definition.get("display_name") or definition.get("name") or key
-        return {"kind": kind, "id": key, "name": name, "battles_left": duration, "char_ids": char_ids}
+        return {"kind": kind, "id": key, "name": name, "description": definition.get("description") or "",
+                "battles_left": duration, "char_ids": char_ids}
     card = _loot_card(kind, key)
     if card is None:
         raise ValueError(f"効果に使える報酬がありません: {key}")
     return _gain_loot(run, card, char)
+
+
+def choice_needs_member(choice):
+    return "difficulty" in choice or any(
+        choice.get(field, {}).get("kind") == "item" or choice.get(target) == "selected"
+        for field, target in (("effect", "target"), ("failure_effect", "failure_target"))
+    )
+
+
+def project_events(run):
+    for event in [run.get("current_event"), *run.get("log", [])]:
+        if not event or event.get("type") != "miasma":
+            continue
+        event["choices"] = [
+            {key: choice[key] for key in ("label", "skill", "difficulty") if key in choice}
+            | {"needs_member": choice_needs_member(choice)}
+            for choice in event["choices"]
+        ]
 
 
 def resolve_miasma(state, run, event, index, char_id):
@@ -90,11 +111,7 @@ def resolve_miasma(state, run, event, index, char_id):
     if type(index) is not int or not 0 <= index < len(choices):
         raise ValueError("魔素だまりの選択肢を指定してください")
     choice = choices[index]
-    needs_member = "difficulty" in choice or any(
-        choice.get(field, {}).get("kind") == "item" or choice.get(target) == "selected"
-        for field, target in (("effect", "target"), ("failure_effect", "failure_target"))
-    )
-    char = _party_member(state, run, char_id, allow_down=False) if needs_member or char_id is not None else None
+    char = _party_member(state, run, char_id, allow_down=False) if choice_needs_member(choice) or char_id is not None else None
     result = {"choice_index": index, "success": True}
     if char is not None:
         result["char_id"] = char["id"]
@@ -128,6 +145,7 @@ def recover_party(state, run, hp_percent, mp_percent, *, revive=False):
         if char is None or (not revive and not alive(char)):
             continue
         changes_for_char = {"char_id": char_id}
+        was_down = not alive(char)
         for stat, maximum, percent in (("hp", "maxHp", hp_percent), ("mp", "maxMp", mp_percent)):
             cap = char.get(maximum, 0)
             before = char.get(stat, 0)
@@ -138,7 +156,8 @@ def recover_party(state, run, hp_percent, mp_percent, *, revive=False):
                 amount = max(1, amount)
             after = cap if percent == 100 else min(cap, base + amount)
             char[stat] = after
-            changes_for_char[stat] = after - before
+            changes_for_char.update({f"{stat}_before": before, f"{stat}_after": after})
+        changes_for_char["revived"] = was_down and alive(char)
         changes.append(changes_for_char)
     return changes
 

@@ -1,0 +1,60 @@
+/* Field scenes use the same board and palette as the reward screens. */
+.he-screen { background: radial-gradient(ellipse at 50% -10%, var(--abyss-light, var(--ui-primary-soft)), transparent 60%); }
+.he-panel { width: min(880px,100%); margin-inline: auto; }
+.he-panel > header.hr-head {
+  display: block; text-align: center; margin: 0 auto 14px; padding: 4px 0 0;
+  background: transparent; border: 0; color: var(--ui-text);
+}
+.he-panel .hr-head p { color: var(--ui-primary); }
+.he-text { margin: 12px auto; max-width: 65ch; text-align: center; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; }
+.he-choices, .he-members, .he-rest { display: grid; gap: 8px; }
+.he-choice, .he-member {
+  display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 12px;
+  border: 1.5px solid var(--ui-control); border-radius: 10px; background: var(--ui-soft);
+  color: var(--ui-text); text-align: left; font: inherit; overflow-wrap: anywhere;
+}
+button.he-choice, .he-member:not(:disabled) { cursor: pointer; }
+.he-choice[aria-pressed="true"], .he-member[aria-pressed="true"] {
+  border-color: var(--ui-primary); box-shadow: 0 0 0 2px var(--ui-primary-soft);
+}
+.he-choice > span { display: grid; place-items: center; flex: none; width: 26px; height: 26px;
+  border: 1px solid var(--ui-control); border-radius: 50%; color: var(--ui-sub); }
+.he-choice small { border: 1px solid var(--ui-control); border-radius: 999px; padding-inline: 7px; color: var(--ui-primary); }
+.he-pick { margin: 14px 0 0; }
+.he-pick h3 { margin: 0 0 6px; font-size: .9rem; color: var(--ui-sub); }
+.he-members, .he-rest { grid-template-columns: repeat(auto-fit,minmax(min(158px,100%),1fr)); }
+.he-member { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 2px 8px; }
+.he-member :is(img,.he-face), .he-rest :is(img,.he-face) {
+  display: grid; place-items: center; width: 30px; height: 30px; border-radius: 6px; object-fit: cover;
+  background: var(--ui-input-bg);
+}
+.he-member :is(img,.he-face) { grid-row: span 3; }
+.he-member small { color: var(--ui-sub); }
+.he-member strong { color: var(--ui-primary); }
+.he-dice, .he-gain, .he-rest li {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; border: 1px solid var(--ui-control);
+  border-radius: 10px; background: var(--ui-soft); padding: 10px 12px; overflow-wrap: anywhere;
+}
+.he-dice, .he-loot { justify-content: center; }
+.he-die { padding: 5px 10px; background: var(--ui-text); color: var(--ui-bg); border-radius: 6px; font-size: 1.1rem; }
+.he-ok, .he-fail { border-radius: 999px; padding: 2px 8px; border: 1px solid currentColor; }
+.he-ok { color: var(--ui-primary); }
+.he-fail { color: var(--ui-danger); }
+.he-actor { text-align: center; color: var(--ui-sub); }
+.he-loot { display: flex; margin: 14px auto 0; }
+.he-loot .hr-reward-card { width: min(320px,100%); }
+.he-gain { width: min(480px,100%); }
+.he-gain > span { font-size: 1.8rem; }
+.he-gain small { display: block; color: var(--ui-sub); }
+.he-gain p { margin: 4px 0 0; white-space: pre-wrap; }
+.he-rest { list-style: none; grid-template-columns: repeat(auto-fit,minmax(min(280px,100%),1fr)); padding: 0; }
+.he-rest li { gap: 6px; }
+.hollow-node.type-chest { color: #f0d27a; }
+.hollow-node.type-miasma { color: #c9a0f0; }
+.hollow-node.type-camp { color: #7fd8a0; }
+.unit-drop-row { display: grid; grid-template-columns: repeat(2,minmax(0,2fr)) minmax(0,1fr) minmax(0,1fr) auto;
+  gap: 8px; align-items: start; padding: 6px 0; }
+@media (max-width: 760px) {
+  .unit-drop-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  .he-choice { flex-wrap: wrap; }
+}

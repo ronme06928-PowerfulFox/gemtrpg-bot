@@ -98,11 +98,20 @@ def test_miasma_pending_reloads_and_actions_are_authorized(dungeon, events, monk
     assert state["hollow"]["run"]["current_event"] == original
     payload = build_participant_state(state)["hollow"]["run"]
     assert all(key not in payload["map"] for key in ("events", "chests", "encounters"))
-    assert payload["current_event"] == original
+    assert payload["current_event"]["choices"] == [
+        {"label": "判定", "skill": "鑑定", "difficulty": 10, "needs_member": True},
+        {"label": "小瓶", "needs_member": True},
+        {"label": "記憶", "needs_member": False},
+        {"label": "通過", "needs_member": False},
+    ]
+    assert state["hollow"]["run"]["current_event"] == original
 
     monkeypatch.setattr("manager.exploration_roll.randint", lambda *_: 3)
     result = commands.resolve_event(ROOM, "owner", "miasma", 1, 0, "0")["event_result"]
     assert (result["success"], result["dice"], result["total"]) == (True, [3, 3], 10)
+    public = build_participant_state(state)["hollow"]["run"]
+    assert public["current_event"]["result"]["gain"]["description"] == ""
+    assert public["log"][-1]["choices"] == payload["current_event"]["choices"]
     assert state["hollow"]["run"]["temp_buffs"] == [{"char_id": "0", "buff_id": "HBu-01", "battles_left": 1}]
     with pytest.raises(ValueError):
         commands.resolve_event(ROOM, "owner", "miasma", 1, 0, "0")
@@ -205,6 +214,9 @@ def test_descent_after_30_and_camp_at_45(dungeon, events):
         commands.resolve_event(ROOM, "owner", "miasma", floor, 3, None)
     event = descend()["current_event"]
     assert event["type"] == "camp" and event["resolved"]
+    row = build_participant_state(state)["hollow"]["run"]["current_event"]["recovery"][1]
+    assert row == {"char_id": "1", "hp_before": 0, "hp_after": 30,
+                   "mp_before": 1, "mp_after": 6, "revived": True}
     assert (state["characters"][0]["hp"], state["characters"][0]["mp"]) == (31, 6)
     assert (state["characters"][1]["hp"], state["characters"][1]["mp"]) == (30, 6)
     commands.swap_party(ROOM, "owner", "0", "4")
@@ -215,3 +227,29 @@ def test_small_maximum_recovers_at_least_one_hp_when_revived():
     char = {"id": "1", "type": "ally", "hp": 0, "maxHp": 1, "mp": 0, "maxMp": 1}
     recover_party({"characters": [char]}, {"party_order": ["1"]}, 50, 50, revive=True)
     assert (char["hp"], char["mp"]) == (1, 0)
+
+
+def test_event_workbench_api(dungeon, events):
+    from extensions import db
+    from models import User
+
+    _, clients, _, _ = dungeon
+    author = db.session.get(User, "owner")
+    author.is_catalog_author = True
+    db.session.commit()
+    client = clients["owner"]
+    library = client.get("/api/units?domain=hollow").json
+    assert "鑑定" in library["exploration_skills"] and len(library["exploration_skills"]) == 12
+    forms = {row["kind"]: row for row in library["entries"]}
+    for kind in ("hollow_event", "drop_table", "treasure_chest", "hollow_map"):
+        original = forms[kind]
+        payload = original["payload"].copy()
+        if kind == "hollow_map":
+            payload.update(event_weights={"miasma": 1, "chest": 1},
+                           events=[{"event_id": events[0], "weight": 1}],
+                           chests=[{"chest_id": events[1], "weight": 1}])
+        response = client.post(f"/api/units/{kind}", json={"payload": payload})
+        assert response.status_code == 201, response.json
+        assert response.json["entry"]["payload"] == payload
+    broken = client.post("/api/units/hollow_map/check", json={"payload": payload | {"chests": []}})
+    assert "chests" in broken.json["errors"]

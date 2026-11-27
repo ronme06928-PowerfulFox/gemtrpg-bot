@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>イベント階の画面 試作</title>
+<!--STYLE-->
+</head>
+<body data-viewer="host" data-place="stage" data-reveal="check">
+<div class="room">
+  <header class="room-head">
+    <span class="room-brand">ジェムリアTRPGダイスボット</span>
+    <span class="room-name">現在のルーム: 青晶坑の先遣隊</span>
+    <span class="room-user" data-viewer-label></span>
+  </header>
+  <nav class="dock" aria-label="アクションドック">
+    <span class="dock-icon dock-party" title="パーティ">👥</span>
+    <span class="dock-icon">💎</span>
+    <span class="dock-icon">⚡</span>
+    <span class="dock-icon">🎒</span>
+    <span class="dock-icon">➕</span>
+    <span class="dock-icon">📚</span>
+    <span class="dock-icon">♪</span>
+  </nav>
+
+  <main class="board" data-board>
+    <section class="screen map-screen" data-theme="abyss" aria-label="地図">
+      <header class="map-head">
+        <div class="map-title"><small>T1 入穴</small><h2>青晶の坑道</h2></div>
+        <div class="map-now"><span class="map-floor" data-floor></span><span class="map-hint" data-map-hint></span></div>
+        <button type="button" class="ui-btn danger" data-retreat>撤退</button>
+      </header>
+      <div class="map-scroll"><div class="map-canvas"><div class="map-rows" data-map-rows></div></div></div>
+    </section>
+
+    <!-- 魔素だまり・宝箱・町・キャンプの窓。置き方は body[data-place] で切り替える（地図に重ねる／盤面の場面） -->
+    <div class="event-layer" data-theme="abyss" data-event-layer hidden>
+      <section class="event-panel" data-event-panel aria-live="polite"></section>
+    </div>
+
+    <section class="screen data-screen" data-theme="abyss" aria-label="ホロウデータ" data-data-screen></section>
+  </main>
+
+  <aside class="side">
+    <section class="hollow-strip" data-theme="abyss" aria-label="ホロウの状態">
+      <div class="strip-line"><span class="strip-state" data-strip-state></span><span class="strip-host">ホスト <b>リオ</b></span></div>
+      <div class="strip-line strip-sub"><span>魔力負荷 <b>8</b></span><span>参加コード</span></div>
+    </section>
+    <section class="chat" aria-label="チャット">
+      <div class="chat-tabs"><span class="on">すべて</span><span>会話</span><span>システム</span><span>履歴</span></div>
+      <div class="chat-log" data-log></div>
+    </section>
+  </aside>
+</div>
+
+<aside class="compare" aria-label="見比べ">
+  <div class="compare-row"><span>見る人</span>
+    <button type="button" data-set="viewer" data-value="host">ホスト</button>
+    <button type="button" data-set="viewer" data-value="player">プレイヤー</button></div>
+  <div class="compare-row"><span>場面</span>
+    <button type="button" data-set="scene" data-value="miasma">魔素だまり</button>
+    <button type="button" data-set="scene" data-value="result">判定の結果</button>
+    <button type="button" data-set="scene" data-value="chest-item">宝箱（アイテム）</button>
+    <button type="button" data-set="scene" data-value="chest-relic">宝箱（淵遺物）</button>
+    <button type="button" data-set="scene" data-value="town">町</button>
+    <button type="button" data-set="scene" data-value="camp">キャンプ</button>
+    <button type="button" data-set="scene" data-value="data">ホロウデータ</button></div>
+  <div class="compare-row"><span>置き方</span>
+    <button type="button" data-set="place" data-value="overlay">A 地図に重ねる</button>
+    <button type="button" data-set="place" data-value="stage">B 盤面の場面</button></div>
+  <div class="compare-row"><span>見せる</span>
+    <button type="button" data-set="reveal" data-value="all">全部</button>
+    <button type="button" data-set="reveal" data-value="check">技能と難易度</button>
+    <button type="button" data-set="reveal" data-value="label">ラベルだけ</button></div>
+  <details class="contrast"><summary data-contrast-summary></summary><table data-contrast></table></details>
+</aside>
+<!--SCRIPT-->
+</body>
+</html>

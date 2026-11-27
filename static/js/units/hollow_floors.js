@@ -1,7 +1,7 @@
 (function () {
   const {h} = window.CatalogWorkspaceParts;
   const {button, field, select, grid, card, remove, imageField} = window.UnitForms;
-  const labels = {tier:'Tier',hollow_map:'マップ',fixed_floor:'固定階'};
+  const labels = {tier:'Tier',hollow_map:'マップ',fixed_floor:'固定階',hollow_event:'イベント',treasure_chest:'宝箱',drop_table:'ドロップ表'};
   const types = {town:'町',camp:'キャンプ'};
   const events = {normal:'通常戦闘',elite:'精鋭戦闘',chest:'宝箱',miasma:'魔素だまり'};
   const grades = {'鉄級':'iron','銅級':'copper','銀級':'silver','金級':'gold','特異級':'exceptional'};
@@ -14,9 +14,10 @@
   const configureCategories = values => { categories = values; };
 
   function defaults(kind, records) {
+    if (window.UnitHollowEventForms.supports(kind)) return window.UnitHollowEventForms.defaults(kind);
     if (kind === 'fixed_floor') return {name:'',floor:10,type:'town',text:''};
     if (kind === 'hollow_map') return {name:'',tier:1,description:'',image:'',event_weights:{},
-      encounters:{normal:[],elite:[]},category_weights:{},boss_formation_id:'',boss_stage_id:''};
+      encounters:{normal:[],elite:[]},events:[],chests:[],category_weights:{},boss_formation_id:'',boss_stage_id:''};
     const used = new Set(records.filter(row => row.kind === 'tier' && !row.deprecated).map(number));
     return {name:'',tier:[1,2,3,4,5].find(value => !used.has(value)) ?? 1,description:'',
       hp_multiplier:1,attack_multiplier:1};
@@ -49,21 +50,28 @@
     }).join('');
   }
 
-  function encounterTable(group, label, rows, records, edit) {
-    const path = `encounters.${group}`;
-    return `<section class="unit-encounter-group" data-encounter-group="${group}">
-      <div class="unit-list-heading"><h4>${label}</h4>${edit ? button(`＋ ${label}を追加`,'encounter-add',`data-path="${path}"`) : ''}</div>
-      <div class="unit-encounter-head" aria-hidden="true"><span>編成</span><span>重み</span><span>割合</span></div>
+  function weightedTable(path, label, rows, records, edit, kind, idField) {
+    const name = kind === 'formation' ? '編成' : kinds[kind];
+    const addLabel = kind === 'formation' ? label : name;
+    return `<section class="unit-encounter-group" data-weight-path="${path}">
+      <div class="unit-list-heading"><h4>${label}</h4>${edit ? button(`＋ ${addLabel}を追加`,'weighted-add',`data-path="${path}" data-field="${idField}"`) : ''}</div>
+      ${errorNote(path)}
+      <div class="unit-encounter-head" aria-hidden="true"><span>${name}</span><span>重み</span><span>割合</span></div>
       ${rows.map((row,i) => `<div class="unit-encounter-row">
-        <div>${reference('編成',`${path}.${i}.formation_id`,'formation',row.formation_id,records)}
-          <div class="unit-encounter-members">${membersOf(row.formation_id,records)}</div></div>
+        <div>${reference(name,`${path}.${i}.${idField}`,kind,row[idField],records)}
+          ${kind === 'formation' ? `<div class="unit-encounter-members">${membersOf(row[idField],records)}</div>` : ''}</div>
         ${numberField('重み',`${path}.${i}.weight`,row.weight,'min="0" step="1"')}
-        <div class="unit-encounter-share"><output data-encounter-share></output><span aria-hidden="true"><i></i></span></div>
+        ${shareBar()}
         ${edit ? remove(path,i) : ''}</div>`).join('')}
     </section>`;
   }
 
-  function render(section, {kind,row,edit,records}) {
+  const kinds = {hollow_event:'魔素だまり',treasure_chest:'宝箱'};
+  const errorNote = path => `<span class="cat-field-error" data-unit-field-error="${path}" id="unit-error-${path}" hidden></span>`;
+  const shareBar = () => '<div class="unit-encounter-share"><output data-encounter-share></output><span aria-hidden="true"><i></i></span></div>';
+
+  function render(section, {kind,row,edit,records,masters}) {
+    if (window.UnitHollowEventForms.supports(kind)) return window.UnitHollowEventForms.render(kind,row.payload,edit,masters,records);
     const p = row.payload;
     const name = checked('name', field('名前','name',p.name));
     if (kind === 'fixed_floor') {
@@ -76,11 +84,13 @@
         ${Object.keys(events).map(key => `<span data-event-share="${key}" data-event="${key}"></span>`).join('')}</div>
         <div class="unit-event-fields">${Object.entries(events).map(([key,label]) =>
           `<div data-event="${key}">${numberField(label,`event_weights.${key}`,p.event_weights?.[key] ?? 0,'min="0" step="1"')}</div>`
-        ).join('')}</div>`;
+        ).join('')}</div>`
+        + weightedTable('events','イベントの表',p.events || [],records,edit,'hollow_event','event_id')
+        + weightedTable('chests','宝箱の表',p.chests || [],records,edit,'treasure_chest','chest_id');
     }
     if (section === 'encounters') {
-      return encounterTable('normal','通常',p.encounters?.normal || [],records,edit) +
-        encounterTable('elite','精鋭',p.encounters?.elite || [],records,edit);
+      return weightedTable('encounters.normal','通常',p.encounters?.normal || [],records,edit,'formation','formation_id') +
+        weightedTable('encounters.elite','精鋭',p.encounters?.elite || [],records,edit,'formation','formation_id');
     }
     if (section === 'categories') {
       return grid(...categories.map(label =>
@@ -104,17 +114,17 @@
   function update(section, payload, errors) {
     section.querySelectorAll('[data-unit-field-error]').forEach(note => {
       const path = note.dataset.unitFieldError;
-      const key = path.replace(/\.(\d+)(?=\.)/g,'[$1]');
+      const key = path.replace(/\.(\d+)(?=\.|$)/g,'[$1]');
       const message = errors[key] || '';
       note.hidden = !message;
       note.textContent = message;
-      const input = note.parentElement.querySelector('[data-path]');
+      const input = note.closest('.unit-checked-field')?.querySelector('[data-path]');
       if (message) {
-        input.setAttribute('aria-invalid','true');
-        input.setAttribute('aria-describedby',note.id);
+        input?.setAttribute('aria-invalid','true');
+        input?.setAttribute('aria-describedby',note.id);
       } else {
-        input.removeAttribute('aria-invalid');
-        input.removeAttribute('aria-describedby');
+        input?.removeAttribute('aria-invalid');
+        input?.removeAttribute('aria-describedby');
       }
     });
 
@@ -129,8 +139,8 @@
       segment.title = `${events[key]} ${ratio}`;
       segment.setAttribute('aria-label',segment.title);
     });
-    section.querySelectorAll('[data-encounter-group]').forEach(group => {
-      const rows = payload.encounters?.[group.dataset.encounterGroup] || [];
+    section.querySelectorAll('[data-weight-path]').forEach(group => {
+      const rows = group.dataset.weightPath.split('.').reduce((obj,key) => obj?.[key],payload) || [];
       const total = sum(rows.map(row => row.weight));
       group.querySelectorAll('[data-encounter-share]').forEach((output,i) => {
         output.textContent = share(rows[i].weight,total);
@@ -140,6 +150,7 @@
   }
 
   function preview(kind,payload) {
+    if (window.UnitHollowEventForms.supports(kind)) return window.UnitHollowEventForms.preview(kind,payload);
     if (kind === 'fixed_floor') {
       return card('固定階',`<p>${payload.floor ? floorLabel(payload.floor) : '階未設定'} · ${h(types[payload.type])}</p>`);
     }
@@ -149,5 +160,5 @@
     return card('Tier',`<p>T${h(payload.tier || '—')} · HP ×${h(payload.hp_multiplier)} · 攻撃 ×${h(payload.attack_multiplier)}</p>`);
   }
 
-  window.UnitHollowFloors = {labels,types,supports,floorLabel,number,defaults,configureCategories,render,update,preview};
+  window.UnitHollowFloors = {labels,types,supports,floorLabel,number,defaults,configureCategories,render,update,preview,checked,numberField,errorNote,shareBar,sum,share};
 })();

@@ -5,6 +5,7 @@
   const patterns = window.UnitPatterns;
   const floors = window.UnitHollowFloors;
   const rewards = window.UnitHollowRewards;
+  const eventForms = window.UnitHollowEventForms;
   const {button, badges, sections} = forms;
   const {h, history, notice} = window.CatalogWorkspaceParts;
   const {clone, parse, stringify} = window.CatalogJson;
@@ -123,10 +124,9 @@
         button(`${label} <span>${tabRows(kind).length}件</span>`,'tab',
           `data-kind="${kind}" aria-pressed="${state.kind === kind}"`)).join('');
       const group = (label, tabs) => `<section class="unit-tab-group" aria-label="${label}"><h3>${label}</h3>${tabs}</section>`;
-      const inactive = (...tabs) => tabs.map(tab => `<button type="button" class="cat-button" disabled>${tab}</button>`).join('');
-      get('.unit-tabs').innerHTML = hollow ? group('敵', activeTabs(hollowLabels)) +
-        group('階',activeTabs(floors.labels) + inactive('イベント','宝箱')) +
-        group('報酬',activeTabs(rewards.labels) + inactive('ドロップ表')) : activeTabs(labels);
+      const {drop_table, ...floorLabels} = floors.labels;
+      get('.unit-tabs').innerHTML = hollow ? group('敵',activeTabs(hollowLabels)) +
+        group('階',activeTabs(floorLabels)) + group('報酬',activeTabs({...rewards.labels,drop_table})) : activeTabs(labels);
       get('.unit-list-actions').innerHTML = canEdit() ? button('＋ 新規','new') : '';
       get('.unit-filters').innerHTML = `<label class="cat-field"><span class="cat-visually-hidden">検索</span><input type="search" data-filter="search" placeholder="ID・名称・タグ" value="${h(state.search)}"></label>
         ${state.kind !== 'unit_collection' && !floors.supports(state.kind) && !rewards.supports(state.kind) ? `<label class="cat-field"><span class="cat-visually-hidden">分類</span><select data-filter="collection">${views.collectionOptions(state.records,state.collection,'全分類')}</select></label>` : ''}
@@ -281,9 +281,10 @@
     }
 
     async function reload(id = state.selected, section = state.section, fromReference = false) {
-      const {entries, marks, relic_categories, relic_all_categories} = await api.list(domain);
+      const {entries, marks, relic_categories, relic_all_categories, exploration_skills} = await api.list(domain);
       floors.configureCategories(relic_categories || []);
       rewards.configure(relic_all_categories || []);
+      eventForms.configure(exploration_skills || []);
       forms.configureMarks(marks || {});
       state.records = entries.filter(row => canEdit() || row.visibility === 'public');
       const row = state.records.find(row => row.kind === state.kind && row.entry_id === id);
@@ -695,11 +696,17 @@
       }
       if (action === 'candidate') pick(control);
       if (action === 'clear-reference') { setPath(path,null); update(true); }
-      if (action === 'encounter-add') {
-        addRow(path,{formation_id:'',weight:1});
+      if (action === 'weighted-add') {
+        const field = control.dataset.field;
+        addRow(path,field === 'id' ? {kind:'item',id:'',weight:1} : {[field]:'',weight:1});
         update(true);
-        const added = get(`[data-path="${path}.${payload().encounters[path.split('.')[1]].length - 1}.formation_id"]`);
-        added?.focus();
+        const rows = path.split('.').reduce((obj,key) => obj[key],payload());
+        get(`[data-path="${path}.${rows.length - 1}.${field}"]`)?.focus();
+      }
+      if (action === 'event-choice-add' && payload().choices.length < 4) {
+        addRow('choices',{label:''});
+        update(true);
+        get(`[data-path="choices.${payload().choices.length - 1}.label"]`)?.focus();
       }
       if (action === 'remove-row') {
         const rows = path.split('.').reduce((obj,key) => obj[key],payload());
@@ -896,6 +903,11 @@
       if (path === 'other_lines') value = input.value.split(/\r?\n/).filter(line => line.trim());
       if (path.endsWith('.pattern_id')) value ||= null;
       if (input.validity.badInput) return;
+      if (eventForms.change(state.kind,payload(),path,value)) {
+        update(true);
+        get(`[data-path="${path}"]`)?.focus({preventScroll:true});
+        return;
+      }
       if (state.kind === 'relic') {
         if (path === 'rank') value = Number(value);
         if (path === 'target.type' || path === 'target.condition' || path === 'target.tag') {
@@ -931,7 +943,7 @@
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
       const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy' ||
-        (state.kind === 'hollow_map' && path.endsWith('.formation_id'));
+        (state.kind === 'hollow_map' && path.endsWith('.formation_id')) || path === 'drop_table_id';
       update(refresh);
       if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});
       if (path.startsWith('patterns.') && path.endsWith('.name')) {

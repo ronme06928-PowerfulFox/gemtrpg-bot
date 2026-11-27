@@ -1,0 +1,153 @@
+/* 地図の試作（hollow_map_proto/page.css）と淵遺物の試作（hollow_relic_proto/page.css）に足す分。 */
+.board[data-current="map"] .map-screen, .board[data-current="data"] .data-screen { display: flex; }
+.stage-actions.is-all .ui-btn { display: inline-block !important; }
+
+/* イベントの窓：A は地図に重ねる、B は盤面の場面 */
+.event-layer { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; overflow: auto; color: var(--ui-text); font-size: 13px; }
+.event-layer[hidden] { display: none; }
+body[data-place="overlay"] .event-layer { background: #050912b3; backdrop-filter: blur(1.5px); }
+body[data-place="overlay"] .event-panel { width: min(720px, 100%); max-height: 100%; overflow: auto; border-radius: 14px;
+  border: 1px solid var(--ui-line); background: var(--ui-bg); box-shadow: var(--ui-shadow-float), 0 0 40px var(--abyss-light); }
+body[data-place="stage"] .event-layer { place-items: start center;
+  background: radial-gradient(ellipse at 50% -10%, var(--abyss-light), transparent 60%), linear-gradient(#080d17e8, #080d17f5), var(--cave) center / cover; }
+body[data-place="stage"] .event-panel { width: min(880px, 100%); }
+.event-panel { padding: 0 0 4px; }
+.event-panel .stage-head { padding: 18px 24px 2px; }
+.event-panel .stage-head h2 { font-size: 26px; }
+.event-text { margin: 10px 28px 4px; line-height: 1.9; font-size: 14px; text-align: center; }
+
+/* 選択肢 */
+.choices { display: grid; gap: 8px; margin: 14px 24px 0; }
+.choice { display: flex; gap: 12px; align-items: flex-start; text-align: left; padding: 10px 14px; border-radius: 10px;
+  border: 1.5px solid var(--ui-control); background: var(--ui-soft); color: var(--ui-text); }
+body[data-viewer="host"] .choice { cursor: pointer; }
+body[data-viewer="host"] .choice:hover { border-color: var(--ui-primary); }
+.choice[aria-pressed="true"] { border-color: var(--ui-primary); box-shadow: 0 0 0 3px var(--ui-primary-soft); }
+.choice-no { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--ui-line); font: 700 13px var(--ui-head-font); color: var(--ui-sub); }
+.choice-body { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
+.choice-body b { font-size: 15px; }
+.tag { padding: 0 8px; border-radius: 999px; border: 1px solid var(--ui-primary); color: var(--ui-primary); font-weight: 700; font-size: 12px; }
+.tag.is-free { border-color: var(--ui-line); color: var(--ui-sub); }
+.effects { flex-basis: 100%; display: grid; gap: 1px; color: var(--ui-sub); font-size: 12px; }
+.effects .is-fail { color: var(--ui-danger); }
+
+/* 人を選ぶ */
+.pick { margin: 14px 24px 0; }
+.pick h3 { margin: 0 0 6px; font: 700 13px var(--ui-head-font); color: var(--ui-sub); }
+.pick-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
+.pick-chip { display: grid; grid-template-columns: 30px 1fr; column-gap: 8px; align-items: center; text-align: left; padding: 5px 8px 5px 5px;
+  border-radius: 8px; border: 1px solid var(--ui-control); background: var(--ui-soft); color: var(--ui-text); cursor: pointer; }
+.pick-chip .face { grid-row: span 3; width: 30px; height: 30px; border-radius: 6px; background-color: var(--ui-input-bg); background-position: center; background-size: cover; }
+.pick-chip b { font-size: 13px; }
+.pick-chip b small { margin-left: 6px; color: var(--ui-sub); font-weight: 400; font-size: 11px; }
+.pick-chip .hp { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ui-sub); }
+.pick-chip .hp i { display: block; width: 40px; height: 4px; border-radius: 2px; background: var(--ui-input-bg); overflow: hidden; }
+.pick-chip .hp i span { display: block; height: 100%; background: #7fd8a0; }
+.pick-chip .odds { font-size: 12px; font-weight: 700; color: var(--ui-primary); }
+.pick-chip[aria-pressed="true"] { border-color: var(--ui-primary); box-shadow: 0 0 0 2px var(--ui-primary-soft); }
+.pick-chip.is-down .face { filter: grayscale(1) brightness(.6); }
+.pick-chip.is-down .hp { color: var(--ui-danger); font-weight: 700; }
+.pick-chip:disabled { cursor: not-allowed; opacity: .55; }
+
+/* 判定の結果 */
+.dice-line { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; margin: 16px 24px 0; padding: 12px; border-radius: 10px;
+  border: 1px solid var(--ui-line); background: var(--ui-soft); font-size: 15px; }
+.dice { display: flex; gap: 6px; }
+.dice i { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 8px; background: var(--ui-text); color: var(--ui-bg); font: 700 18px var(--ui-head-font); font-style: normal;
+  animation: roll .5s ease; }
+.dice-line b { font: 700 22px var(--ui-head-font); }
+.dice-line .vs { color: var(--ui-sub); }
+.dice-line strong { padding: 2px 14px; border-radius: 999px; font: 700 18px var(--ui-head-font); }
+.dice-line.is-ok strong { color: var(--ui-on-primary); background: var(--ui-primary); }
+.dice-line.is-ng strong { color: #fff; background: var(--ui-danger); }
+.dice-who { margin: 6px 0 0; text-align: center; color: var(--ui-sub); }
+@keyframes roll { from { transform: rotate(-90deg) scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dice i { animation: none; } }
+.gains { display: grid; gap: 8px; margin: 14px 24px 0; }
+.gain { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--ui-primary); background: var(--ui-soft); }
+.gain.is-bad-yes { border-color: var(--ui-danger); }
+.gain b { font: 700 17px var(--ui-head-font); }
+.gain p { margin: 4px 0 0; line-height: 1.6; }
+.gain .meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; color: var(--ui-sub); font-size: 12px; }
+.gain .cost, .reward-card .cost { margin: 0; color: var(--ui-danger); font-weight: 700; }
+.gain-none { margin: 0; text-align: center; color: var(--ui-sub); }
+.item-icon { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 12px; border: 1.5px solid var(--ui-line); background: var(--ui-soft); font-size: 28px; }
+.item-icon.is-big { width: 88px; height: 88px; font-size: 42px; }
+.kind-tag { padding: 0 8px; border-radius: 999px; border: 1px solid var(--ui-line); font-weight: 700; color: var(--ui-text); }
+
+/* 宝箱 */
+.loot { display: flex; justify-content: center; margin: 14px 24px 0; }
+.loot .reward-card { width: min(320px, 100%); cursor: default; }
+
+/* 町・キャンプ */
+.event-panel .stage-head p { margin-top: 2px; color: var(--ui-primary); font-weight: 700; }
+.rest-list { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; margin: 14px 24px 0; padding: 0; }
+.rest-list li { display: grid; grid-template-columns: 30px 4.5em 1fr 1fr auto; gap: 8px; align-items: center; padding: 5px 10px 5px 5px; border-radius: 8px; background: var(--ui-soft); border: 1px solid var(--ui-line); }
+.rest-list .face { width: 30px; height: 30px; border-radius: 6px; background-color: var(--ui-input-bg); background-position: center; background-size: cover; }
+.rest-list span { color: var(--ui-sub); font-size: 12px; }
+.rest-list em { font-style: normal; font-weight: 700; color: var(--ui-text); }
+.revive { padding: 0 8px; border-radius: 999px; background: var(--ui-primary); color: var(--ui-on-primary) !important; font-weight: 700; }
+
+/* 地図のマスの種類 */
+.node.t-chest { color: #f0d27a; }
+.node.t-miasma { color: #c9a0f0; }
+.node.t-camp { color: #7fd8a0; }
+
+/* ホロウデータ */
+.data-screen { flex-direction: column; color: var(--ui-text); background: var(--ui-page); font-size: 13px; overflow: hidden; }
+.data-head { padding: 12px 18px 0; border-bottom: 1px solid var(--ui-line); }
+.data-head h2 { margin: 0 0 8px; font: 700 20px var(--ui-head-font); }
+.data-tabs { display: flex; flex-wrap: wrap; gap: 4px 18px; padding-bottom: 8px; }
+.tab-group { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.tab-group small { color: var(--ui-sub); margin-right: 2px; }
+.data-tab { border: 1px solid var(--ui-control); border-radius: 6px; padding: 2px 10px; background: transparent; color: var(--ui-text); cursor: pointer; }
+.data-tab:disabled { cursor: default; opacity: .45; }
+.data-tab[aria-pressed="true"] { background: var(--ui-primary); border-color: var(--ui-primary); color: var(--ui-on-primary); font-weight: 700; }
+.data-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.data-list { list-style: none; margin: 0; padding: 10px; border-right: 1px solid var(--ui-line); overflow: auto; display: grid; gap: 4px; align-content: start; }
+.data-list li { padding: 6px 10px; border-radius: 6px; border: 1px solid transparent; }
+.data-list li[aria-current="true"] { border-color: var(--ui-primary); background: var(--ui-primary-soft); }
+.data-list .data-add { color: var(--ui-primary); font-weight: 700; }
+.ref { margin-right: 6px; color: var(--ui-sub); font-size: 12px; font-family: ui-monospace, monospace; }
+.data-form { overflow: auto; padding: 12px 18px 20px; display: grid; gap: 10px; align-content: start; max-width: 820px; }
+.field { display: grid; gap: 4px; font-weight: 700; color: var(--ui-sub); }
+.data-form input, .data-form textarea, .data-form select { font: inherit; color: var(--ui-text); background: var(--ui-input-bg); border: 1px solid var(--ui-control); border-radius: 6px; padding: 4px 8px; }
+.data-form input[type="number"] { width: 64px; }
+.data-sub { margin: 8px 0 0; font: 700 14px var(--ui-head-font); }
+.data-sub small { color: var(--ui-sub); font-weight: 400; font-family: inherit; margin-left: 6px; }
+.choice-edit { display: grid; gap: 6px; margin: 0; padding: 8px 12px 10px; border: 1px solid var(--ui-line); border-radius: 10px; background: var(--ui-soft); }
+.choice-edit legend { padding: 0 6px; font: 700 13px var(--ui-head-font); color: var(--ui-sub); }
+.field-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.field-row .grow { flex: 1; min-width: 160px; font-weight: 700; }
+.field-label { width: 3em; color: var(--ui-sub); font-weight: 700; }
+.field-row label { color: var(--ui-sub); }
+.ref-pick { padding: 3px 10px; border-radius: 6px; border: 1px dashed var(--ui-control); }
+.seg { display: inline-flex; border: 1px solid var(--ui-control); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; background: transparent; color: var(--ui-text); padding: 2px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ui-primary); color: var(--ui-on-primary); font-weight: 700; }
+.ui-btn.small { padding: 2px 10px; font-size: 12px; }
+.ui-btn:disabled { opacity: .45; cursor: not-allowed; }
+.data-table { border-collapse: collapse; width: 100%; }
+.data-table th { text-align: left; color: var(--ui-sub); font-weight: 700; padding: 4px 6px; border-bottom: 1px solid var(--ui-line); }
+.data-table td { padding: 4px 6px; border-bottom: 1px solid var(--ui-line); }
+.share { display: inline-block; vertical-align: middle; width: 60px; height: 6px; margin-right: 6px; border-radius: 3px; background: var(--ui-input-bg); overflow: hidden; }
+.share i { display: block; height: 100%; background: var(--ui-primary); }
+.weight-band { display: flex; height: 28px; border-radius: 6px; overflow: hidden; font-size: 12px; font-weight: 700; }
+.weight-band span { display: grid; place-items: center; white-space: nowrap; overflow: hidden; color: #0c1320; }
+.weight-band .w-通常戦闘 { background: #b9d3e6; }
+.weight-band .w-精鋭戦闘 { background: #f0c27a; }
+.weight-band .w-宝箱 { background: #f0d27a; }
+.weight-band .w-魔素だまり { background: #c9a0f0; }
+.data-note { margin: 0; color: var(--ui-sub); }
+.data-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 6px; }
+
+@media (max-width: 760px) {
+  .event-layer { padding: 10px; }
+  .event-panel .stage-head h2 { font-size: 21px; }
+  .event-text, .choices, .pick, .gains, .loot, .rest-list, .dice-line { margin-left: 12px; margin-right: 12px; }
+  .pick-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rest-list li { grid-template-columns: 30px 1fr 1fr; }
+  .rest-list li b, .rest-list .revive { grid-column: span 1; }
+  .data-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .data-list { grid-auto-flow: column; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--ui-line); }
+}

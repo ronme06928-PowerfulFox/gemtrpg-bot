@@ -66,5 +66,5 @@
     if (a.kind === 'hollow_load_stage') return a.payload.threshold - b.payload.threshold;
     return 0;
   }
-  window.UnitHollowRewards = {labels,models,supports,configure,defaults,render,preview,compare,ranks};
+  window.UnitHollowRewards = {labels,models,reference,supports,configure,defaults,render,preview,compare,ranks};
 })();

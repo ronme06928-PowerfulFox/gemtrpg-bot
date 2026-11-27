@@ -69,6 +69,8 @@ def list_entries(kind=None):
                           if (kind is None or kind == row_kind) and (g.units_author or row_kind not in HOLLOW_IDS)],
               "marks": MARK_LABELS}
     if domain == "hollow" and g.units_author:
+        from manager.exploration_roll import EXPLORATION_SKILLS
+        result["exploration_skills"] = EXPLORATION_SKILLS
         result["relic_categories"] = DRAW_CATEGORIES
         result["relic_all_categories"] = RELIC_CATEGORIES
     return jsonify(result)

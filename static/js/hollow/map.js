@@ -1,5 +1,6 @@
 (function () {
-  const TYPES = {battle: '通常戦闘', elite: '精鋭戦闘', boss: 'ボス'};
+  const events = window.HollowEvents;
+  const TYPES = {battle: '通常戦闘', elite: '精鋭戦闘', boss: 'ボス', ...events.types};
   // A later tier starts on the boss node just defeated, so it keeps that boss's look.
   const look = node => node.type === 'start' && node.floor ? 'boss' : node.type;
   const typeName = node => look(node) === 'start' ? '地上' : TYPES[look(node)];
@@ -8,6 +9,9 @@
     battle: 'M20 3h-5l-9 9-2-2-1.5 1.5 3 3L3 17l1.5 1.5L7 16l3 3 1.5-1.5-2-2 9-9z',
     elite: 'M21 3h-4.5l-6 6 4.5 4.5 6-6zM3 3h4.5l11 11 2-2 1.5 1.5-3 3 2.5 2.5-1.5 1.5-2.5-2.5-3 3-1.5-1.5 2-2zM5.5 16.5l3-3 2 2-3 3 1 1L7 21l-4-4 1.5-1.5z',
     boss: 'M2 6l5 4 5-7 5 7 5-4-2 13H4zm10 6.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM4.5 20.5h15V22h-15z',
+    chest: 'M4 4h16a1 1 0 0 1 1 1v4H3V5a1 1 0 0 1 1-1zM3 10h18v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zm7.5 1v4h3v-4z',
+    miasma: 'M12 3a9 9 0 1 0 9 9h-2.2A6.8 6.8 0 1 1 12 5.2a4.6 4.6 0 1 1-4.6 4.6h2.2a2.4 2.4 0 1 0 2.4-2.4z',
+    camp: 'M12 3 2 20h7.5L12 14.5 14.5 20H22zM11 1h2v3h-2z',
   };
   const OUTCOMES = {CLEAR: 'クリア', RETREAT: '撤退', DEFEAT: '全滅'};
   const relics = window.HollowRelics;
@@ -19,6 +23,9 @@
   let mount, view, curtain, dialog, resize, state, room, snapshot, markup;
   let enterNode, picked, busy, timer, leavingTimer, pendingRound;
   let frame = 0, scrollKey;
+  let eventKey, shownEvent, selectedChoice, selectedMember;
+  const keyFor = run => Object.hasOwn(events.types, run.current_event?.type)
+    ? `${run.floor}:${run.current_event.type}` : null;
 
   function tierName(map) { return map.name || TIERS[map.tier - 1] || ''; }
 
@@ -29,6 +36,7 @@
     if (run.status === 'finished') return 'finished';
     if (value.combat_phase === 'active') return 'battle';
     if (run.reward) return 'reward';
+    if (keyFor(run) && keyFor(run) === shownEvent) return 'event';
     if (run.fusion) return 'fusion';
     if (run.map_candidates) return 'map-pending';
     return run.status === 'in_progress' ? 'map' : 'forming';
@@ -191,6 +199,7 @@
     const manage = window.HollowParty.canProgress(state);
     const html = screen === 'map' ? renderMap(run, manage)
       : screen === 'map-pending' ? mapChoice(run, manage)
+      : screen === 'event' ? events.render(run, parties(run, state).order, manage, selectedChoice, selectedMember)
       : screen === 'reward' ? relics.rewardView(run, manage, TYPES[run.current_event?.type])
       : screen === 'fusion' ? relics.fusionView(run, manage) : renderCard(run, screen, manage);
     if (markup === html) return;
@@ -208,7 +217,7 @@
     if (focused) [...view.querySelectorAll('button,input')].find(el =>
       (focused.relicAction && el.dataset.relicAction === focused.relicAction && el.dataset.key === focused.key)
       || (focused.relicWish !== undefined && el.hasAttribute('data-relic-wish'))
-      || ['node', 'chip', 'routeAction', 'mapId'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
+      || ['node', 'chip', 'routeAction', 'mapId', 'eventAction', 'eventChoice', 'eventMember'].some(key => focused[key] && focused[key] === el.dataset[key]))?.focus({preventScroll: true});
   }
 
   function announce(title, subtitle, sinking) {
@@ -284,8 +293,35 @@
     if (button.dataset.relicAction) return relics.click(button);
     const action = button.dataset.routeAction;
     if (action === 'return') return leaveRoomTo('dungeon');
-    if (!window.HollowParty.canProgress(state)) return;
     const run = state.hollow.run;
+    if (button.dataset.eventAction === 'close') {
+      shownEvent = null;
+      return paint();
+    }
+    if (!window.HollowParty.canProgress(state)) return;
+    if (panelFor(state) === 'event' && button.dataset.eventAction !== 'retreat') {
+      const current = run.current_event;
+      if (current.resolved) return;
+      if (button.dataset.eventChoice !== undefined) {
+        selectedChoice = Number(button.dataset.eventChoice);
+        selectedMember = null;
+        return paint();
+      }
+      if (button.dataset.eventMember) {
+        selectedMember = button.dataset.eventMember;
+        return paint();
+      }
+      if (button.dataset.eventAction === 'decide') {
+        const choice = current.choices[selectedChoice];
+        return send('hollow_resolve_miasma', {floor:run.floor, choice_index:selectedChoice,
+          char_id:choice.needs_member ? selectedMember : null});
+      }
+      if (['take','skip'].includes(button.dataset.eventAction)) {
+        return send('hollow_resolve_chest', {floor:run.floor, take:button.dataset.eventAction === 'take',
+          char_id:selectedMember});
+      }
+      return;
+    }
     if (action === 'start') return send('hollow_run_start');
     if (button.dataset.mapId && run.map_candidates) {
       const current = room;
@@ -301,11 +337,11 @@
       }
       return;
     }
-    if (action === 'retreat') {
+    if (action === 'retreat' || button.dataset.eventAction === 'retreat') {
       const current = room;
       const confirmed = await window.showAppConfirm('遠征を終えて撤退しますか？',
         {title: '撤退', confirmText: '撤退', defaultFocus: 'cancel', danger: true});
-      if (confirmed && room === current && state && ['map', 'map-pending'].includes(panelFor(state))
+      if (confirmed && room === current && state && ['map', 'map-pending', 'event'].includes(panelFor(state))
           && window.HollowParty.canProgress(state)) {
         send('hollow_retreat');
       }
@@ -320,6 +356,7 @@
 
   function close() {
     relics.close();
+    eventKey = shownEvent = selectedChoice = selectedMember = null;
     clearTimeout(timer);
     clearTimeout(leavingTimer);
     if (pendingRound) window.EventBus?.emit('battle:round:banner:finished', {round: pendingRound});
@@ -378,18 +415,24 @@
     state = value;
     relics.sync(state, room, () => { if (!timer) paint(); });
     const run = state.hollow.run;
+    const key = keyFor(run);
+    if (key !== eventKey) {
+      eventKey = key;
+      shownEvent = key && (previous || !run.current_event.resolved) ? key : null;
+      selectedChoice = selectedMember = null;
+    }
     const screen = panelFor(state);
-    snapshot = {screen, tier: run.map?.tier, candidates: run.map_candidates?.maps};
+    snapshot = {screen, floor:run.floor, tier: run.map?.tier, candidates: run.map_candidates?.maps};
     if (!window.HollowParty.canProgress(state)) {
       picked = null;
       if (dialog.open) dialog.close('cancel');
     }
-    if (previous?.screen === 'map' && screen === 'battle') {
+    if (previous && run.floor > previous.floor && ['battle','event'].includes(screen)) {
       if (dialog.open) dialog.close('cancel');
       picked = null;
       announce(`${run.floor}F`, TYPES[run.current_event?.type], true);
     } else if (previous?.screen === 'battle' && screen !== 'battle') {
-      const result = run.log?.at(-1)?.outcome;
+      const result = run.log?.findLast(row => row.floor === run.floor && row.outcome)?.outcome;
       if (snapshot.tier && snapshot.tier !== previous.tier) announce(`T${snapshot.tier}`, tierName(run.map), false);
       else if (result === 'VICTORY') announce(`${run.floor}F`, '制圧', false);
       else if (screen === 'finished') announce(`${run.floor}F`, OUTCOMES[run.result?.outcome], false);

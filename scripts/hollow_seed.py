@@ -133,7 +133,8 @@ def seed_events(upsert, by_name, relic):
 
     buff = save("hollow_buff", "魔素の残響", description="次の戦闘で攻撃威力に影響する。",
                 effect={"power_bonus": [{"value": 1}]})
-    item = save("hollow_item", "晶脈の小瓶", usable=True, effect={"type": "buff", "buff_id": buff})
+    item = save("hollow_item", "晶脈の小瓶", usable=True, description="淡く光る晶脈の小瓶。魔素の残響を付与する。",
+                effect={"type": "buff", "buff_id": buff})
     check = save("hollow_event", "記憶の泉", text="水面に遠い記憶が映る。", choices=[
         {"label": "記憶を読む", "difficulty": 6, "skill": "鑑定",
          "effect": {"kind": "relic", "id": relic},
