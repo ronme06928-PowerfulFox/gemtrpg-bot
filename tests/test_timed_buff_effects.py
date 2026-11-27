@@ -44,6 +44,7 @@ def test_skill_and_buff_rows_use_same_skill_and_order(timing):
     _, logs, changes = process_skill_effects(effects, timing, attacker, target, context=context)
     assert [change[-1] for change in changes] == [2, 1]
     assert any("[獣の爪飾り]" in log for log in logs)
+    assert not any(log.endswith(timing) for log in logs)
     assert any(effect["name"] == "獣の爪飾り" for effect in shown)
     assert process_skill_effects([], timing, target, attacker, context=context)[-1] == []
 

@@ -19,6 +19,11 @@ EFFECT_TARGETS = ("", "self", "target", "ALL_ENEMIES", "ALL_ALLIES", "ALL_OTHER_
     "ALL", "FILTERED_CHARACTERS", "KILLER", "KILLER_TEAM", "NEXT_ALLY")
 BUFF_SKILL_TIMINGS = frozenset(("PRE_MATCH", "HIT", "WIN", "LOSE", "UNOPPOSED", "END_MATCH"))
 BUFF_EFFECT_TIMINGS = BUFF_SKILL_TIMINGS | {"START_ROUND", "END_ROUND", "BATTLE_START", "ON_KILL"}
+BUFF_TIMING_LABELS = {
+    "PRE_MATCH": "使用時", "HIT": "的中時", "WIN": "マッチ勝利時", "LOSE": "マッチ敗北時",
+    "UNOPPOSED": "一方攻撃時", "END_MATCH": "マッチ終了時", "START_ROUND": "ラウンド開始時",
+    "END_ROUND": "ラウンド終了時", "BATTLE_START": "戦闘突入時", "ON_KILL": "相手を戦闘不能にしたとき",
+}
 
 SKILL_RULE_SOURCE_KEYS = [
     "rule_data",

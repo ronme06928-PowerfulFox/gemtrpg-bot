@@ -11,7 +11,7 @@ from manager.battle import power_preview as _power_preview
 from manager.battle import damage_multiplier as _damage_multiplier
 from manager.battle import lifecycle_effects as _lifecycle_effects
 from manager.battle.timed_buffs import buff_rows
-from manager.json_rule_v2 import BUFF_SKILL_TIMINGS
+from manager.json_rule_v2 import BUFF_SKILL_TIMINGS, BUFF_TIMING_LABELS
 from manager.buff_catalog import get_buff_effect, resolve_runtime_buff_effect
 from manager.field_effects import (
     get_state_from_context,
@@ -647,7 +647,7 @@ def process_skill_effects(
                               or session.total_bonus_damage != bonus_before):
                 from manager.battle.timed_buffs import log_timed_buff_effect
 
-                lines = [f"[{buff_name}] {line}" for line in log_snippets[log_start:]] or [f"[{buff_name}] {timing_to_check}"]
+                lines = [f"[{buff_name}] {line}" for line in log_snippets[log_start:]] or [f"[{buff_name}] {BUFF_TIMING_LABELS.get(timing_to_check, timing_to_check)}"]
                 log_snippets[log_start:] = lines
                 log_timed_buff_effect((context or {}).get("room"), lines)
                 if round_key:
