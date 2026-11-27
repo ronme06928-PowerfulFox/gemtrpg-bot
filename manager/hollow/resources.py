@@ -10,11 +10,13 @@ HOLLOW_IDS = {
     "tier": ("HT", 2), "hollow_map": ("HM", 2), "fixed_floor": ("HF", 2), "relic": ("HR", 2),
     "hollow_event": ("HE", 2), "treasure_chest": ("HC", 2), "drop_table": ("HD", 2),
     "hollow_buff": ("HBu", 2), "hollow_item": ("HI", 2),
+    "hollow_load_stage": ("HL", 2), "hollow_recipe": ("HX", 2),
 }
 REWARD_KINDS = {"hollow_buff": "buff", "hollow_item": "item"}
 GRADES = ("鉄級", "銅級", "銀級", "金級", "特異級")
 EVENT_TYPES = ("normal", "elite", "chest", "miasma")
-RELIC_CATEGORIES = ("出血", "破裂", "亀裂", "戦慄", "荊棘", "蓄力", "凝魔", "斬撃", "打撃", "貫通", "汎用", "出身強化")
+DRAW_CATEGORIES = ("出血", "破裂", "亀裂", "戦慄", "荊棘", "蓄力", "凝魔", "斬撃", "打撃", "貫通", "汎用")
+RELIC_CATEGORIES = (*DRAW_CATEGORIES, "出身強化")
 ENCOUNTER_TYPES = ("normal", "elite")
 TARGET_PREFIXES = {
     "buff": (("buff", "Bu"), ("hollow_buff", "HBu")),
@@ -66,6 +68,31 @@ def tier_number_error(payload, resources, entry_id, *, deprecated=False):
     return None
 
 
+UNIQUE_FIELDS = {"tier": "tier", "hollow_load_stage": "threshold", "hollow_recipe": "material_ids"}
+
+
+def uniqueness_errors(kind, payload, resources, entry_id, *, deprecated=False):
+    if kind == "tier":
+        error = tier_number_error(payload, resources, entry_id, deprecated=deprecated)
+        return {"tier": error} if error else {}
+    field = UNIQUE_FIELDS.get(kind)
+    if field and (kind == "hollow_recipe" or not deprecated) and any(
+        other == kind and key != entry_id and (kind == "hollow_recipe" or not row["deprecated"])
+        and row["payload"].get(field) == payload[field]
+        for (other, key), row in resources.items()
+    ):
+        return {field: "同じ値の資源が登録済みです"}
+    return {}
+
+
+def default_name(kind, payload):
+    if kind == "hollow_load_stage":
+        return f"魔力負荷 {payload.get('threshold', '')}"
+    if kind == "hollow_recipe":
+        return "特別な組み合わせ"
+    return None
+
+
 def _multiplier(value):
     return (type(value) is int and value > 0) or (type(value) is float and isfinite(value) and value > 0)
 
@@ -94,7 +121,7 @@ def _array(value, path, errors, *, maximum=None):
 
 
 def _inspect_map(data, errors):
-    _object(data["category_weights"], dict.fromkeys(RELIC_CATEGORIES, _integer), (), "category_weights", errors)
+    _object(data["category_weights"], dict.fromkeys(DRAW_CATEGORIES, _integer), (), "category_weights", errors)
     _object(data["event_weights"], dict.fromkeys(EVENT_TYPES, _integer), (), "event_weights", errors)
     encounters = data["encounters"]
     if _object(encounters, dict.fromkeys(ENCOUNTER_TYPES, lambda value: isinstance(value, list)),
@@ -118,8 +145,16 @@ def _inspect_relic(data, errors):
     if mode == "condition":
         fields["condition"] = _condition
     elif mode == "nth":
-        fields["n"] = lambda value: _integer(value, 1)
+        fields["n"] = lambda value: _integer(value, 1) and value <= 6
     _object(target, fields, tuple(fields), "target", errors)
+
+
+def _inspect_recipe(data, errors):
+    ids = data["material_ids"]
+    if not 2 <= len(ids) <= 4 or not all(_text(key) for key in ids) or len(set(ids)) != len(ids):
+        errors["material_ids"] = "異なる淵遺物IDを2〜4個指定してください"
+    else:
+        data["material_ids"] = sorted(ids)
 
 
 def _inspect_event(data, errors):
@@ -168,11 +203,15 @@ SCHEMAS = {
         {"text": ""}, None,
     ),
     "relic": (
-        {"rarity": lambda value: value in GRADES, "buff_id": _text,
+        {"category": lambda value: value in RELIC_CATEGORIES, "rank": _tier_number, "buff_id": _text,
+         "cost_buff_id": lambda value: isinstance(value, str),
          **dict.fromkeys(("flavor", "image"), lambda value: isinstance(value, str)),
          "target": lambda value: isinstance(value, dict)},
-        {"flavor": "", "image": "", "target": {"type": "all"}}, _inspect_relic,
+        {"flavor": "", "image": "", "cost_buff_id": "", "target": {"type": "all"}}, _inspect_relic,
     ),
+    "hollow_load_stage": ({"threshold": _integer, "buff_id": _text}, {}, None),
+    "hollow_recipe": ({"material_ids": lambda value: isinstance(value, list), "result_id": _text},
+                      {}, _inspect_recipe),
     "hollow_event": (
         {"type": lambda value: value in ("miasma", "camp"), "text": lambda value: isinstance(value, str),
          "choices": lambda value: isinstance(value, list)},
@@ -230,8 +269,16 @@ def links(kind, payload):
             if payload.get(field):
                 yield target, payload[field], field
     elif kind == "relic":
+        for field in ("buff_id", "cost_buff_id"):
+            if key := payload.get(field):
+                yield reward_kind("buff", key), key, field
+    elif kind == "hollow_load_stage":
         key = payload["buff_id"]
         yield reward_kind("buff", key), key, "buff_id"
+    elif kind == "hollow_recipe":
+        for index, key in enumerate(payload["material_ids"]):
+            yield "relic", key, f"material_ids[{index}]"
+        yield "relic", payload["result_id"], "result_id"
     elif kind == "hollow_event":
         for index, choice in enumerate(payload.get("choices", [])):
             for field in ("effect", "failure_effect"):

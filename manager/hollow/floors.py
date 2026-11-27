@@ -7,7 +7,7 @@ from random import Random
 from manager.battle.action_slot_mode import is_character_deployed
 from manager.battle.combat_session import mark_combat_arrival, start_combat_session
 from manager.hollow.map import build_map, weighted_choice
-from manager.hollow.resources import RELIC_CATEGORIES
+from manager.hollow.resources import DRAW_CATEGORIES
 from manager.units.repository import entries
 from manager.units.runtime import deployment_store, get_record, valid_deployment_target
 
@@ -46,7 +46,7 @@ def map_candidates(number, seed, resources):
 
 def _candidate_card(key, area):
     weights = area.get("category_weights", {})
-    ranked = sorted((category for category in RELIC_CATEGORIES if weights.get(category, 0) > 0),
+    ranked = sorted((category for category in DRAW_CATEGORIES if weights.get(category, 0) > 0),
                     key=weights.__getitem__, reverse=True)
     return {"map_id": key, "name": area["name"], "description": area["description"],
             "image": area.get("image", ""), "categories": ranked[:3]}
@@ -237,6 +237,9 @@ def prepare_battle(state, run, node, resources, username):
     replace_fallen(state, run)
     enemies = [char for char in state["characters"] if char.get("type") == "enemy"]
     scaling = scale_enemies(enemies, tier, len(run["party_order"]))
+    from manager.hollow.relic_buffs import sync_expedition_buffs
+
+    sync_expedition_buffs(state, run)
     # Combat entry effects use the scaled enemy HP.
     logs += process_battle_start(None, [char for char in state["characters"]
                                        if alive(char) and is_character_deployed(char)], state=state)

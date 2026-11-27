@@ -351,6 +351,7 @@ def process_skill_effects(
             from manager.battle.effect_presentation import step_effects_collector
 
             context = dict(context or {})
+            context.setdefault("trigger_target", target)
             if context.get("fired_effects") is None:
                 context["fired_effects"] = step_effects_collector()
     session = EffectSession(
@@ -486,6 +487,23 @@ def process_skill_effects(
 
         effect_type = effect.get("type")
         targets_list = []
+        if effect.get("_buff_timing_name") and effect.get("if_any_character"):
+            from manager.battle.field_character_effects import select_filtered_characters
+
+            if not select_filtered_characters(actor, (context or {}).get("characters"), effect["if_any_character"]):
+                continue
+        round_key = effect.get("_buff_round_key")
+        if round_key:
+            ctx = context or {}
+            round_state = ctx.get("room_state")
+            if round_state is None and ctx.get("room"):
+                from manager.room_manager import get_room_state
+
+                round_state = get_room_state(ctx["room"])
+            effect_round = ctx.get("round", (round_state or {}).get("round"))
+            recent = actor.setdefault("_timed_buff_use", {})
+            if round_key in recent and recent[round_key] == effect_round:
+                continue
 
         # Target Resolution
         t_select = effect.get("target_select") # NORMAL (default), RANDOM
@@ -632,6 +650,9 @@ def process_skill_effects(
                 lines = [f"[{buff_name}] {line}" for line in log_snippets[log_start:]] or [f"[{buff_name}] {timing_to_check}"]
                 log_snippets[log_start:] = lines
                 log_timed_buff_effect((context or {}).get("room"), lines)
+                if round_key:
+                    recent[round_key] = effect_round
+                    break
     return session.total_bonus_damage, session.log_snippets, session.changes_to_apply
 
 def calculate_power_bonus(actor, target, power_bonus_data, context=None):

@@ -14,6 +14,7 @@ from models import CatalogEntry
 _simulation_rewards = ContextVar("simulation_hollow_rewards", default=None)
 _cache_lock = RLock()
 _CACHE_KEY = "hollow_reward_definitions"
+_RUNTIME_KINDS = (*REWARD_KINDS, "relic", "hollow_load_stage", "hollow_recipe", "hollow_map")
 
 
 @contextmanager
@@ -34,16 +35,16 @@ def prepare_rewards():
         return cached
     with _cache_lock:
         if _CACHE_KEY not in extensions:
-            definitions = {kind: {} for kind in REWARD_KINDS}
-            for row in CatalogEntry.query.filter(CatalogEntry.kind.in_(REWARD_KINDS)):
-                definitions[row.kind][row.entry_id] = {**row.payload, "id": row.entry_id}
+            definitions = {kind: {} for kind in _RUNTIME_KINDS}
+            for row in CatalogEntry.query.filter(CatalogEntry.kind.in_(_RUNTIME_KINDS)):
+                definitions[row.kind][row.entry_id] = {**row.payload, "id": row.entry_id, "deprecated": row.deprecated}
             extensions[_CACHE_KEY] = definitions
         return extensions[_CACHE_KEY]
 
 
 @event.listens_for(Session, "before_flush")
 def _mark_reward_changes(session, _ctx, _instances):
-    if has_app_context() and any(isinstance(record, CatalogEntry) and record.kind in REWARD_KINDS
+    if has_app_context() and any(isinstance(record, CatalogEntry) and record.kind in _RUNTIME_KINDS
                                  for record in chain(session.new, session.dirty, session.deleted)):
         session.info[_CACHE_KEY] = current_app._get_current_object()
 
@@ -66,3 +67,25 @@ def get_reward(kind, entry_id):
     if definitions is not None and entry_id in definitions.get(kind, {}):
         return definitions[kind][entry_id]
     return prepare_rewards().get(kind, {}).get(entry_id)
+
+
+def available(kind):
+    return {key: row for key, row in prepare_rewards().get(kind, {}).items() if not row["deprecated"]}
+
+
+def project_relics(run):
+    if "mana_load" not in run:
+        return
+    definitions = prepare_rewards().get("relic", {})
+    fields = ("id", "name", "category", "rank", "image", "flavor", "target", "buff_id", "cost_buff_id")
+
+    def cards(keys):
+        return [{field: definitions[key].get(field) for field in fields} for key in keys if key in definitions]
+
+    run["relic_cards"] = cards(run["relics"])
+    if reward := run.get("reward"):
+        reward["cards"] = cards(reward["relic_ids"])
+    stages = sorted(row["threshold"] for row in available("hollow_load_stage").values())
+    load = run["mana_load"]
+    run["load_stage"] = {"level": sum(threshold <= load for threshold in stages),
+                         "next_threshold": next((threshold for threshold in stages if threshold > load), None)}

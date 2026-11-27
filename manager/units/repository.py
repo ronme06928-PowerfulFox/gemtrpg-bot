@@ -7,7 +7,7 @@ from extensions import db
 from models import CatalogEntry, CatalogHistory
 from manager.catalog.kinds import CatalogValidationError
 from manager.catalog.repository import CatalogConflictError, _transaction, record_history
-from manager.hollow.resources import tier_number_error
+from manager.hollow.resources import UNIQUE_FIELDS, uniqueness_errors
 from manager.units.validation import IDS, inspect_payload, links, valid_id
 
 
@@ -230,10 +230,10 @@ def set_deprecated(kind, entry_id, deprecated, *, base_revision, actor_user_id=N
     if type(deprecated) is not bool:
         raise CatalogValidationError({"deprecated": "真偽値が必要です"})
     if row.deprecated != deprecated:
-        if kind == "tier" and not deprecated:
-            error = tier_number_error(row.payload, entries(), entry_id)
-            if error:
-                raise CatalogValidationError({"tier": error})
+        if kind in UNIQUE_FIELDS and not deprecated:
+            errors = uniqueness_errors(kind, row.payload, entries(), entry_id)
+            if errors:
+                raise CatalogValidationError(errors)
         write(kind, entry_id, row.payload, row.visibility, deprecated,
               "deprecate" if deprecated else "undeprecate", actor_user_id, row=row)
     db.session.commit()

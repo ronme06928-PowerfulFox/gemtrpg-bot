@@ -14,6 +14,14 @@ from models import Room
 hollow_bp = Blueprint("hollow", __name__)
 
 
+@hollow_bp.get("/api/hollow/recipes/discovered")
+@session_required
+def discovered_recipes():
+    from manager.hollow.discoveries import discovered
+
+    return jsonify(recipes=discovered(session["user_id"]))
+
+
 @hollow_bp.get("/api/hollow/rooms")
 @session_required
 def list_rooms():

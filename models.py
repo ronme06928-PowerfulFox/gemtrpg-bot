@@ -305,6 +305,14 @@ class CatalogHistory(db.Model):
                       db.CheckConstraint("action IN ('import', 'publish', 'deprecate', 'undeprecate', 'restore')"))
 
 
+class HollowRecipeDiscovery(db.Model):
+    __tablename__ = "hollow_recipe_discoveries"
+
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    recipe_id = db.Column(db.String(128), primary_key=True)
+    recipe = db.Column(db.JSON, nullable=False)
+
+
 class CatalogEffectRequest(db.Model):
     """効果タイプの追加依頼と管理者の返答。"""
     __tablename__ = 'catalog_effect_requests'

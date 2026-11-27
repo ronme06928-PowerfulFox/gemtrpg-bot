@@ -429,6 +429,9 @@ def _process_full_round_end_impl(room, username):
             run_timed_buffs(room, state, char, "END_ROUND")
         bleed_tick = resolve_bleed_tick(char, consume_maintenance=True)
         if bleed_tick.get("damage", 0) > 0:
+            if state.get("play_mode") == "hollow":
+                from manager.hollow.relic_buffs import record_bleed
+                record_bleed(state, char["id"])
             _update_char_stat(
                 room,
                 char,
@@ -1039,6 +1042,11 @@ def _process_round_start_impl(room, username):
         if isinstance(flags, dict):
             flags.pop('immediate_action_used', None)
     execute_scheduled_effects(state, state['round'], room=room)
+    if state.get("play_mode") == "hollow":
+        run = state.get("hollow", {}).get("run", {})
+        if run.get("status") == "in_progress":
+            from manager.hollow.relic_buffs import sync_expedition_buffs
+            sync_expedition_buffs(state, run, previous_round=state["round"] - 1)
     from manager.battle.timed_buffs import run_timed_buffs
     for char in list(state.get("characters", [])):
         run_timed_buffs(room, state, char, "START_ROUND")

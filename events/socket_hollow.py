@@ -6,22 +6,25 @@ from extensions import socketio, user_sids
 from manager.battle.common_manager import _get_round_transition_lock
 from manager.hollow.host import transfer_host
 from manager.hollow.party import add_owned_party, change_party
-from manager.hollow.run import choose_map, retreat, select_node, start_run, swap_party
+from manager.hollow.run import (
+    choose_map, choose_reward, end_fusion, fuse_relics, preview_fusion, retreat, select_node, start_run, swap_party,
+)
 from manager.room_manager import broadcast_state_update
 
 
-def _perform(operation, *args, **kwargs):
+def _perform(operation, *args, publish=True, **kwargs):
     info = user_sids.get(request.sid, {})
     room = info.get("room")
     user_id = session.get("user_id")
     if not room or not user_id or info.get("user_id") != user_id:
         return {"ok": False, "error": "部屋に入室してください"}
     try:
-        operation(room, user_id, *args, **kwargs)
+        result = operation(room, user_id, *args, **kwargs)
     except (ValueError, PermissionError) as exc:
         return {"ok": False, "error": str(exc)}
-    broadcast_state_update(room)
-    return {"ok": True}
+    if publish:
+        broadcast_state_update(room)
+    return {"ok": True, **(result or {})}
 
 
 @socketio.on("hollow_party_change")
@@ -76,3 +79,29 @@ def handle_swap_party(data):
 @socketio.on("hollow_retreat")
 def handle_retreat(_data=None):
     return _perform(retreat)
+
+
+@socketio.on("hollow_choose_reward")
+def handle_choose_reward(data):
+    payload = data if isinstance(data, dict) else {}
+    if "relic_id" not in payload:
+        return {"ok": False, "error": "候補か見送りを指定してください"}
+    return _perform(choose_reward, payload.get("floor"), payload["relic_id"])
+
+
+@socketio.on("hollow_preview_fusion")
+def handle_preview_fusion(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(preview_fusion, payload.get("floor"), payload.get("materials"), publish=False)
+
+
+@socketio.on("hollow_fuse_relics")
+def handle_fuse_relics(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(fuse_relics, payload.get("floor"), payload.get("materials"), payload.get("wish"))
+
+
+@socketio.on("hollow_end_fusion")
+def handle_end_fusion(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(end_fusion, payload.get("floor"))

@@ -56,7 +56,9 @@ def open_app(db_path):
 
 
 def seed():
+    from manager.hollow.resources import DRAW_CATEGORIES
     from manager.units import repository
+    from scripts.hollow_relic_seed import seed_relics
 
     current = repository.entries(domain="hollow")
 
@@ -107,7 +109,7 @@ def seed():
             "name": f"{PREFIX} T{number}", "tier": number, "hp_multiplier": hp, "attack_multiplier": attack,
         }, lambda other, number=number: other.get("tier") == number)
 
-    categories = ({"打撃": 4, "蓄力": 3, "汎用": 2}, {"亀裂": 5, "凝魔": 3, "貫通": 2}, {"斬撃": 4, "亀裂": 3, "凝魔": 2})
+    categories = ({"出血": 5, "打撃": 4, "蓄力": 3, "汎用": 2}, {"出血": 5}, {"斬撃": 4, "亀裂": 3, "凝魔": 2})
     for (number, name, description, normal, boss), weights in zip(MAPS, categories):
         payload = {
             "name": f"{PREFIX} {name}", "description": description, "tier": number,
@@ -118,6 +120,7 @@ def seed():
             "boss_formation_id": formations[boss], "boss_stage_id": stages[boss],
         }
         upsert("hollow_map", payload, by_name(payload))
+    seed_relics(lambda kind, **payload: upsert(kind, payload, by_name(payload)), DRAW_CATEGORIES, PREFIX)
 
 
 def main():

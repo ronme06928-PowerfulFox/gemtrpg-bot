@@ -194,6 +194,10 @@ def verify(browser, *, seeded=False):
                 break
         event = resolved["hollow"]["run"]["current_event"]
         assert event["outcome"] == "VICTORY"
+        if resolved["hollow"]["run"].get("reward"):
+            command(host, "hollow_choose_reward", floor=floor, relic_id=None)
+        if floor == 9:
+            command(host, "hollow_end_fusion", floor=floor)
         if floor == 1:
             expect(host_curtain).to_contain_text("制圧")
             expect(player_curtain).to_contain_text("制圧")

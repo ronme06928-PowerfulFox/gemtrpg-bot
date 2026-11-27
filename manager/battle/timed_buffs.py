@@ -56,10 +56,12 @@ def buff_rows(actor, timing):
             record = get_buff_by_id(key) if isinstance(key, str) else None
             effect = record.get("effect") if record else get_buff_effect(name)
             rows = effect.get("effects") if isinstance(effect, dict) else None
-        for row in rows if isinstance(rows, list) else ():
+        for index, row in enumerate(rows if isinstance(rows, list) else ()):
             if isinstance(row, dict) and row.get("timing") == timing:
                 effect_type = str(row.get("type", "")).strip().upper()
                 resolved = {**row, "type": effect_type, "_buff_timing_name": name or key or "バフ"}
+                if row.get("once_per_round"):
+                    resolved["_buff_round_key"] = f"{key or name}:{index}"
                 if effect_type in {"APPLY_BUFF", "REMOVE_BUFF", "APPLY_BUFF_PER_N"} and row.get("buff_id") and not row.get("buff_name"):
                     referenced = get_buff_by_id(row["buff_id"])
                     if referenced:

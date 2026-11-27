@@ -566,21 +566,23 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 
 ## 3. ホロウ専用の資源（計画35 PR35-3）
 
-8種類はユニット資源と同じ直接保存・版・履歴・復元・廃止・削除・書き出しと取り込みを使う。`payload.domain` は `hollow` で、省略時に入る。`name` は全種類共通の必須項目。
+ホロウ専用の資源はユニット資源と同じ直接保存・版・履歴・復元・廃止・削除・書き出しと取り込みを使う。`payload.domain` は `hollow` で、省略時に入る。名前のない段階・組み合わせは識別用の名前を補う。
 
 | 種類 | ID | `payload` の主な項目 | 参照 |
 |---|---|---|---|
 | `tier` | `HT-01` | `tier`（整数1〜5）、`description`、`hp_multiplier`・`attack_multiplier` | — |
 | `hollow_map` | `HM-01` | `tier`（整数1〜5）、`description`、`event_weights`（通常・精鋭・宝箱・魔素だまり）、`encounters`（通常・精鋭の `{formation_id, weight}` の配列）、`category_weights`、`boss_formation_id`・`boss_stage_id`、`image`（画像URL、空を許可） | ホロウの敵編成・ステージ |
 | `fixed_floor` | `HF-01` | `floor`（1〜50）、`type`（`town`・`camp`）、`text` | — |
-| `relic` | `HR-01` | `rarity`（鉄級・銅級・銀級・金級・特異級）、`target`、`buff_id`、`flavor`、`image` | `Bu-` または `HBu-` |
+| `relic` | `HR-01` | `category`（12分類）、`rank`（1〜5）、`target`、`buff_id`、`cost_buff_id`（任意）、`flavor`、`image` | `Bu-` または `HBu-` |
+| `hollow_load_stage` | `HL-01` | `threshold`（0以上、現役の段階で一意）、`buff_id` | `Bu-` または `HBu-` |
+| `hollow_recipe` | `HX-01` | `material_ids`（異なる淵遺物IDを2〜4個、順不同で一意）、`result_id` | 淵遺物 |
 | `hollow_event` | `HE-01` | `type`（`miasma`・`camp`）、`text`、`choices`（最大4件。各行に `label`、任意の `difficulty`・`effect`・`failure_effect`・`failure_target`） | 効果の種類に合うバフまたはアイテム |
 | `treasure_chest` | `HC-01` | `text`、`drop_table_id` | ドロップ表 |
 | `drop_table` | `HD-01` | `rows`（`{kind, id, weight}` の配列。`kind` は `item`／`relic`） | `I-`・`HI-` または淵遺物 |
 | `hollow_buff` | `HBu-01` | 共通のバフ項目 | 共通の効果検査 |
 | `hollow_item` | `HI-01` | 共通のアイテム項目 | バフ付与効果では `Bu-` または `HBu-` |
 
-- 淵遺物の `target` は `{type:"all"}`（既定）、`{type:"condition", condition:"hp_lowest"|"bled_last_round"|"has_tag:<tag>"}`、`{type:"nth", n:整数}`（1始まり）。代償の項目は論点10で決める。
+- 淵遺物の `target` は `{type:"all"}`（既定）、`{type:"condition", condition:"hp_lowest"|"bled_last_round"|"has_tag:<tag>"}`、`{type:"nth", n:整数}`（1〜6）。マップのカテゴリ重みは出身強化を除く11分類。
 - 効果参照は `{kind:"buff"|"item", id, battles?}`。`battles` は1以上の整数。選択肢の `difficulty` を省略すると判定なし。失敗の対象は `selected` か `all`。重みは0以上の整数、補正係数は正の有限数。
 - 存在しない参照、種類違い、区分違いは保存エラー。参照元がある資源は削除できず、「使用中」に表示する。束の書き出しは参照先のホロウ資源も同梱する。共通マスターは取り込み先で検査する。
 - マップのカテゴリ重みは出血・破裂・亀裂・戦慄・荊棘・蓄力・凝魔・斬撃・打撃・貫通・汎用・出身強化に0以上の整数を指定する。省略は0。宝箱・魔素だまり・カテゴリの重みは保存できる。
@@ -621,3 +623,12 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 - 出発時とボス撃破後に、次の区切りの有効なマップからランの種を使って最大3つ選び、`run.map_candidates` に区切り番号と候補の ID・名前・説明・画像URL・出やすい淵遺物カテゴリ最大3つの名前を保存・配信する。候補待ちの間はマスを選べない。ホスト・オーナーの `hollow_choose_map` が候補の `map_id` と `tier` を受け取り、有効な遭遇表とボスを確認して地図を生成する。地図に `map_id` を保存し、候補を消す。
 - 最初の区切りのデータが不足しているときは出発できない。ボス撃破後に次の候補を作れないときは `next_tier_error` に理由を残し、撃破済みのボスマスの再指定で候補を引き直す。50Fの勝利はクリア。
 - 戦闘外の `hollow_retreat` は撤退。クリア・撤退・敗北は `run.status: finished` と `run.result` に到達階と結果を保存する。閉室後は新規入室と再入室を断り、在室者には結果を配信する。最後の接続が離れたときに部屋を削除する。サーバーの起動時にも在室者がいない結果付きの閉室を片付ける。
+
+### 淵遺物と虚夢変転（計画35 PR35-13）
+
+- ランは所持した遺物のIDを取得順で持ち、汎用素材をランク別に数える。重複した遺物は同ランクの素材に変わる。取得でランク、降下で区切りの番号を魔力負荷に加える。合成では負荷が変わらない。
+- 戦闘突入前に恩恵と個別の代償を同じ対象へ、到達した全段階の代償を出撃・控え全員へ付ける。条件はラウンド開始時に見直す。開始時の並びで N 番目を解決する。一時バフは指定キャラへ戦闘ごとに標準持続ラウンドで付け、戦闘終了時に残数を減らす。遠征の終了で遠征由来の付与を解除する。
+- 通常・精鋭・ボスの勝利報酬は区切り番号・番号＋1・番号＋2（最大5）を上限に、上限から順に重み1・2・1…でランクを引く。マップの重みのあるカテゴリから抽選し、同一候補を除いて最大3つ出す。報酬の確定まで次の階へ進めない。
+- 9・19・29・39・49F の報酬確定で虚夢変転に入る。材料2〜4個のランク合計の半分を切り上げて上限5。遺物のカテゴリの個数で抽選し、素材だけなら11カテゴリから均等。祈念は各フェーズ1回。出身強化は特別な組み合わせの結果として作れる。
+- ホストとオーナーが `hollow_choose_reward`（`floor`、`relic_id`。見送りは null）、`hollow_fuse_relics`・`hollow_preview_fusion`（`floor`、`materials` に `{relic_id}` または `{rank}`、合成時は任意の `wish`）、`hollow_end_fusion`（`floor`）を操作する。予告は特別かどうかを返す。発見履歴は認証済みの本人が `GET /api/hollow/recipes/discovered` で読む。
+- 配信では所持遺物と報酬候補の札、負荷段階と次の区切りを添える。発見履歴と組み合わせ表は配信しない。ホロウのバフは `HBu-` の ID を解決に使い、戦闘突入や死亡時も同じIDの定義を読む。

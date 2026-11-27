@@ -959,3 +959,5 @@ EFFECT_SCHEMASの各タイプはgroupを持つ。配信と管理画面だけの�
 分類条件は同じ位置に `param: "分類"` と `value: "物理"` などを書く。マスターとホロウのバフは同じ検査を使う。対象ごとの絞り込みには `character_filter.condition` を使える。撃破を条件にする場合の `trigger_target` は、効果の適用先に関係なくその撃破の対象を指す。
 
 `APPLY_BUFF_FROM_CHARACTER_COUNT` に `apply_to: "stack"` を指定すると、条件に合う人数に `value_per_character` を掛けた個数のスタック型バフを付与する。
+
+誘発効果の `if_any_character` にキャラクターフィルターを指定すると、一致するキャラがいる場合に発動する。`once_per_round: true` は持ち主・バフ・行ごとにラウンド内の発動を1回に制限する。`trigger_target` はスキルの誘発でも元の相手を指す。

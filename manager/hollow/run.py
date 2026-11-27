@@ -12,8 +12,9 @@ from manager.hollow.floors import (
 )
 from manager.hollow.map import next_nodes, node_at
 from manager.hollow.party import PARTY_SIZE, prune_party
+from manager.hollow import relics
 from manager.hollow.rooms import is_hollow_room
-from manager.hollow.runtime import prepare_rewards
+from manager.hollow.runtime import available, get_reward, prepare_rewards
 from manager.room_manager import broadcast_log, broadcast_state_update, get_room_state, save_specific_room_state
 
 
@@ -42,7 +43,7 @@ def start_run(room, user_id, *, seed=None):
         state["hollow"]["run"] = {
             "status": "in_progress", "floor": 0, "party_order": order, "active": order[:4],
             "seed": seed, "map_candidates": candidates, "current_event": None,
-            "positions": {}, "relics": [], "temp_buffs": [], "log": [],
+            "positions": {}, "relics": [], "materials": {}, "mana_load": 0, "temp_buffs": [], "log": [],
         }
         _log_map_prompt(room, candidates)
         save_specific_room_state(room)
@@ -82,6 +83,8 @@ def choose_map(room, user_id, map_id, tier, *, username=None):
 def select_node(room, user_id, node_id, tier, *, username=None):
     with _get_round_transition_lock(room):
         state, run = _managed_state(room, user_id, "in_progress")
+        if run.get("reward") or run.get("fusion"):
+            raise ValueError("先に報酬または虚夢変転を確定してください")
         if "map_candidates" in run:
             raise ValueError("先にマップを選んでください")
         layout = run["map"]
@@ -98,6 +101,7 @@ def select_node(room, user_id, node_id, tier, *, username=None):
         node = node_at(layout, node_id)
         prepare_rewards()
         candidate = deepcopy(state)
+        candidate["hollow"]["run"]["mana_load"] += tier
         encounter, logs, enemies = prepare_battle(candidate, candidate["hollow"]["run"], node,
                                                    floor_resources(), username or user_id)
         candidate_run = candidate["hollow"]["run"]
@@ -130,16 +134,96 @@ def swap_party(room, user_id, active_id, reserve_id):
         save_specific_room_state(room)
 
 
-def _finish(run, outcome):
-    run.pop("map_candidates", None)
+def _finish(state, run, outcome):
+    from manager.hollow.relic_buffs import clear_expedition_buffs
+
+    for key in ("map_candidates", "reward", "fusion"):
+        run.pop(key, None)
+    clear_expedition_buffs(state)
+    run["temp_buffs"] = []
     run["status"] = "finished"
     run["result"] = {"floor": run["floor"], "outcome": outcome}
 
 
 def retreat(room, user_id):
     with _get_round_transition_lock(room):
-        _, run = _managed_state(room, user_id, "in_progress")
-        _finish(run, "RETREAT")
+        state, run = _managed_state(room, user_id, "in_progress")
+        _finish(state, run, "RETREAT")
+        save_specific_room_state(room)
+
+
+def _continue_after_reward(room, state, run):
+    floor = run["floor"]
+    if floor % 10 == 9:
+        run["fusion"] = {"floor": floor, "wishes_left": 1, "count": 0}
+    elif run["current_event"]["type"] == "boss":
+        if floor == 50:
+            _finish(state, run, "CLEAR")
+        elif _next_map(run):
+            _log_map_prompt(room, run["map_candidates"])
+
+
+def choose_reward(room, user_id, floor, relic_id):
+    with _get_round_transition_lock(room):
+        state, run = _managed_state(room, user_id, "in_progress")
+        reward = run.get("reward")
+        if not reward or type(floor) is not int or reward["floor"] != floor:
+            raise ValueError("選択待ちの報酬を指定してください")
+        result = None
+        if relic_id is not None:
+            if relic_id not in reward["relic_ids"] or (definition := get_reward("relic", relic_id)) is None:
+                raise ValueError("報酬の候補から選んでください")
+            result = relics.acquire(run, relic_id, definition)
+        del run["reward"]
+        _continue_after_reward(room, state, run)
+        save_specific_room_state(room)
+        return {"reward": result}
+
+
+def _fusion_run(room, user_id, floor):
+    _, run = _managed_state(room, user_id, "in_progress")
+    fusion = run.get("fusion")
+    if not fusion or type(floor) is not int or fusion["floor"] != floor:
+        raise ValueError("虚夢変転中の階を指定してください")
+    return run
+
+
+def _fusion_input(run, materials):
+    definitions = prepare_rewards().get("relic", {})
+    active = available("relic")
+    keys, counts = relics.fusion_materials(run, materials, definitions)
+    recipe = relics.matching_recipe(keys, counts, available("hollow_recipe"), active)
+    return definitions, active, keys, counts, recipe
+
+
+def preview_fusion(room, user_id, floor, materials):
+    with _get_round_transition_lock(room):
+        run = _fusion_run(room, user_id, floor)
+        *_, recipe = _fusion_input(run, materials)
+        return {"special": recipe is not None}
+
+
+def fuse_relics(room, user_id, floor, materials, wish):
+    from manager.hollow.discoveries import discover
+
+    with _get_round_transition_lock(room):
+        run = _fusion_run(room, user_id, floor)
+        definitions, active, keys, counts, recipe = _fusion_input(run, materials)
+        result_id, used_wish = relics.fusion_result(run, keys, counts, definitions, active, recipe, wish)
+        if recipe:
+            discover(user_id, recipe)
+        relics.consume_materials(run, keys, counts)
+        run["fusion"]["count"] += 1
+        run["fusion"]["wishes_left"] -= int(used_wish)
+        result = relics.acquire(run, result_id, active[result_id], charge=False)
+        save_specific_room_state(room)
+        return {"result": result}
+
+
+def end_fusion(room, user_id, floor):
+    with _get_round_transition_lock(room):
+        run = _fusion_run(room, user_id, floor)
+        del run["fusion"]
         save_specific_room_state(room)
 
 
@@ -162,19 +246,22 @@ def after_round(room, username):
     result = conclude_combat_session(state, username, outcome)
     if result is None:
         return
+    run["temp_buffs"] = [{**row, "battles_left": row["battles_left"] - 1}
+                         for row in run.get("temp_buffs", []) if row["battles_left"] > 1]
+    run.pop("bled", None)
     event.update(resolved=True, outcome=outcome)
     run["log"].append({"floor": run["floor"], **deepcopy(event)})
     if outcome == "DEFEAT":
-        _finish(run, outcome)
+        _finish(state, run, outcome)
     else:
         promote_survivors(state, run)
-        if event["type"] == "boss" and run["floor"] == 50:
-            _finish(run, "CLEAR")
-        elif event["type"] == "boss" and run["floor"] % 10 == 0:
-            _next_map(run)
+        area = get_reward("hollow_map", run["map"]["map_id"]) if run.get("map") else None
+        cards = relics.reward_candidates(run, event["type"], (area or {}).get("category_weights", {}), available("relic"))
+        if cards:
+            run["reward"] = {"floor": run["floor"], "relic_ids": cards}
+        else:
+            _continue_after_reward(room, state, run)
     broadcast_log(room, f"{run['floor']}F 戦闘終結: {outcome}", "round")
-    if run.get("map_candidates"):
-        _log_map_prompt(room, run["map_candidates"])
     broadcast_state_update(room)
     save_specific_room_state(room)
 

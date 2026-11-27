@@ -153,6 +153,41 @@ def resolve_round(page, get_state, room):
     raise AssertionError("解決表示が完了しません")
 
 
+def finish_reward(page, run, relic_id=None):
+    if run.get("reward"):
+        result = socket_call(page, "hollow_choose_reward", {"floor": run["floor"], "relic_id": relic_id})
+        assert result["ok"], result
+        return result["reward"]
+    return None
+
+
+def verify_fusion(page, get_state, recipe):
+    run = get_state()["hollow"]["run"]
+    before = run["mana_load"]
+    protected = set(recipe["material_ids"])
+    assert protected <= set(run["relics"]), "試遊の抽選で特別な組み合わせの材料が揃いませんでした"
+    common = [{"relic_id": key} for key in run["relics"] if key not in protected]
+    common.extend({"rank": int(key)} for key, amount in run["materials"].items() for _ in range(amount))
+    assert len(common) >= 4, common
+    reports = []
+    for kind, materials, wish in (
+        ("普通", common[:2], None), ("特別", [{"relic_id": key} for key in reversed(recipe["material_ids"])], "斬撃"),
+        ("祈念", common[2:4], "斬撃"),
+    ):
+        result = socket_call(page, "hollow_preview_fusion", {"floor": 9, "materials": materials})
+        assert result == {"ok": True, "special": kind == "特別"}, result
+        ack = socket_call(page, "hollow_fuse_relics", {"floor": 9, "materials": materials, "wish": wish})
+        assert ack["ok"], ack
+        current = get_state()["hollow"]["run"]
+        assert current["mana_load"] == before
+        assert current["fusion"]["wishes_left"] == (0 if kind == "祈念" else 1)
+        reports.append({"kind": kind, "materials": materials, **ack["result"], "mana_load": before})
+    discovered = api(page, "GET", "/api/hollow/recipes/discovered")["recipes"]
+    assert discovered == [{"recipe_id": recipe["id"], "material_ids": recipe["material_ids"],
+                           "result_id": recipe["result_id"]}]
+    return reports
+
+
 def verify(browser, *, seeded=False):
     suffix = uuid4().hex[:6]
     author = register(browser, "RunAuthor" + suffix, author=True)
@@ -162,12 +197,18 @@ def verify(browser, *, seeded=False):
     else:
         foes = library(author, suffix)
     definitions = {row["entry_id"]: row["payload"] for row in api(author, "GET", "/api/units/hollow_map?domain=hollow")["entries"]}
+    recipe = None
+    if seeded:
+        row = next(row for row in api(author, "GET", "/api/units/hollow_recipe?domain=hollow")["entries"]
+                   if row["payload"]["name"] == f"{PREFIX} 血脈の指輪")
+        recipe = {"id": row["entry_id"], **row["payload"]}
     winner = register(browser, "RunWinner" + suffix)
     win_room = "階の確認 " + suffix
     get_win = expedition(winner, win_room, 5, 150, 100)
     selected = choose_map(winner, get_win, 1, 2, name=f"{PREFIX} 青晶洞" if seeded else None)
     maps = [selected]
-    floors = []
+    floors, fusions = [], []
+    duplicated = False
     for floor in range(1, 12):
         choose(winner, get_win(), floor)
         battle_seed = get_win()
@@ -179,6 +220,23 @@ def verify(browser, *, seeded=False):
         run = state["hollow"]["run"]
         assert run["log"][-1]["outcome"] == "VICTORY", run["current_event"]
         assert run["map"]["tier"] == (1 if floor <= 10 else 2)
+        reward_ids = run.get("reward", {}).get("relic_ids", [])
+        missing = set(recipe["material_ids"]) - set(run["relics"]) if recipe else set()
+        selection = next((key for key in reward_ids if key in missing), None)
+        if selection is None and floor != 1:
+            if not duplicated and floor >= 4:
+                selection = next((key for key in reward_ids if key in run["relics"]), None)
+            if selection is None:
+                selection = next((key for key in reward_ids if key not in run["relics"]), (reward_ids or [None])[0])
+        if floor == 1:
+            selection = None
+        reward = finish_reward(winner, run, selection)
+        duplicated |= bool(reward and reward["material"])
+        if floor == 9:
+            if seeded:
+                fusions = verify_fusion(winner, get_win, recipe)
+            command(winner, "hollow_end_fusion", floor=9)
+        after = get_win()["hollow"]["run"]
         floor_result = run["log"][-1]
         definition = definitions[selected["map_id"]]
         if floor == 10:
@@ -188,8 +246,14 @@ def verify(browser, *, seeded=False):
         else:
             kind = "normal" if floor_result["type"] == "battle" else "elite"
             assert floor_result["formation_id"] in [row["formation_id"] for row in definition["encounters"][kind]]
+        applied = {char["name"]: [buff["name"] for buff in char.get("special_buffs", [])
+                                   if buff.get("hollow_expedition_buff")]
+                   for char in battle_seed["characters"] if char["type"] == "ally"}
         floors.append({"map_id": selected["map_id"], **{key: floor_result[key] for key in
-                       ("floor", "type", "formation_id", "stage_id", "hp_multiplier", "attack_percent", "outcome")}})
+                       ("floor", "type", "formation_id", "stage_id", "hp_multiplier", "attack_percent", "outcome")},
+                       "candidates": reward_ids, "reward": reward,
+                       "entry_load": battle_seed["hollow"]["run"]["mana_load"], "mana_load": after["mana_load"],
+                       "load_stage": battle_seed["hollow"]["run"]["load_stage"]["level"], "applied": applied})
         if floor == 10:
             selected = choose_map(winner, get_win, 2, 1)
             maps.append(selected)
@@ -199,7 +263,8 @@ def verify(browser, *, seeded=False):
     assert not api(winner, "GET", "/api/hollow/rooms")["rooms"]
 
     if seeded:
-        return {"maps": maps, "floors": floors, "retreat": retreat}
+        assert duplicated and floors[0]["candidates"] and floors[0]["reward"] is None
+        return {"maps": maps, "floors": floors, "fusions": fusions, "retreat": retreat}
 
     for foe in foes:
         definition = dict(foe["payload"], hp=999, params=[{"label": "物理補正", "value": 100}])

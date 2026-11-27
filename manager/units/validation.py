@@ -161,16 +161,18 @@ def inspect_payload(kind, payload, visibility, resources, *, previous=None, entr
         return {"kind": "未対応の種類です"}, warnings, payload
     if visibility not in ("public", "staff"):
         errors["visibility"] = "public または staff を指定してください"
+    if isinstance(payload, dict) and "name" not in payload:
+        name = hollow.default_name(kind, payload)
+        if name:
+            payload = {**payload, "name": name}
     if not isinstance(payload, dict) or not _text(payload.get("name")):
         errors["name"] = "名前が必要です"
         return errors, warnings, payload
     payload = deepcopy(payload)
     if kind in hollow.HOLLOW_IDS:
         hollow.inspect_payload(kind, payload, entry_id, errors, warnings)
-        if kind == "tier" and "tier" not in errors:
-            error = hollow.tier_number_error(payload, resources, entry_id, deprecated=deprecated)
-            if error:
-                errors["tier"] = error
+        if not errors:
+            errors.update(hollow.uniqueness_errors(kind, payload, resources, entry_id, deprecated=deprecated))
         if not errors:
             _inspect_links(kind, payload, visibility, resources, errors, warnings)
         return errors, warnings, payload

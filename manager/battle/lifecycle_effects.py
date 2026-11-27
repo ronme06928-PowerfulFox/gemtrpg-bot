@@ -1,5 +1,12 @@
 from manager.battle.hidden_passives import reveal_passive
 import copy
+from manager.buff_catalog import resolve_runtime_buff_effect, _extract_buff_id
+
+
+def _lifecycle_buff_effect(buff, ctx):
+    if _extract_buff_id(buff).startswith("HBu-"):
+        return resolve_runtime_buff_effect(buff)
+    return ctx["get_buff_effect"](buff.get("name")) or buff.get("data") or {}
 
 
 def process_on_death(room, char, username, ctx, death_context=None):
@@ -9,10 +16,7 @@ def process_on_death(room, char, username, ctx, death_context=None):
 
 
     for buff in char.get('special_buffs', []):
-        effect_data = ctx['get_buff_effect'](buff.get('name'))
-        if not effect_data:
-            if 'data' in buff: effect_data = buff['data']
-            else: continue
+        effect_data = _lifecycle_buff_effect(buff, ctx)
 
         on_death_effects = effect_data.get('on_death', [])
         if on_death_effects:
@@ -144,7 +148,7 @@ def process_battle_start(room, characters, ctx, *, state=None):
             if not isinstance(buff, dict):
                 continue
             buff_name = buff.get("name")
-            effect_data = ctx["get_buff_effect"](buff_name) or buff.get("data")
+            effect_data = _lifecycle_buff_effect(buff, ctx)
             if not isinstance(effect_data, dict):
                 continue
             raw_effects = effect_data.get("battle_start_effect")

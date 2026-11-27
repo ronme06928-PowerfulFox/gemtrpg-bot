@@ -308,6 +308,13 @@ def normalize_timed_buff_effects(effects):
                 raise JsonRuleV2Error(f"invalid {field_type} effect field", path=f"{row_path}.{field}")
         if isinstance(row.get("character_filter"), dict):
             _validate_condition_row(row["character_filter"].get("condition"), path=f"{row_path}.character_filter.condition")
+        if "if_any_character" in row:
+            filters = row["if_any_character"]
+            if not isinstance(filters, dict):
+                raise JsonRuleV2Error("if_any_character must be object", path=f"{row_path}.if_any_character")
+            _validate_condition_row(filters.get("condition"), path=f"{row_path}.if_any_character.condition")
+        if "once_per_round" in row and type(row["once_per_round"]) is not bool:
+            raise JsonRuleV2Error("once_per_round must be boolean", path=f"{row_path}.once_per_round")
     return rows
 
 

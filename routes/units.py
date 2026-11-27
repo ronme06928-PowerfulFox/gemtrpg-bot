@@ -6,7 +6,7 @@ from flask import Blueprint, abort, g, jsonify, request
 from manager.room_access import resolve_room_role, role_can_gm
 from manager.catalog.kinds import MARK_LABELS
 from manager.encyclopedia import can_view_hollow
-from manager.hollow.resources import HOLLOW_IDS, RELIC_CATEGORIES
+from manager.hollow.resources import DRAW_CATEGORIES, HOLLOW_IDS
 from manager.units import repository, transfer
 from manager.units.characters import read_character
 from manager.units.validation import DOMAINS, IDS, master_links
@@ -69,7 +69,7 @@ def list_entries(kind=None):
                           if (kind is None or kind == row_kind) and (g.units_author or row_kind not in HOLLOW_IDS)],
               "marks": MARK_LABELS}
     if domain == "hollow" and g.units_author:
-        result["relic_categories"] = RELIC_CATEGORIES
+        result["relic_categories"] = DRAW_CATEGORIES
     return jsonify(result)
 
 
