@@ -3,10 +3,11 @@
 from copy import deepcopy
 from random import Random
 from secrets import randbits
+from uuid import uuid4
 
 from manager.battle.common_manager import _get_round_transition_lock, process_round_start
 from manager.battle.progress_authority import can_progress_battle
-from manager.hollow import floor_events
+from manager.hollow import floor_events, growth
 from manager.hollow.floors import (
     alive, battle_outcome, floor_resources, map_candidates, new_map, prepare_battle, promote_survivors,
     replace_fallen,
@@ -44,6 +45,7 @@ def start_run(room, user_id, *, seed=None):
         state["hollow"]["run"] = {
             "status": "in_progress", "floor": 0, "party_order": order, "active": order[:4],
             "seed": seed, "map_candidates": candidates, "current_event": None,
+            "run_id": uuid4().hex, "growth_pending": {},
             "positions": {}, "relics": [], "materials": {}, "mana_load": 0, "temp_buffs": [], "log": [],
         }
         _log_map_prompt(room, candidates)
@@ -213,21 +215,24 @@ def swap_party(room, user_id, active_id, reserve_id):
         save_specific_room_state(room)
 
 
-def _finish(state, run, outcome):
+def _finish(room, state, run, outcome):
     from manager.hollow.relic_buffs import clear_expedition_buffs
 
-    for key in ("map_candidates", "reward", "fusion"):
+    applied = growth.settle(room, run)
+    for key in ("map_candidates", "reward", "fusion", "growth_pending"):
         run.pop(key, None)
     clear_expedition_buffs(state)
     run["temp_buffs"] = []
     run["status"] = "finished"
     run["result"] = {"floor": run["floor"], "outcome": outcome}
+    if applied:
+        run["result"]["growth"] = applied
 
 
 def retreat(room, user_id):
     with _get_round_transition_lock(room):
         state, run = _managed_state(room, user_id, "in_progress")
-        _finish(state, run, "RETREAT")
+        _finish(room, state, run, "RETREAT")
         save_specific_room_state(room)
 
 
@@ -237,7 +242,7 @@ def _continue_after_floor(room, state, run):
         run["fusion"] = {"floor": floor, "wishes_left": 1, "count": 0}
     elif run["current_event"]["type"] == "boss":
         if floor == 50:
-            _finish(state, run, "CLEAR")
+            _finish(room, state, run, "CLEAR")
         else:
             expected = {10: "town", 20: "town", 30: "town", 40: "camp"}.get(floor)
             fixed = floor_resources().fixed.get(floor)
@@ -348,8 +353,10 @@ def after_round(room, username):
     event.update(resolved=True, outcome=outcome)
     _record_event(run, event)
     if outcome == "DEFEAT":
-        _finish(state, run, outcome)
+        _finish(room, state, run, outcome)
     else:
+        if event["type"] == "boss":
+            broadcast_log(room, growth.queue_boss_growth(state, run, event), "system", save=False)
         promote_survivors(state, run)
         area = get_reward("hollow_map", run["map"]["map_id"]) if run.get("map") else None
         cards = relics.reward_candidates(run, event["type"], (area or {}).get("category_weights", {}), available("relic"))

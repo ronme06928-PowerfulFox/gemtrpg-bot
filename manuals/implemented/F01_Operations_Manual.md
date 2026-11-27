@@ -1078,7 +1078,8 @@ GET /api/room/export_logs?room_name=<room>&format=text
 - **実行権限**: キャラ所有者本人（`char.owner_id == session.user_id`）または GM。それ以外は`reflect_session_results_result`の`skipped:true, reason:'forbidden'`で拒否し、成果反映の画面経路で理由を通知する。
 - **所有者ID**: `char.owner_id`はユーザーUUIDを保持する。表示名を格納する`character_owners`から、読み取り・配信時に上書きしない。過去に表示名で破損保存されたIDの復元・データ移行は行わない。GMによる既存コピーの代理反映は可能。
 - **冪等性**: `char['flags']['results_reflected']`が既に立っている場合はスキップ（`reason:'already_reflected'`）。1キャラ・1回のみ反映する。
-- **ホロウ除外**: `state.get('play_mode') == 'hollow'`の場合、アイテムは反映対象外とし経験値のみ反映する（計画35「ホロウ内で完結の原則」。ホロウ側の`play_mode='hollow'`実装前でも、この判定は`state.play_mode`未設定時は通常ルーム扱いになるため副作用なく先行実装できている）。
+- **ホロウ除外**: ホロウのキャラ詳細に「成果を反映」は表示せず、`request_reflect_session_results` は `hollow_automatic` で断る。
+- **ホロウの初踏破**: クリア・撤退・全滅時に `exp_total` と `data.params` の「通過点」に反映し、初踏破の Tier ごとに `growth_log` へ `hollow_results`（部屋、ランID、Tier、経験、通過点）を記録する。持ちキャラ一覧 API の `cleared_hollow_tiers` はこの履歴から求める。キャラ作成ツールの上書き保存は履歴を保持する。
 - 通常ルームでは通過点を`owned.data.params`の`通過点`へ加算し、`compute_radiance_limit`が見る予算を増やす。履歴と応答へ`radiance_gain`を記録する。通常スキルの経験予算とは別に扱う。
 - 成功時は`owned.exp_total`に`exp_gain`を加算し、`items`（ホロウでない場合のみ）を`owned.data['inventory']`へマージ、`owned.growth_log`に`kind:'reflect_session_results'`のエントリを追加してコミットする。
 - 成功時は`results_reflected`を保存予約し、ルーム状態を配信して、設定メニューの反映済み表示を同期する。経験値0・通過点0・アイテムなしも成功として履歴と反映済みフラグを記録し、そのコピーの1回を消費する。

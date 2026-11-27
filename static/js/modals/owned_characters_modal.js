@@ -150,6 +150,7 @@
                 const updated = c.updated_at ? new Date(c.updated_at).toLocaleString() : '-';
                 const remaining = Number.isFinite(c.remaining_exp) ? c.remaining_exp : (c.exp_total ?? 0);
                 const radianceRemaining = Number.isFinite(c.radiance_remaining) ? c.radiance_remaining : 0;
+                const cleared = c.cleared_hollow_tiers?.at(-1);
                 const initial = escapeHtml(String(c.name || '?').trim().charAt(0) || '?');
                 const avatarColor = avatarColorFor(c.name);
                 return `
@@ -159,7 +160,7 @@
                                 <div class="owned-chars-avatar" style="background:${avatarColor};">${initial}</div>
                                 <div style="min-width:0;">
                                     <div style="font-weight:700; font-size:1.02rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(c.name)}</div>
-                                    <div class="owned-chars-meta">残り経験値 <strong class="owned-chars-exp">${escapeHtml(remaining)}</strong> ・ 残り通過点 <strong class="owned-chars-pass">${escapeHtml(radianceRemaining)}</strong> ・ 更新 ${escapeHtml(updated)}</div>
+                                    <div class="owned-chars-meta">残り経験値 <strong class="owned-chars-exp">${escapeHtml(remaining)}</strong> ・ 残り通過点 <strong class="owned-chars-pass">${escapeHtml(radianceRemaining)}</strong>${cleared ? ` ・ <strong class="owned-chars-hollow-clear">T${escapeHtml(cleared)} 踏破</strong>` : ''} ・ 更新 ${escapeHtml(updated)}</div>
                                 </div>
                             </div>
                             <div style="flex:0 0 auto; display:flex; gap:6px;">

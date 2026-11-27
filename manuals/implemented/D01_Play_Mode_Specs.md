@@ -570,7 +570,7 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 
 | 種類 | ID | `payload` の主な項目 | 参照 |
 |---|---|---|---|
-| `tier` | `HT-01` | `tier`（整数1〜5）、`description`、`hp_multiplier`・`attack_multiplier` | — |
+| `tier` | `HT-01` | `tier`（整数1〜5）、`description`、`hp_multiplier`・`attack_multiplier`、`boss_exp`・`boss_radiance`（0以上の整数、省略時は Tier 番号） | — |
 | `hollow_map` | `HM-01` | `tier`（整数1〜5）、`description`、`event_weights`（通常・精鋭・宝箱・魔素だまり）、`encounters`（通常・精鋭の `{formation_id, weight}` の配列）、`events`（`{event_id, weight}` の配列）、`chests`（`{chest_id, weight}` の配列）、`category_weights`、`boss_formation_id`・`boss_stage_id`、`image`（画像URL、空を許可） | ホロウの敵編成・ステージ・魔素だまり・宝箱 |
 | `fixed_floor` | `HF-01` | `floor`（1〜50）、`type`（`town`・`camp`）、`text` | — |
 | `relic` | `HR-01` | `category`（12分類）、`rank`（1〜5）、`target`、`buff_id`、`cost_buff_id`（任意）、`flavor`、`image` | `Bu-` または `HBu-` |
@@ -623,6 +623,12 @@ GET /api/encyclopedia?room=<ルーム名>ではresolve_room_roleとGM_ROLESでGM
 - 出発時とボス撃破後に、次の区切りの有効なマップからランの種を使って最大3つ選び、`run.map_candidates` に区切り番号と候補の ID・名前・説明・画像URL・出やすい淵遺物カテゴリ最大3つの名前を保存・配信する。候補待ちの間はマスを選べない。ホスト・オーナーの `hollow_choose_map` が候補の `map_id` と `tier` を受け取り、有効な遭遇表とボスを確認して地図を生成する。地図に `map_id` を保存し、候補を消す。
 - 最初の区切りのデータが不足しているときは出発できない。ボス撃破後に次の候補を作れないときは `next_tier_error` に理由を残し、撃破済みのボスマスの再指定で候補を引き直す。50Fの勝利はクリア。
 - 戦闘外の `hollow_retreat` は撤退。クリア・撤退・敗北は `run.status: finished` と `run.result` に到達階と結果を保存する。閉室後は新規入室と再入室を断り、在室者には結果を配信する。最後の接続が離れたときに部屋を削除する。サーバーの起動時にも在室者がいない結果付きの閉室を片付ける。
+
+### 経験値と通過点（計画35 PR35-17）
+
+Tier ボスの勝利を確定したとき、控えと戦闘不能を含むパーティ内の持ちキャラごとに初踏破の分を積む。ラン状態はサーバー用の `run_id` と、キャラ・Tier・経験・通過点を保持する `growth_pending` を持つ。ホストとプレイヤーには初踏破のシステムログを配信する。
+
+クリア・撤退・全滅で、未踏破を再確認して持ちキャラへ反映する。削除された持ちキャラは飛ばす。結果の `growth` には実際に反映したキャラ名、Tier、経験、通過点を入れる。2回目以降の踏破や通常の階では加算しない。
 
 ### イベント階と回復（計画35 PR35-15）
 

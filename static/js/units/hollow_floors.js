@@ -19,8 +19,8 @@
     if (kind === 'hollow_map') return {name:'',tier:1,description:'',image:'',event_weights:{},
       encounters:{normal:[],elite:[]},events:[],chests:[],category_weights:{},boss_formation_id:'',boss_stage_id:''};
     const used = new Set(records.filter(row => row.kind === 'tier' && !row.deprecated).map(number));
-    return {name:'',tier:[1,2,3,4,5].find(value => !used.has(value)) ?? 1,description:'',
-      hp_multiplier:1,attack_multiplier:1};
+    const tier = [1,2,3,4,5].find(value => !used.has(value)) ?? 1;
+    return {name:'',tier,description:'',hp_multiplier:1,attack_multiplier:1};
   }
 
   function checked(path, control) {
@@ -101,7 +101,9 @@
       ? grid(tier, reference('ボス編成','boss_formation_id','formation',p.boss_formation_id,records),
         reference('ボスステージ','boss_stage_id','stage',p.boss_stage_id,records))
       : grid(tier, numberField('HP係数','hp_multiplier',p.hp_multiplier,'step="any"'),
-        numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"'));
+        numberField('攻撃係数','attack_multiplier',p.attack_multiplier,'step="any"'),
+        numberField('ボスの経験','boss_exp',p.boss_exp ?? p.tier,'min="0" step="1"'),
+        numberField('ボスの通過点','boss_radiance',p.boss_radiance ?? p.tier,'min="0" step="1"'));
     return name + details + checked('description',field('説明','description',p.description,'area')) +
       (kind === 'hollow_map' ? imageField(p.image, edit) : '');
   }

@@ -1270,7 +1270,8 @@ function openCharacterModal(charId) {
  * 設定コンテキストメニューを作成・表示
  */
 function createSettingsContextMenu(triggerEl, char) {
-    const canReflectRadiance = String(battleState.play_mode || 'normal').trim().toLowerCase() === 'normal';
+    const playMode = String(battleState.play_mode || 'normal').trim().toLowerCase();
+    const canReflectRadiance = playMode === 'normal';
     const latestChar = window.getLatestCharacterForBehaviorEditor(char);
     if (latestChar && typeof latestChar === 'object') {
         char = latestChar;
@@ -1359,7 +1360,7 @@ function createSettingsContextMenu(triggerEl, char) {
             </div>
             ` : ''}
 
-            ${char.owned_character_id ? `
+            ${char.owned_character_id && playMode !== 'hollow' ? `
             <div style="margin-bottom:15px; padding: 8px; background: #f0fdf4; border-radius: 4px; border:1px solid #bbf7d0;">
                 <div style="font-size: 0.85em; font-weight:bold; color:#166534; margin-bottom:6px;">持ちキャラへ成果を反映</div>
                 ${(char.flags && char.flags.results_reflected) ? `
@@ -1504,6 +1505,7 @@ function createSettingsContextMenu(triggerEl, char) {
                         char_not_found: 'キャラクターが見つかりませんでした。',
                         owned_character_not_found: '持ちキャラが見つかりませんでした。',
                         invalid_radiance_gain: '獲得通過点は0以上の整数で入力してください。',
+                        hollow_automatic: 'ホロウの成果は遠征終了時に自動で反映されます。',
                     }[result.reason] || '成果を反映できませんでした。';
                     if (typeof logToBattleLog === 'function') {
                         logToBattleLog({ type: 'info', message: reasonMsg, timestamp: Date.now() });

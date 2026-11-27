@@ -123,6 +123,12 @@ def _array(value, path, errors, *, maximum=None):
     return enumerate(value)
 
 
+def _inspect_tier(data, _errors):
+    for field in ("boss_exp", "boss_radiance"):
+        if data[field] is None:
+            data[field] = data["tier"]
+
+
 def _inspect_map(data, errors):
     _object(data["category_weights"], dict.fromkeys(DRAW_CATEGORIES, _integer), (), "category_weights", errors)
     _object(data["event_weights"], dict.fromkeys(EVENT_TYPES, _integer), (), "event_weights", errors)
@@ -200,8 +206,10 @@ def _inspect_drop_table(data, errors):
 SCHEMAS = {
     "tier": (
         {"tier": _tier_number, "description": lambda value: isinstance(value, str),
-         "hp_multiplier": _multiplier, "attack_multiplier": _multiplier},
-        {"description": "", "hp_multiplier": 1, "attack_multiplier": 1}, None,
+         "hp_multiplier": _multiplier, "attack_multiplier": _multiplier,
+         "boss_exp": _integer, "boss_radiance": _integer},
+        {"description": "", "hp_multiplier": 1, "attack_multiplier": 1,
+         "boss_exp": None, "boss_radiance": None}, _inspect_tier,
     ),
     "hollow_map": (
         {"tier": _tier_number, "description": lambda value: isinstance(value, str),

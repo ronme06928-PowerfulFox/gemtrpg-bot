@@ -175,7 +175,10 @@ def _prepare_character_data(data):
 
 
 def _character_to_dict_with_exp(character):
+    from manager.hollow.growth import cleared_tiers
+
     payload = character.to_dict()
+    payload['cleared_hollow_tiers'] = cleared_tiers(character.growth_log)
     prepared_data = copy.deepcopy(character.data or {})
     radiance_skills = radiance_loader.load_skills()
     if is_scenario_character(prepared_data):
@@ -224,7 +227,10 @@ def _extract_character_payload(payload):
     return raw, None
 
 
-def _get_owned_character_or_404(character_id, user_id):
+def _get_owned_character_or_404(character_id, user_id, *, write=False):
+    if write:
+        from manager.owned_growth import locked_characters
+        return locked_characters([character_id], user_id=user_id).get(character_id)
     character = OwnedCharacter.query.filter_by(
         id=character_id, user_id=user_id, deleted_at=None
     ).first()
@@ -289,21 +295,26 @@ def create_owned_character():
     return jsonify({"character": _character_to_dict_with_exp(character)}), 201
 
 
+def _owned_write_error(payload, status):
+    db.session.rollback()
+    return jsonify(payload), status
+
+
 @owned_characters_bp.route('/api/owned_characters/<character_id>', methods=['PUT'])
 @session_required
 def update_owned_character(character_id):
     user_id = session.get('user_id')
-    character = _get_owned_character_or_404(character_id, user_id)
+    character = _get_owned_character_or_404(character_id, user_id, write=True)
     if not character:
-        return jsonify({"error": "指定された持ちキャラが見つかりません。"}), 404
+        return _owned_write_error({"error": "指定された持ちキャラが見つかりません。"}, 404)
 
     payload = request.get_json(silent=True) or {}
     data, error = _extract_character_payload(payload)
     if error:
-        return jsonify({"error": error}), 400
+        return _owned_write_error({"error": error}, 400)
     data, error = _prepare_character_data(data)
     if error:
-        return jsonify({"error": error}), 400
+        return _owned_write_error({"error": error}, 400)
 
     character.data = data
     character.name = str(data.get('name') or '').strip()
@@ -316,9 +327,9 @@ def update_owned_character(character_id):
 @session_required
 def delete_owned_character(character_id):
     user_id = session.get('user_id')
-    character = _get_owned_character_or_404(character_id, user_id)
+    character = _get_owned_character_or_404(character_id, user_id, write=True)
     if not character:
-        return jsonify({"error": "指定された持ちキャラが見つかりません。"}), 404
+        return _owned_write_error({"error": "指定された持ちキャラが見つかりません。"}, 404)
 
     character.deleted_at = datetime.utcnow()
     db.session.commit()
@@ -336,9 +347,9 @@ def grow_owned_character(character_id):
     パラメータ上昇は house rule として 1ポットあたり経験値1消費とする。
     """
     user_id = session.get('user_id')
-    character = _get_owned_character_or_404(character_id, user_id)
+    character = _get_owned_character_or_404(character_id, user_id, write=True)
     if not character:
-        return jsonify({"error": "指定された持ちキャラが見つかりません。"}), 404
+        return _owned_write_error({"error": "指定された持ちキャラが見つかりません。"}, 404)
 
     payload = request.get_json(silent=True) or {}
     add_skill_ids = payload.get('add_skill_ids')
@@ -357,7 +368,7 @@ def grow_owned_character(character_id):
             param_increases[normalize_status_name(label)] = delta_int
 
     if not add_skill_ids and not add_radiance_ids and not param_increases:
-        return jsonify({"error": "追加するスキルまたはパラメータ上昇を指定してください。"}), 400
+        return _owned_write_error({"error": "追加するスキルまたはパラメータ上昇を指定してください。"}, 400)
 
     data = dict(character.data or {})
     old_skill_used_exp = compute_used_exp(data)
@@ -365,17 +376,17 @@ def grow_owned_character(character_id):
 
     unknown_skill_ids = [sid for sid in add_skill_ids if sid not in all_skill_data]
     if unknown_skill_ids:
-        return jsonify({"error": f"未知のスキルIDです: {', '.join(unknown_skill_ids)}"}), 400
+        return _owned_write_error({"error": f"未知のスキルIDです: {', '.join(unknown_skill_ids)}"}, 400)
 
     radiance_skills = radiance_loader.load_skills()
     unknown_radiance_ids = [sid for sid in add_radiance_ids if sid not in radiance_skills]
     if unknown_radiance_ids:
-        return jsonify({"error": f"未知の輝化スキルIDです: {', '.join(unknown_radiance_ids)}"}), 400
+        return _owned_write_error({"error": f"未知の輝化スキルIDです: {', '.join(unknown_radiance_ids)}"}, 400)
 
     existing_spassive = [s for s in (data.get('SPassive') or []) if isinstance(s, str)]
     duplicate_radiance_ids = [sid for sid in add_radiance_ids if sid in existing_spassive]
     if duplicate_radiance_ids:
-        return jsonify({"error": f"既に習得済みの輝化スキルです: {', '.join(duplicate_radiance_ids)}"}), 400
+        return _owned_write_error({"error": f"既に習得済みの輝化スキルです: {', '.join(duplicate_radiance_ids)}"}, 400)
 
     new_commands_lines = [str(data.get('commands') or '')]
     for skill_id in add_skill_ids:
@@ -391,20 +402,20 @@ def grow_owned_character(character_id):
 
     remaining_exp = int(character.exp_total or 0) - old_used_exp
     if total_cost > remaining_exp:
-        return jsonify({
+        return _owned_write_error({
             "error": f"経験値が不足しています（必要: {total_cost} / 残り: {remaining_exp}）。",
             "remaining_exp": remaining_exp,
             "required_exp": total_cost,
-        }), 400
+        }, 400)
 
     radiance_cost = sum(_radiance_cost(sid, radiance_skills) for sid in add_radiance_ids)
     radiance_remaining = compute_radiance_limit(data) - compute_radiance_used(data, radiance_skills)
     if radiance_cost > radiance_remaining:
-        return jsonify({
+        return _owned_write_error({
             "error": f"通過点が不足しています（必要: {radiance_cost} / 残り: {radiance_remaining}）。",
             "radiance_remaining": radiance_remaining,
             "required_radiance": radiance_cost,
-        }), 400
+        }, 400)
 
     data['commands'] = new_commands
     data['SPassive'] = existing_spassive + add_radiance_ids

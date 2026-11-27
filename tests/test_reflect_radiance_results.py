@@ -67,7 +67,7 @@ def test_radiance_addition_is_limited_to_normal_rooms(app_ctx, monkeypatch):
     _patch_char(monkeypatch, _state_with_char(char, play_mode="hollow"), "owner")
     socket_char.handle_reflect_session_results({"room": "r1", "char_id": "char_1", "exp_gain": 2, "radiance_gain": 9})
     owned = db.session.get(OwnedCharacter, "owned_1")
-    assert owned.exp_total == 12
+    assert owned.exp_total == 10
     assert oc.compute_radiance_limit(owned.data) == 0
 
 

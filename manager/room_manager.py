@@ -667,6 +667,8 @@ def build_participant_state(state, include_logs=True, *, include_hidden_passives
         run = result["hollow"].get("run", {})
         run.pop("seed", None)
         run.pop("bled", None)
+        run.pop("run_id", None)
+        run.pop("growth_pending", None)
         project_relics(run)
         project_events(run)
         if run.get("status") == "in_progress" and run.get("map"):

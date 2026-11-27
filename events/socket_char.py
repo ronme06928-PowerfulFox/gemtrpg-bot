@@ -155,8 +155,7 @@ def handle_reflect_session_results(data):
     - 実行権限はキャラ所有者本人（`owner_id` が session の user_id と一致）
       または GM。
     - 1キャラにつき1回のみ反映する（`flags.results_reflected` で冪等性を担保）。
-    - ホロウ（`state.get('play_mode') == 'hollow'`）由来のセッションでは
-      アイテムは反映対象外（計画35「ホロウ内で完結の原則」）。経験値のみ反映する。
+    - ホロウの成果は遠征終了時に自動反映する。
     """
     room = data.get('room')
     char_id = data.get('char_id')
@@ -167,6 +166,12 @@ def handle_reflect_session_results(data):
         return
 
     state = get_room_state(room)
+    mode = str(state.get('play_mode') or 'normal').strip().lower()
+    if mode == 'hollow':
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'hollow_automatic',
+        }, to=request.sid)
+        return
     char = next((c for c in state.get('characters', []) if c.get('id') == char_id), None)
     if not char:
         emit('reflect_session_results_result', {
@@ -199,21 +204,11 @@ def handle_reflect_session_results(data):
         }, to=request.sid)
         return
 
-    from extensions import db
-    from models import OwnedCharacter
-    owned = OwnedCharacter.query.filter_by(id=owned_character_id, deleted_at=None).first()
-    if not owned:
-        emit('reflect_session_results_result', {
-            'char_id': char_id, 'skipped': True, 'reason': 'owned_character_not_found',
-        }, to=request.sid)
-        return
-
     exp_gain = _safe_int(data.get('exp_gain'), 0)
     if exp_gain < 0:
         exp_gain = 0
 
-    is_hollow = str(state.get('play_mode') or '').strip().lower() == 'hollow'
-    is_normal_room = str(state.get('play_mode') or 'normal').strip().lower() == 'normal'
+    is_normal_room = mode == 'normal'
     radiance_gain = 0
     if is_normal_room:
         raw_radiance = data.get('radiance_gain', 0)
@@ -228,8 +223,19 @@ def handle_reflect_session_results(data):
                 'char_id': char_id, 'skipped': True, 'reason': 'invalid_radiance_gain',
             }, to=request.sid)
             return
+    from extensions import db
+    from manager.owned_growth import add_passage_points, locked_characters
+
+    owned = locked_characters([owned_character_id]).get(owned_character_id)
+    if not owned:
+        db.session.rollback()
+        emit('reflect_session_results_result', {
+            'char_id': char_id, 'skipped': True, 'reason': 'owned_character_not_found',
+        }, to=request.sid)
+        return
+
     raw_items = data.get('items') if isinstance(data.get('items'), dict) else {}
-    items_gain = {} if is_hollow else {
+    items_gain = {
         str(item_id): _safe_int(qty, 0)
         for item_id, qty in raw_items.items()
         if _safe_int(qty, 0) > 0
@@ -245,15 +251,7 @@ def handle_reflect_session_results(data):
                 inventory[item_id] = int(inventory.get(item_id, 0)) + qty
             owned_data['inventory'] = inventory
         if radiance_gain:
-            params = owned_data.get('params')
-            if not isinstance(params, list):
-                params = []
-                owned_data['params'] = params
-            points = next((p for p in params if isinstance(p, dict) and p.get('label') == '通過点'), None)
-            if points is None:
-                points = {'label': '通過点', 'value': '0'}
-                params.append(points)
-            points['value'] = str(_safe_int(points.get('value'), 0) + radiance_gain)
+            add_passage_points(owned_data, radiance_gain)
         owned.data = owned_data
 
     growth_log = list(owned.growth_log or [])

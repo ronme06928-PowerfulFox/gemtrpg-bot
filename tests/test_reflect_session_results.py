@@ -175,7 +175,7 @@ def test_character_without_owned_character_id_is_skipped(app_ctx, monkeypatch):
         assert owned.exp_total == 10  # unchanged
 
 
-def test_hollow_room_excludes_items_but_reflects_exp(app_ctx, monkeypatch):
+def test_hollow_room_rejects_manual_reflection(app_ctx, monkeypatch):
     with app_ctx.app_context():
         char = _room_char()
         state = _state_with_char(char, play_mode="hollow")
@@ -187,12 +187,11 @@ def test_hollow_room_excludes_items_but_reflects_exp(app_ctx, monkeypatch):
         })
 
         result = next(p for (ev, p, _to) in emits if ev == "reflect_session_results_result")
-        assert result["skipped"] is False
-        assert result["items_gain"] == {}
-
+        assert result == {"char_id": "char_1", "skipped": True, "reason": "hollow_automatic"}
         owned = db.session.get(OwnedCharacter, "owned_1")
-        assert owned.exp_total == 17
-        assert owned.data["inventory"]["item-heal"] == 1  # unchanged (no items reflected)
+        assert owned.exp_total == 10
+        assert owned.data["inventory"]["item-heal"] == 1
+        assert owned.growth_log == [] and char["flags"] == {}
 
 
 @pytest.mark.parametrize("path", ["read", "broadcast"])

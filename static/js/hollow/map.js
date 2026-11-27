@@ -61,8 +61,11 @@
     const roster = parties(run, state);
     if (screen === 'finished') {
       const result = run.result || {floor: run.floor || 0};
+      const growth = (result.growth || []).map(row => `<li>${esc(row.name)} 経験＋${esc(row.exp_gain)}・通過点＋${esc(row.radiance_gain)}
+        （${row.tiers.map(tier => `T${esc(tier)}`).join('・')} 初踏破）</li>`).join('');
       return card(OUTCOMES[result.outcome] || '遠征終了', `
         <dl><dt>到達階</dt><dd>${esc(result.floor)}F</dd>
+        ${growth ? `<dt>初踏破の成果</dt><dd><ul class="hollow-growth-results">${growth}</ul></dd>` : ''}
         <dt>パーティ</dt><dd>${esc(roster.order.map(char => char.name).join('・') || '—')}</dd></dl>
         <button class="hollow-route-btn primary" data-route-action="return">ダンジョンへ戻る</button>`);
     }

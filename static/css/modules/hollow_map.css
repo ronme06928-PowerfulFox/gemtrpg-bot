@@ -262,3 +262,5 @@ button.hollow-map-chip { cursor: pointer; }
   .hollow-map-row { min-height: 88px; padding-inline-start: 32px; }
   .hollow-node { transform: translateX(calc(var(--shift) * .45)); }
 }
+
+.hollow-growth-results { margin: 0; padding-inline-start: 1.15em; }

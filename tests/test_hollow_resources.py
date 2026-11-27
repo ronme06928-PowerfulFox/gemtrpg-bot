@@ -300,3 +300,19 @@ def test_miasma_validation(resource_set, choice, field):
     with pytest.raises(CatalogValidationError) as exc:
         save("hollow_event", choices=[{"label": "試す", **choice}])
     assert f"choices[0].{field}" in exc.value.errors
+
+
+def test_tier_growth_defaults_and_explicit_zero(library):
+    assert save("tier", tier=3).payload["boss_exp"] == 3
+    row = save("tier", tier=2, boss_exp=0, boss_radiance=7)
+    assert (row.payload["boss_exp"], row.payload["boss_radiance"]) == (0, 7)
+
+
+@pytest.mark.parametrize(("field", "value"), [
+    ("boss_exp", -1), ("boss_exp", True), ("boss_radiance", -1),
+    ("boss_radiance", 1.5), ("boss_radiance", "2"),
+])
+def test_invalid_tier_growth_values(library, field, value):
+    with pytest.raises(CatalogValidationError) as exc:
+        save("tier", tier=1, **{field: value})
+    assert field in exc.value.errors

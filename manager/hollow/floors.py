@@ -246,4 +246,6 @@ def prepare_battle(state, run, node, resources, username):
     encounter = {"formation_id": formation_id, "stage_id": stage_id, **scaling}
     if node["type"] == "boss":
         encounter["boss_name"] = get_record(resources.store, "enemy_formation", formation_id)["name"]
+        for field in ("boss_exp", "boss_radiance"):
+            encounter[field] = tier.get(field, tier["tier"])
     return encounter, logs, enemies

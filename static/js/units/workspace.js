@@ -942,7 +942,8 @@
         const old = base.split('.').reduce((obj,key) => obj?.[key],payload());
         setPath(base,{param:'HP',operator:'GTE',value:0,...old,[path.split('.').at(-1)]:value});
       } else setPath(path,value);
-      const refresh = path.endsWith('.pattern_id') || path === 'allow_enemy' ||
+      const refresh = (state.kind === 'tier' && path === 'tier' &&
+        (!Object.hasOwn(payload(),'boss_exp') || !Object.hasOwn(payload(),'boss_radiance'))) || path.endsWith('.pattern_id') || path === 'allow_enemy' ||
         (state.kind === 'hollow_map' && path.endsWith('.formation_id')) || path === 'drop_table_id';
       update(refresh);
       if (refresh) get(`[data-path="${path}"]`)?.focus({preventScroll:true});

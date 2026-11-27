@@ -108,6 +108,7 @@ def seed(*, battle_only=False):
     for number, hp, attack in TIERS:
         upsert("tier", {
             "name": f"{PREFIX} T{number}", "tier": number, "hp_multiplier": hp, "attack_multiplier": attack,
+            "boss_exp": number, "boss_radiance": number,
         }, lambda other, number=number: other.get("tier") == number)
 
     relic = seed_relics(lambda kind, **payload: upsert(kind, payload, by_name(payload)), DRAW_CATEGORIES, PREFIX)

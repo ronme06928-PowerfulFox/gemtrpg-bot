@@ -49,6 +49,10 @@ vm.runInContext(fs.readFileSync('./static/js/modals.js', 'utf8'), context);
 vm.runInContext(fs.readFileSync('./static/js/modals/behavior_flow_editor_modal.js', 'utf8'), context);
 const trigger = { getBoundingClientRect: () => ({ bottom: 10, left: 250 }) };
 context.createSettingsContextMenu(trigger, character);
+if (mode === 'hollow') {
+  assert.ok(!html.includes('成果を反映'));
+  assert.equal(sent.length, 0);
+} else {
 nodes.get('ctx-reflect-exp').value = '2';
 nodes.get('ctx-reflect-items').value = 'item-heal:2';
 assert.equal(nodes.has('ctx-reflect-radiance'), mode === 'normal');
@@ -72,6 +76,7 @@ character.flags.results_reflected = true;
 context.createSettingsContextMenu(trigger, character);
 assert.ok(html.includes('このセッションの成果は反映済みです。'));
 assert.ok(!html.includes('id="ctx-reflect-btn"'));
+}
 }
 """
     result = subprocess.run(
