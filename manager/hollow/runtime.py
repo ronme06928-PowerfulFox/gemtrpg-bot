@@ -14,7 +14,8 @@ from models import CatalogEntry
 _simulation_rewards = ContextVar("simulation_hollow_rewards", default=None)
 _cache_lock = RLock()
 _CACHE_KEY = "hollow_reward_definitions"
-_RUNTIME_KINDS = (*REWARD_KINDS, "relic", "hollow_load_stage", "hollow_recipe", "hollow_map")
+_RUNTIME_KINDS = (*REWARD_KINDS, "relic", "hollow_load_stage", "hollow_recipe", "hollow_map",
+                  "hollow_event", "treasure_chest", "drop_table")
 
 
 @contextmanager

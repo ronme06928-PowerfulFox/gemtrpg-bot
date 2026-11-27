@@ -8,12 +8,9 @@ from manager.room_manager import (
 from manager.room_access import is_sid_in_room, sid_has_room_role, GM_ROLES
 import logging
 import random
-from html import escape
+from manager.exploration_roll import roll_check, roll_log
 
 logger = logging.getLogger(__name__)
-
-# --- 探索モードのパラメータ表示用定数 (参考) ---
-# EXPLORATION_PARAMS = ['五感', '採取', '本能', '鑑定', '対話', '尋問', '諜報', '窃取', '隠密', '運動', '制作', '回避']
 
 @socketio.on('request_change_mode')
 def handle_change_mode(data):
@@ -133,22 +130,6 @@ def handle_exploration_roll(data):
     char = next((c for c in state['characters'] if c['id'] == char_id), None)
     char_name = char['name'] if char else "???"
 
-    # ダイスロール
-    rolls = [random.randint(1, 6) for _ in range(dice_count)]
-    dice_total = sum(rolls)
-    total_val = dice_total + skill_level
-
-    # 判定
-    result_html = ""
-    if difficulty > 0:
-        if total_val >= difficulty:
-            result_html = '<strong>【SUCCESS】</strong>'
-        else:
-            result_html = '<strong>【FAILURE】</strong>'
-
-    # ログメッセージ構築
-    log_msg = f"{escape(str(char_name))} の {escape(str(skill_name))}判定:<br>{dice_count}d6({dice_total}) + Lv{skill_level} = {total_val}"
-    if difficulty > 0:
-        log_msg += f" (目標:{difficulty}) -> {result_html}"
-
+    result = roll_check(skill_level, difficulty, dice_count=dice_count, roller=random.randint)
+    log_msg = roll_log(char_name, skill_name, result, difficulty, show_difficulty=difficulty > 0)
     broadcast_log(room_name, log_msg, 'dice_roll')

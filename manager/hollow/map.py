@@ -4,7 +4,7 @@ from math import floor
 
 FLOORS_PER_TIER = 10
 SIGHT = 2
-EVENT_WEIGHTS = (("battle", "normal"), ("elite", "elite"))
+EVENT_WEIGHTS = (("elite", "elite"), ("battle", "normal"), ("chest", "chest"), ("miasma", "miasma"))
 _MASK = 0xffffffff
 
 
@@ -46,6 +46,13 @@ def _connect(rows, following, rng):
         rows[left]["next"].append(following[right]["id"])
 
 
+def _node_type(weights, roll):
+    for kind, threshold in weights:
+        if roll < threshold:
+            return kind
+    return weights[-1][0]
+
+
 def build_map(tier, area, fixed_floors, seed):
     rng = _map_random(seed)
     number = tier["tier"]
@@ -54,8 +61,12 @@ def build_map(tier, area, fixed_floors, seed):
     total = sum(weight for _, weight in weights)
     if total <= 0:
         raise ValueError("抽選できる重みがありません")
-    # The prototype draws elite below its threshold.
-    elite_ratio = weights[1][1] / total
+    cumulative = 0
+    thresholds = []
+    for kind, weight in weights:
+        if weight > 0:
+            cumulative += weight
+            thresholds.append((kind, cumulative / total))
     entry = {"id": f"n{start}s", "floor": start, "type": "start", "shift": 0, "next": []}
     rows = []
     for index in range(1, FLOORS_PER_TIER + 1):
@@ -63,9 +74,10 @@ def build_map(tier, area, fixed_floors, seed):
         fixed = fixed_floors.get(floor_number)
         boss = index == FLOORS_PER_TIER
         roll = next(rng)
-        width = 1 if fixed or boss or roll < .06 else 2 if roll < .5 else 3
+        camp = fixed and fixed["type"] == "camp"
+        width = 1 if camp or boss or roll < .06 else 2 if roll < .5 else 3
         row = [{"id": f"n{floor_number}{chr(97 + column)}", "floor": floor_number,
-                "type": "boss" if boss else "elite" if next(rng) < elite_ratio else "battle",
+                "type": "boss" if boss else "camp" if camp else _node_type(thresholds, next(rng)),
                 "shift": 0 if boss else floor((next(rng) - .5) * 40 + .5), "next": []}
                for column in range(width)]
         if rows:

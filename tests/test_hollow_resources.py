@@ -11,15 +11,15 @@ from tests.test_units import unit_app
 PAYLOADS = {
     "tier": ("HT-01", {"tier": 1}),
     "hollow_map": ("HM-01", {"tier": 1, "image": "/static/images/cave.webp",
-                              "event_weights": {"normal": 1, "chest": 2, "miasma": 3},
+                              "event_weights": {"normal": 1},
                               "encounters": {"normal": [{"formation_id": "F-001", "weight": 1}]},
                               "category_weights": {"出血": 3},
                               "boss_formation_id": "F-001", "boss_stage_id": "ST-001"}),
     "fixed_floor": ("HF-01", {"floor": 10, "type": "camp"}),
     "relic": ("HR-01", {"category": "出血", "rank": 1, "target": {"type": "condition", "condition": "has_tag:前衛"},
                        "buff_id": "HBu-01", "cost_buff_id": "Bu-01"}),
-    "hollow_event": ("HE-01", {"type": "miasma", "choices": [
-        {"label": "触れる", "difficulty": 9, "effect": {"kind": "item", "id": "I-01"},
+    "hollow_event": ("HE-01", {"choices": [
+        {"label": "触れる", "difficulty": 9, "skill": "五感", "effect": {"kind": "item", "id": "I-01"},
          "failure_effect": {"kind": "buff", "id": "HBu-01", "battles": 2}, "failure_target": "selected"},
     ]}),
     "treasure_chest": ("HC-01", {"drop_table_id": "HD-01"}),
@@ -262,3 +262,41 @@ def test_hollow_stat_buff_on_character_resolves_by_id(unit_app):
     buff = save("hollow_buff", name="蓄力", effect={"type": "stat_mod", "stat": "物理補正", "value": 4})
     character = {"special_buffs": [{"buff_id": buff.entry_id, "name": "蓄力"}]}
     assert get_buff_stat_mod(character, "物理補正") == 4
+
+
+def test_event_map_links(resource_set):
+    _, payload = PAYLOADS["hollow_map"]
+    row = save("hollow_map", **(payload | {
+        "event_weights": {"chest": 2, "miasma": 3},
+        "events": [{"event_id": "HE-01", "weight": 2}],
+        "chests": [{"chest_id": "HC-01", "weight": 1}],
+    }))
+    assert row.payload["events"][0]["event_id"] == "HE-01"
+    for kind, key, path in (("hollow_event", "HE-01", "events[0].event_id"),
+                            ("treasure_chest", "HC-01", "chests[0].chest_id")):
+        assert [(ref["entry_id"], ref["path"]) for ref in repository.references(kind, key)] == [(row.entry_id, path)]
+        with pytest.raises(CatalogConflictError, match="参照"):
+            repository.delete(kind, key, base_revision=1)
+
+
+@pytest.mark.parametrize(("patch", "field"), [
+    ({"event_weights": {"chest": 1}}, "chests"),
+    ({"event_weights": {"miasma": 1}, "events": [{"event_id": "HE-99", "weight": 1}]}, "events[0].event_id"),
+])
+def test_event_map_validation(resource_set, patch, field):
+    with pytest.raises(CatalogValidationError) as exc:
+        save("hollow_map", **(PAYLOADS["hollow_map"][1] | patch))
+    assert field in exc.value.errors
+
+
+@pytest.mark.parametrize(("choice", "field"), [
+    ({"difficulty": 5}, "skill"),
+    ({"difficulty": 5, "skill": "攻撃"}, "skill"),
+    ({"effect": {"kind": "buff", "id": "HBu-01"}, "target": "all"}, "effect.battles"),
+    ({"effect": {"kind": "buff", "id": "HBu-01", "battles": 1}, "target": "party"}, "target"),
+    ({"effect": {"kind": "relic", "id": "HR-01"}, "target": "all"}, "target"),
+])
+def test_miasma_validation(resource_set, choice, field):
+    with pytest.raises(CatalogValidationError) as exc:
+        save("hollow_event", choices=[{"label": "試す", **choice}])
+    assert f"choices[0].{field}" in exc.value.errors

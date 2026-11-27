@@ -94,8 +94,8 @@ def _boss(area, store):
 def new_map(number, map_id, seed, resources):
     tier, area = _selected_map(number, map_id, resources)
     kinds = [kind for kind in ("normal", "elite") if area["event_weights"].get(kind, 0) > 0]
-    if not kinds:
-        raise ValueError(f"{area['name']} に通常・精鋭戦闘の重みがありません")
+    if not any(area["event_weights"].values()):
+        raise ValueError(f"{area['name']} にマスの重みがありません")
     for kind in kinds:
         _encounters(area, kind, resources.store)
     _boss(area, resources.store)

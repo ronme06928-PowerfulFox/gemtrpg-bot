@@ -107,3 +107,4 @@ def seed_relics(save, categories, prefix):
                    "戦闘突入時、自分のFP＋3。", "二つの遺物が溶け合ってできた指輪。")
     save("hollow_recipe", name=f"{prefix} 血脈の指輪", result_id=result,
          material_ids=[keys["血に濡れた手袋"], keys["赤錆の釣針"]])
+    return result

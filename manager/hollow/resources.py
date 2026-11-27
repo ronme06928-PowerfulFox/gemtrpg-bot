@@ -4,6 +4,7 @@ from copy import deepcopy
 from math import isfinite
 import re
 
+from manager.exploration_roll import EXPLORATION_SKILLS
 from manager.catalog.kinds import get_kind, inspect_buff_effect, inspect_fields, inspect_marks
 
 HOLLOW_IDS = {
@@ -17,6 +18,8 @@ GRADES = ("鉄級", "銅級", "銀級", "金級", "特異級")
 EVENT_TYPES = ("normal", "elite", "chest", "miasma")
 DRAW_CATEGORIES = ("出血", "破裂", "亀裂", "戦慄", "荊棘", "蓄力", "凝魔", "斬撃", "打撃", "貫通", "汎用")
 RELIC_CATEGORIES = (*DRAW_CATEGORIES, "出身強化")
+EVENT_TABLES = {"miasma": ("events", "event_id", "hollow_event"),
+                "chest": ("chests", "chest_id", "treasure_chest")}
 ENCOUNTER_TYPES = ("normal", "elite")
 TARGET_PREFIXES = {
     "buff": (("buff", "Bu"), ("hollow_buff", "HBu")),
@@ -123,6 +126,13 @@ def _array(value, path, errors, *, maximum=None):
 def _inspect_map(data, errors):
     _object(data["category_weights"], dict.fromkeys(DRAW_CATEGORIES, _integer), (), "category_weights", errors)
     _object(data["event_weights"], dict.fromkeys(EVENT_TYPES, _integer), (), "event_weights", errors)
+    for kind, (field, id_field, _) in EVENT_TABLES.items():
+        rows = data[field]
+        for index, row in _array(rows, field, errors):
+            _object(row, {id_field: _text, "weight": _integer}, (id_field, "weight"),
+                    f"{field}[{index}]", errors)
+        if not errors and data["event_weights"].get(kind, 0) > 0 and not any(row["weight"] > 0 for row in rows):
+            errors[field] = "正の重みの行を1件以上指定してください"
     encounters = data["encounters"]
     if _object(encounters, dict.fromkeys(ENCOUNTER_TYPES, lambda value: isinstance(value, list)),
                (), "encounters", errors):
@@ -158,24 +168,27 @@ def _inspect_recipe(data, errors):
 
 
 def _inspect_event(data, errors):
-    fields = {"label": _text, "difficulty": _integer, "effect": lambda value: isinstance(value, dict),
-              "failure_effect": lambda value: isinstance(value, dict),
-              "failure_target": lambda value: value in ("selected", "all")}
-    effect_fields = {"kind": lambda value: value in ("buff", "item"), "id": _text,
-                     "battles": lambda value: _integer(value, 1)}
+    fields = {"label": _text, "difficulty": _integer, "skill": lambda value: value in EXPLORATION_SKILLS,
+              "effect": lambda value: isinstance(value, dict), "failure_effect": lambda value: isinstance(value, dict),
+              **dict.fromkeys(("target", "failure_target"), lambda value: value in ("selected", "all"))}
     for index, row in _array(data["choices"], "choices", errors, maximum=4):
         path = f"choices[{index}]"
         if not _object(row, fields, ("label",), path, errors):
             continue
-        for field in ("effect", "failure_effect"):
+        if "difficulty" in row and "skill" not in row:
+            errors[f"{path}.skill"] = "判定の技能を指定してください"
+        if "difficulty" not in row and ("skill" in row or "failure_effect" in row):
+            errors[f"{path}.difficulty"] = "判定の難易度を指定してください"
+        for field, target in (("effect", "target"), ("failure_effect", "failure_target")):
+            effect = row.get(field, {})
+            is_buff = isinstance(effect, dict) and effect.get("kind") == "buff"
             if field in row:
-                _object(row[field], effect_fields, ("kind", "id"), f"{path}.{field}", errors)
-        if "failure_effect" in row:
-            for field in ("difficulty", "failure_target"):
-                if field not in row:
-                    errors[f"{path}.{field}"] = "失敗時の効果と一緒に指定してください"
-        elif "failure_target" in row:
-            errors[f"{path}.failure_target"] = "失敗時の効果と一緒に指定してください"
+                effect_fields = {"kind": lambda value: isinstance(value, str) and value in TARGET_PREFIXES, "id": _text}
+                if is_buff:
+                    effect_fields["battles"] = lambda value: _integer(value, 1)
+                _object(effect, effect_fields, tuple(effect_fields), f"{path}.{field}", errors)
+            if is_buff != (target in row):
+                errors[f"{path}.{target}"] = "バフの効果にだけ対象を指定してください"
 
 
 def _inspect_drop_table(data, errors):
@@ -194,8 +207,10 @@ SCHEMAS = {
         {"tier": _tier_number, "description": lambda value: isinstance(value, str),
          "image": lambda value: isinstance(value, str),
          **dict.fromkeys(("event_weights", "encounters", "category_weights"), lambda value: isinstance(value, dict)),
+         "events": lambda value: isinstance(value, list), "chests": lambda value: isinstance(value, list),
          "boss_formation_id": _text, "boss_stage_id": _text},
-        {"description": "", "image": "", "event_weights": {}, "encounters": {}, "category_weights": {}}, _inspect_map,
+        {"description": "", "image": "", "event_weights": {}, "encounters": {}, "category_weights": {},
+         "events": [], "chests": []}, _inspect_map,
     ),
     "fixed_floor": (
         {"floor": _floor, "type": lambda value: value in ("town", "camp"),
@@ -213,7 +228,7 @@ SCHEMAS = {
     "hollow_recipe": ({"material_ids": lambda value: isinstance(value, list), "result_id": _text},
                       {}, _inspect_recipe),
     "hollow_event": (
-        {"type": lambda value: value in ("miasma", "camp"), "text": lambda value: isinstance(value, str),
+        {"text": lambda value: isinstance(value, str),
          "choices": lambda value: isinstance(value, list)},
         {"text": "", "choices": []}, _inspect_event,
     ),
@@ -261,6 +276,10 @@ def inspect_payload(kind, payload, entry_id, errors, warnings):
 
 def links(kind, payload):
     if kind == "hollow_map":
+        for field, id_field, target in EVENT_TABLES.values():
+            for index, row in enumerate(payload.get(field, [])):
+                if key := row.get(id_field):
+                    yield target, key, f"{field}[{index}].{id_field}"
         for encounter, rows in payload.get("encounters", {}).items():
             for index, row in enumerate(rows):
                 yield "formation", row["formation_id"], f"encounters.{encounter}[{index}].formation_id"

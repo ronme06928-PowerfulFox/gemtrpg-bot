@@ -40,6 +40,7 @@ MAPS = (
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", default=str(DEFAULT_DB), help="SQLite file to seed (a copy, not instance/gemtrpg.db)")
+    parser.add_argument("--battle-only", action="store_true", help="omit event nodes for battle-only smoke scripts")
     return parser.parse_args()
 
 
@@ -55,7 +56,7 @@ def open_app(db_path):
                       register_sockets=False)
 
 
-def seed():
+def seed(*, battle_only=False):
     from manager.hollow.resources import DRAW_CATEGORIES
     from manager.units import repository
     from scripts.hollow_relic_seed import seed_relics
@@ -109,18 +110,53 @@ def seed():
             "name": f"{PREFIX} T{number}", "tier": number, "hp_multiplier": hp, "attack_multiplier": attack,
         }, lambda other, number=number: other.get("tier") == number)
 
+    relic = seed_relics(lambda kind, **payload: upsert(kind, payload, by_name(payload)), DRAW_CATEGORIES, PREFIX)
+    tables = {} if battle_only else seed_events(upsert, by_name, relic)
     categories = ({"出血": 5, "打撃": 4, "蓄力": 3, "汎用": 2}, {"出血": 5}, {"斬撃": 4, "亀裂": 3, "凝魔": 2})
     for (number, name, description, normal, boss), weights in zip(MAPS, categories):
         payload = {
             "name": f"{PREFIX} {name}", "description": description, "tier": number,
-            "event_weights": {"normal": 3, "elite": 1}, "category_weights": weights,
+            "event_weights": {"normal": 3, "elite": 1, **({"chest": 4, "miasma": 6} if tables else {})},
+            "category_weights": weights, **tables,
             "image": "/static/images/backgrounds/暗い遺跡洞窟.webp" if name == "青晶洞" else "",
             "encounters": {"normal": [{"formation_id": formations[normal], "weight": 1}],
                            "elite": [{"formation_id": formations["elite"], "weight": 1}]},
             "boss_formation_id": formations[boss], "boss_stage_id": stages[boss],
         }
         upsert("hollow_map", payload, by_name(payload))
-    seed_relics(lambda kind, **payload: upsert(kind, payload, by_name(payload)), DRAW_CATEGORIES, PREFIX)
+
+
+def seed_events(upsert, by_name, relic):
+    def save(kind, name, **fields):
+        payload = {"name": f"{PREFIX} {name}", **fields}
+        return upsert(kind, payload, by_name(payload))
+
+    buff = save("hollow_buff", "魔素の残響", description="次の戦闘で攻撃威力に影響する。",
+                effect={"power_bonus": [{"value": 1}]})
+    item = save("hollow_item", "晶脈の小瓶", usable=True, effect={"type": "buff", "buff_id": buff})
+    check = save("hollow_event", "記憶の泉", text="水面に遠い記憶が映る。", choices=[
+        {"label": "記憶を読む", "difficulty": 6, "skill": "鑑定",
+         "effect": {"kind": "relic", "id": relic},
+         "failure_effect": {"kind": "buff", "id": buff, "battles": 2}, "failure_target": "all"},
+        {"label": "残響に触れる", "difficulty": 10, "skill": "五感",
+         "effect": {"kind": "buff", "id": buff, "battles": 1}, "target": "selected",
+         "failure_effect": {"kind": "buff", "id": buff, "battles": 2}, "failure_target": "all"},
+        {"label": "やり過ごす"},
+    ])
+    quiet = save("hollow_event", "仄光の澱み", text="光の粒が空の小瓶に集まる。", choices=[
+        {"label": "小瓶に集める", "effect": {"kind": "item", "id": item}},
+        {"label": "やり過ごす"},
+    ])
+    drops = save("drop_table", "坑道の宝箱", rows=[
+        {"kind": "item", "id": item, "weight": 2}, {"kind": "relic", "id": relic, "weight": 1},
+    ])
+    chest = save("treasure_chest", "坑道の宝箱", text="石の箱。蓋に細い傷が走る。", drop_table_id=drops)
+    for floor, name, line in ((10, "石灯の町", "石灯が旅人を照らす。"),
+                              (20, "晶脈の町", "結晶の明かりの下で休む。")):
+        payload = {"name": f"{PREFIX} {name}", "floor": floor, "type": "town", "text": line}
+        upsert("fixed_floor", payload, lambda other, floor=floor: other.get("floor") == floor)
+    return {"events": [{"event_id": key, "weight": weight} for key, weight in ((check, 3), (quiet, 1))],
+            "chests": [{"chest_id": chest, "weight": 1}]}
 
 
 def main():
@@ -130,7 +166,7 @@ def main():
         sys.exit("instance/gemtrpg.db は使いません。写しを --db で指定してください。")
     app = open_app(db_path)
     with app.app_context():
-        seed()
+        seed(battle_only=args.battle_only)
     print(f"done: {db_path}")
 
 

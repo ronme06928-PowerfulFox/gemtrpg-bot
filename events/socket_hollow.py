@@ -7,7 +7,7 @@ from manager.battle.common_manager import _get_round_transition_lock
 from manager.hollow.host import transfer_host
 from manager.hollow.party import add_owned_party, change_party
 from manager.hollow.run import (
-    choose_map, choose_reward, end_fusion, fuse_relics, preview_fusion, retreat, select_node, start_run, swap_party,
+    choose_map, choose_reward, end_fusion, fuse_relics, preview_fusion, resolve_event, retreat, select_node, start_run, swap_party,
 )
 from manager.room_manager import broadcast_state_update
 
@@ -105,3 +105,15 @@ def handle_fuse_relics(data):
 def handle_end_fusion(data):
     payload = data if isinstance(data, dict) else {}
     return _perform(end_fusion, payload.get("floor"))
+
+
+@socketio.on("hollow_resolve_miasma")
+def handle_resolve_miasma(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(resolve_event, "miasma", payload.get("floor"), payload.get("choice_index"), payload.get("char_id"))
+
+
+@socketio.on("hollow_resolve_chest")
+def handle_resolve_chest(data):
+    payload = data if isinstance(data, dict) else {}
+    return _perform(resolve_event, "chest", payload.get("floor"), payload.get("take"), payload.get("char_id"))

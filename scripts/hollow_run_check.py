@@ -292,7 +292,7 @@ def verify(browser, *, seeded=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--app-python", default=sys.executable)
-    parser.add_argument("--seeded", action="store_true", help="Use the library created by hollow_seed.py")
+    parser.add_argument("--seeded", action="store_true", help="Use the library created by hollow_seed.py --battle-only")
     args = parser.parse_args()
     result = launch_and_verify(args.app_python, exercise=lambda browser: verify(browser, seeded=args.seeded))
     print(json.dumps(result, ensure_ascii=False, indent=2))

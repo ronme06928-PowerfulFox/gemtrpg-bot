@@ -13,7 +13,7 @@ def tier(number, hp=1.2, attack=1.25):
 
 def map_payload(number):
     return {"name": f"試験マップ{number}", "tier": number,
-            "event_weights": {"normal": 3, "elite": 2, "chest": 1000},
+            "event_weights": {"normal": 3, "elite": 2},
             "encounters": {"normal": [{"formation_id": "F-001", "weight": 1}],
                            "elite": [{"formation_id": "F-002", "weight": 1}]}}
 
@@ -62,7 +62,7 @@ def test_map_is_reproducible_and_connected():
         ids = {node["id"] for node in next_row}
         assert all(node["next"] and set(node["next"]) <= ids for node in rows)
         assert {target for node in rows for target in node["next"]} == ids
-    assert {node["type"] for row in plan["rows"][1:-1] for node in row} == {"battle", "elite"}
+    assert {node["type"] for row in plan["rows"][1:-1] for node in row} == {"battle", "elite", "camp"}
     assert [weighted_choice([("A", 1), ("B", 3)], Random(seed)) for seed in range(5)] == ["B", "B", "A", "B", "B"]
 
 
